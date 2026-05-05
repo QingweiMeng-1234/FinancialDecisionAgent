@@ -1,0 +1,6 @@
+requests
+python-dotenv
+chromadb
+sentence-transformers
+pytest
+openai
