@@ -42,9 +42,9 @@ def test_vector_store_add_article(vector_store):
         summary=None,
     )
     
-    article_id = vector_store.add_article(article)
+    article_id = vector_store.add_article(1, article)
     
-    assert article_id is not None
+    assert article_id == "1"
 
 
 def test_vector_store_search_returns_results(vector_store):
@@ -70,8 +70,8 @@ def test_vector_store_search_returns_results(vector_store):
         ),
     ]
     
-    for article in articles:
-        vector_store.add_article(article)
+    for index, article in enumerate(articles):
+        vector_store.add_article(index + 1, article)
     
     results = vector_store.search("Bitcoin cryptocurrency", top_k=1)
     
@@ -94,8 +94,8 @@ def test_vector_store_search_returns_top_k(vector_store):
         for i in range(5)
     ]
     
-    for article in articles:
-        vector_store.add_article(article)
+    for index, article in enumerate(articles):
+        vector_store.add_article(index + 1, article)
     
     results = vector_store.search("crypto markets", top_k=3)
     
@@ -122,7 +122,7 @@ def test_vector_store_article_metadata_preserved(vector_store):
         summary="Summary of market volatility",
     )
     
-    vector_store.add_article(article)
+    vector_store.add_article(7, article)
     results = vector_store.search("market volatility", top_k=1)
     
     assert len(results) > 0
@@ -130,3 +130,33 @@ def test_vector_store_article_metadata_preserved(vector_store):
     assert retrieved["source"] == "news"
     assert retrieved["url"] == "https://example.com/vix"
     assert retrieved["summary"] == "Summary of market volatility"
+
+
+def test_vector_store_upsert_replaces_existing_article(vector_store):
+    """Test that reindexing the same article ID replaces the vector entry."""
+    original = NewsArticle(
+        source="news",
+        title="Oil Rises",
+        description="Energy markets move",
+        content="Oil prices rose after supply concerns increased.",
+        url="https://example.com/oil",
+        published_at=datetime.now(),
+        summary=None,
+    )
+    updated = NewsArticle(
+        source="news",
+        title="Oil Rises",
+        description="Energy markets move",
+        content="Oil prices rose after supply concerns increased.",
+        url="https://example.com/oil",
+        published_at=original.published_at,
+        summary="- Supply concerns pushed crude prices higher.\n- Traders reacted to tightening inventory expectations.\n- Energy markets outperformed broader risk assets.",
+    )
+
+    vector_store.add_article(9, original)
+    vector_store.add_article(9, updated)
+
+    assert vector_store.collection.count() == 1
+    results = vector_store.search("tightening inventory expectations", top_k=1)
+    assert results[0]["id"] == "9"
+    assert results[0]["summary"] == updated.summary

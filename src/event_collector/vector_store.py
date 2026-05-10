@@ -15,8 +15,8 @@ class VectorStore(ABC):
     """Abstract base class for vector storage and semantic search."""
     
     @abstractmethod
-    def add_article(self, article: NewsArticle) -> str:
-        """Add an article to the vector store. Returns the article ID."""
+    def add_article(self, article_id: int, article: NewsArticle) -> str:
+        """Add or replace an article in the vector store by stable article ID."""
         pass
     
     @abstractmethod
@@ -63,19 +63,16 @@ class ChromaVectorStore(VectorStore):
             metadata={"hnsw:space": "cosine"}
         )
         
-        self._article_counter = 0
     
-    def add_article(self, article: NewsArticle) -> str:
+    def add_article(self, article_id: int, article: NewsArticle) -> str:
         """
-        Add an article to the vector store.
+        Add or replace an article in the vector store.
         Generates embeddings and stores article metadata.
         """
-        # Create unique ID for this article
-        article_id = f"{article.url}_{self._article_counter}"
-        self._article_counter += 1
+        vector_id = str(article_id)
         
-        # Prepare text for embedding (combine title and content for better semantics)
-        text_to_embed = f"{article.title}. {article.description}. {article.content}"
+        # Prefer compact summary-led embeddings when available.
+        text_to_embed = self._build_embedding_text(article)
         
         # Generate embedding
         embedding = self.embedder.encode(text_to_embed).tolist()
@@ -91,9 +88,9 @@ class ChromaVectorStore(VectorStore):
         # Prepare document (what we show in results)
         document = f"{article.title}\n{article.description}"
         
-        # Add to collection
-        self.collection.add(
-            ids=[article_id],
+        # Upsert to collection so reindexing replaces prior vectors cleanly.
+        self.collection.upsert(
+            ids=[vector_id],
             embeddings=[embedding],
             metadatas=[metadata],
             documents=[document],
@@ -102,9 +99,9 @@ class ChromaVectorStore(VectorStore):
         )
         
         # Store full content separately for retrieval
-        self._store_full_content(article_id, article)
+        self._store_full_content(vector_id, article)
         
-        return article_id
+        return vector_id
     
     def search(self, query: str, top_k: int = 5) -> List[Dict]:
         """
@@ -172,3 +169,8 @@ class ChromaVectorStore(VectorStore):
         if not hasattr(self, '_content_cache'):
             return None
         return self._content_cache.get(article_id)
+
+    def _build_embedding_text(self, article: NewsArticle) -> str:
+        if article.summary:
+            return f"{article.summary}\n{article.title}\n{article.description}"
+        return f"{article.title}. {article.description}. {article.content}"

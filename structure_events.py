@@ -34,7 +34,7 @@ def main():
     print("=" * 50)
     print(f"Started at: {datetime.now()}")
     print(f"SQLite DB: {args.db_path}")
-    print(f"Model: {os.getenv('OPENAI_MODEL') or 'gpt-4o-mini'}")
+    print(f"Model: {os.getenv('OPENAI_MODEL') or 'gpt-5.4-mini'}")
     print()
 
     storage = SQLiteNewsStore(db_path=args.db_path)

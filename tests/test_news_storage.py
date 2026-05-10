@@ -204,3 +204,54 @@ def test_article_with_summary_placeholder(storage):
     retrieved = storage.get_article(article_id)
     
     assert retrieved.summary == "This is a placeholder summary to be filled by summarizer."
+
+
+def test_update_article_summary(storage):
+    """Test updating the stored summary for an existing article."""
+    article_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="Rates Update",
+            description="Rates moved higher",
+            content="Treasury yields rose after stronger than expected payrolls data.",
+            url="https://example.com/rates",
+            published_at=datetime.now(),
+            summary=None,
+        )
+    )
+
+    updated = storage.update_article_summary(article_id, "- Yields moved higher.\n- Payrolls data surprised to the upside.\n- Rates repriced quickly.")
+
+    assert updated is True
+    assert storage.get_article(article_id).summary.startswith("- Yields moved higher.")
+
+
+def test_list_article_records_missing_summary(storage):
+    """Test listing only articles that still need summarization."""
+    missing_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="Needs Summary",
+            description="Pending summary",
+            content="An article without a generated summary yet.",
+            url="https://example.com/missing-summary",
+            published_at=datetime.now(),
+            summary=None,
+        )
+    )
+    storage.save_article(
+        NewsArticle(
+            source="news",
+            title="Has Summary",
+            description="Complete summary",
+            content="An article with a generated summary already stored.",
+            url="https://example.com/has-summary",
+            published_at=datetime.now(),
+            summary="- Summary line 1\n- Summary line 2\n- Summary line 3",
+        )
+    )
+
+    missing = storage.list_article_records_missing_summary()
+
+    assert len(missing) == 1
+    assert missing[0].id == missing_id

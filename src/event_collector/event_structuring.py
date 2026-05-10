@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-import os
 import uuid
 from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
+
+from event_collector.errors import MissingOpenAIKeyError
+from event_collector.openai_client_base import OpenAIStructuredOutputClient
 
 
 class EventType(str, Enum):
@@ -82,40 +84,20 @@ class StructuringLLMClient(Protocol):
         ...
 
 
-class MissingOpenAIKeyError(ValueError):
-    """Raised when OPENAI_API_KEY is required but missing."""
-
-
-class OpenAIEventStructuringClient:
+class OpenAIEventStructuringClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for article event extraction."""
 
-    DEFAULT_MODEL = "gpt-4o-mini"
-
-    def __init__(self, model: str | None = None):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise MissingOpenAIKeyError("OPENAI_API_KEY is required for event structuring")
-
-        from openai import OpenAI
-
-        self.client = OpenAI(api_key=api_key)
-        self.model = model or os.getenv("OPENAI_MODEL") or self.DEFAULT_MODEL
+    DEFAULT_MODEL = "gpt-5.4-mini"
+    MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for event structuring"
+    REFUSAL_ERROR_PREFIX = "OpenAI refused event structuring request"
+    EMPTY_RESPONSE_MESSAGE = "OpenAI returned no parsed structured events"
 
     def extract_events(self, article: ArticleForStructuring) -> StructuredEventResponse:
-        completion = self.client.chat.completions.parse(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": STRUCTURING_SYSTEM_PROMPT},
-                {"role": "user", "content": _format_article(article)},
-            ],
+        return self.parse_structured_output(
+            system_prompt=STRUCTURING_SYSTEM_PROMPT,
+            user_content=_format_article(article),
             response_format=StructuredEventResponse,
         )
-        message = completion.choices[0].message
-        if getattr(message, "refusal", None):
-            raise RuntimeError(f"OpenAI refused event structuring request: {message.refusal}")
-        if message.parsed is None:
-            raise RuntimeError("OpenAI returned no parsed structured events")
-        return message.parsed
 
 
 STRUCTURING_SYSTEM_PROMPT = """

@@ -8,6 +8,13 @@ from typing import Optional
 
 import requests
 
+from event_collector.errors import (
+    ArticleSummarizationError,
+    InvalidEventSourceError,
+    InvalidEventTextError,
+    MissingAPIKeyError,
+    MissingOpenAIKeyError,
+)
 # Import storage and vector store classes
 from event_collector.news_storage import SQLiteNewsStore, NewsArticle, ArticleRecord
 from event_collector.vector_store import VectorStore, ChromaVectorStore
@@ -17,11 +24,46 @@ from event_collector.event_structuring import (
     EventImportance,
     EventStructuringAgent,
     EventType,
-    MissingOpenAIKeyError,
     OpenAIEventStructuringClient,
     StructuredEvent,
     StructuredEventResponse,
     TimeHorizon,
+)
+from event_collector.summarization import (
+    ArticleForSummarization,
+    OpenAIArticleSummarizationClient,
+    SummarizationAgent,
+    SummarizationLLMClient,
+    SummaryResponse,
+    summarize_stored_articles,
+)
+from event_collector.rag_answering import (
+    AnswerQueryRequest,
+    AnsweringLLMClient,
+    ConfidenceLevel,
+    CitedPoint,
+    OpenAIRAGAnsweringClient,
+    RAGAnswerResponse,
+    RAGAnsweringAgent,
+    RAGSource,
+    RetrievedEvidence,
+    answer_query,
+    build_rerank_candidates,
+    build_retrieved_evidence,
+    reorder_search_results,
+    render_citation_list,
+)
+from event_collector.reranking import (
+    DEFAULT_RERANK_TOP_K,
+    OpenAIRAGRerankingClient,
+    RAGRerankingAgent,
+    RerankCandidate,
+    RerankMetadata,
+    RerankResponse,
+    RerankedItem,
+    RerankingLLMClient,
+    RerankingRequest,
+    rerank_candidates,
 )
 
 
@@ -29,21 +71,6 @@ class EventSource(Enum):
     MANUAL = "manual"
     NEWS = "news"
     API = "api"
-
-
-class InvalidEventSourceError(ValueError):
-    """Raised when an invalid event source is provided."""
-    pass
-
-
-class InvalidEventTextError(ValueError):
-    """Raised when event text is invalid (empty or too short)."""
-    pass
-
-
-class MissingAPIKeyError(ValueError):
-    """Raised when a required API key is missing."""
-    pass
 
 
 @dataclass
@@ -235,8 +262,7 @@ def raw_event_input_to_news_article(raw_input: RawEventInput, url: str = "") -> 
     Returns:
         NewsArticle object ready for storage
     """
-    # For now, title and description come from raw_text
-    # The summarizer subagent can enhance these later
+    # For now, title and description come directly from raw_text.
     title = raw_input.raw_text[:100]  # First 100 chars as title
     description = raw_input.raw_text[:200]  # First 200 chars as description
     
@@ -247,7 +273,7 @@ def raw_event_input_to_news_article(raw_input: RawEventInput, url: str = "") -> 
         content=raw_input.raw_text,
         url=url or f"internal://{raw_input.source}/{datetime.now().timestamp()}",
         published_at=datetime.now(),
-        summary=None,  # Placeholder for summarizer subagent
+        summary=None,
     )
 
 
@@ -255,6 +281,7 @@ def ingest_events_to_storage(
     batch: EventBatch,
     storage: SQLiteNewsStore,
     vector_store: Optional[VectorStore] = None,
+    summarizer: Optional[SummarizationAgent] = None,
 ) -> dict:
     """
     Ingest an EventBatch into SQLite storage and optionally into vector store.
@@ -263,13 +290,16 @@ def ingest_events_to_storage(
         batch: EventBatch from collector
         storage: SQLiteNewsStore instance
         vector_store: Optional VectorStore for semantic indexing
+        summarizer: Optional summarizer dependency for generated article summaries
         
     Returns:
         Dict with ingestion statistics
     """
     saved_count = 0
+    summarized_count = 0
     indexed_count = 0
     skipped_count = 0
+    summary_agent = summarizer
     
     for event in batch.events:
         # Convert Event to NewsArticle
@@ -291,18 +321,36 @@ def ingest_events_to_storage(
             continue
         
         saved_count += 1
+
+        if summary_agent is None:
+            summary_agent = SummarizationAgent()
+
+        try:
+            summary = summary_agent.summarize_article(
+                ArticleForSummarization(
+                    article_id=article_id,
+                    title=article.title,
+                    description=article.description,
+                    content=article.content,
+                    url=article.url,
+                )
+            )
+        except Exception as exc:
+            raise ArticleSummarizationError(article_id, str(exc)) from exc
+
+        storage.update_article_summary(article_id, summary)
+        article.summary = summary
+        summarized_count += 1
         
         # Index in vector store if provided
         if vector_store:
-            try:
-                vector_store.add_article(article)
-                indexed_count += 1
-            except Exception as e:
-                print(f"Warning: Failed to index article {article_id}: {e}")
+            vector_store.add_article(article_id, article)
+            indexed_count += 1
     
     return {
         "total_events": len(batch.events),
         "saved": saved_count,
+        "summarized": summarized_count,
         "indexed": indexed_count,
         "skipped": skipped_count,
     }

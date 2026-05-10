@@ -186,6 +186,32 @@ class SQLiteNewsStore:
         cursor = self.conn.execute(query, tuple(params))
         return [self._row_to_article_record(row) for row in cursor.fetchall()]
 
+    def list_article_records_missing_summary(
+        self,
+        source: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[ArticleRecord]:
+        """List stored articles that do not yet have a generated summary."""
+        if not self.conn:
+            self.init_db()
+
+        query = """
+            SELECT *
+            FROM articles
+            WHERE (summary IS NULL OR TRIM(summary) = '')
+        """
+        params = []
+        if source:
+            query += " AND source = ?"
+            params.append(source)
+        query += " ORDER BY published_at DESC"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        cursor = self.conn.execute(query, tuple(params))
+        return [self._row_to_article_record(row) for row in cursor.fetchall()]
+
     def list_unstructured_article_records(
         self,
         source: Optional[str] = None,
@@ -276,6 +302,18 @@ class SQLiteNewsStore:
         )
         self.conn.commit()
         return cursor.rowcount
+
+    def update_article_summary(self, article_id: int, summary: str) -> bool:
+        """Persist a generated summary for one article."""
+        if not self.conn:
+            self.init_db()
+
+        cursor = self.conn.execute(
+            "UPDATE articles SET summary = ? WHERE id = ?",
+            (summary, article_id),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
     
     def delete_article(self, article_id: int) -> bool:
         """Delete an article by ID."""
