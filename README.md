@@ -102,3 +102,18 @@ python structure_events.py --db-path news_articles.db
 - `OPENAI_API_KEY` is required for summarization, reranking, and answer generation.
 - `NEWSAPI_API_KEY` is required for live news collection through `NewsCollector`.
 - `main.py` currently includes `ManualCollector`, so the run may prompt for manual input depending on your session flow.
+
+## TODO
+
+### RAG
+
+- Add chunking to the retrieval pipeline.
+- Add evaluation methods for retrieval, reranking, and grounded answer quality.
+
+### Decision
+
+- Add an agent-driven decision flow that uses an agent plus a Buffett-style skill to make recommendations for user-specified stocks.
+
+### Storage
+
+- Remove stale news from storage and keep only articles from the last 3 months.
