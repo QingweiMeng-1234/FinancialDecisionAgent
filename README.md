@@ -73,6 +73,20 @@ If articles are already indexed, you can query them without re-ingesting:
 python query_news.py --question "What changed in the latest news?" --debug-rerank
 ```
 
+## Stock Recommendation Reports
+
+To generate a news-grounded Buffett-style recommendation for one target and save a Markdown report in the repo:
+
+```powershell
+python recommend_stock.py --target "MSFT" --debug-rerank --debug-aggregation
+```
+
+By default, reports are written to `reports/recommendations/` with names like:
+
+```text
+2026-05-10_203015_MSFT.md
+```
+
 ## Summarization Backfill
 
 If articles already exist in SQLite and you want to fill in missing summaries:
@@ -117,3 +131,4 @@ python structure_events.py --db-path news_articles.db
 ### Storage
 
 - Remove stale news from storage and keep only articles from the last 3 months.
+- Dedupe events that are downloaded NewsAPI
