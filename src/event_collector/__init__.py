@@ -65,6 +65,27 @@ from event_collector.reranking import (
     RerankingRequest,
     rerank_candidates,
 )
+from event_collector.recommendation import (
+    DEFAULT_REPORTS_DIR,
+    AggregatedSignal,
+    AggregatedTargetEvent,
+    OpenAIRecommendationClient,
+    RecommendationAgent,
+    RecommendationDecision,
+    RecommendationDecisionRequest,
+    RecommendationEvidence,
+    RecommendationLLMClient,
+    RecommendationResponse,
+    TargetRecommendationRequest,
+    aggregate_recommendation_signals,
+    build_report_filename,
+    build_recommendation_evidence,
+    normalize_target,
+    recommend_target,
+    render_recommendation_report,
+    sanitize_target_for_filename,
+    write_recommendation_report,
+)
 
 
 class EventSource(Enum):
