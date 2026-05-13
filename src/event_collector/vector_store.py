@@ -79,6 +79,7 @@ class ChromaVectorStore(VectorStore):
         
         # Prepare metadata (ChromaDB can store arbitrary metadata)
         metadata = {
+            "article_id": article_id,
             "source": article.source,
             "url": article.url,
             "published_at": article.published_at.isoformat(),
