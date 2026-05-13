@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+import logging
 import os
 import re
 from typing import Any, Protocol
@@ -12,6 +13,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field, field_validator
 
 from event_collector.event_structuring import (
+    EventStructuringAgent,
     EventDirection,
     EventImportance,
     EventType,
@@ -34,6 +36,7 @@ from event_collector.reranking import (
     RerankMetadata,
     rerank_candidates,
 )
+from event_collector.structuring_runtime import ensure_article_structured
 from event_collector.vector_store import VectorStore
 
 
@@ -44,6 +47,7 @@ DEFAULT_SNIPPET_CHARS = 220
 DEFAULT_REPORTS_DIR = os.path.join("reports", "recommendations")
 GENERAL_MARKET_SLUG = "general-market"
 GENERAL_MARKET_LABEL = "General Market"
+logger = logging.getLogger(__name__)
 
 
 class RecommendationDecision(str, Enum):
@@ -197,6 +201,7 @@ def recommend_target(
     snippet_chars: int = DEFAULT_SNIPPET_CHARS,
     recommendation_agent: RecommendationAgent | None = None,
     reranking_agent: RAGRerankingAgent | None = None,
+    structuring_agent: EventStructuringAgent | None = None,
 ) -> RecommendationResponse:
     """Retrieve evidence, aggregate target-specific signals, and recommend."""
     normalized_target = normalize_target(target)
@@ -228,7 +233,12 @@ def recommend_target(
         snippet_chars=snippet_chars,
     )
     recommendation_evidence = build_recommendation_evidence(reranked_results, retrieved_evidence)
-    aggregation = aggregate_recommendation_signals(normalized_target, recommendation_evidence, storage)
+    aggregation = aggregate_recommendation_signals(
+        normalized_target,
+        recommendation_evidence,
+        storage,
+        structuring_agent=structuring_agent,
+    )
 
     if aggregation is None:
         response = _build_insufficient_recommendation(
@@ -276,7 +286,7 @@ def build_recommendation_evidence(
     for result, item in zip(reranked_results[: len(retrieved_evidence)], retrieved_evidence):
         evidence.append(
             RecommendationEvidence(
-                article_id=int(result["id"]),
+                article_id=resolve_article_id(result),
                 source_id=item.id,
                 title=item.title,
                 url=item.url,
@@ -289,10 +299,35 @@ def build_recommendation_evidence(
     return evidence
 
 
+def resolve_article_id(result: dict) -> int:
+    """Resolve the backing SQLite article ID from a vector-store search result."""
+    for candidate in (result.get("article_id"), result.get("id"), result.get("url")):
+        article_id = _parse_article_id_candidate(candidate)
+        if article_id is not None:
+            return article_id
+    raise ValueError(f"Could not resolve SQLite article id from search result: {result.get('id')!r}")
+
+
+def _parse_article_id_candidate(value: object) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+
+    match = re.search(r"(?:^|[_/:-])(\d+)$", text)
+    if match:
+        return int(match.group(1))
+    return None
+
+
 def aggregate_recommendation_signals(
     target: str,
     evidence: list[RecommendationEvidence],
     storage: SQLiteNewsStore,
+    structuring_agent: EventStructuringAgent | None = None,
 ) -> AggregatedSignal | None:
     """Aggregate structured events relevant to the target from retrieved evidence."""
     target_events: list[AggregatedTargetEvent] = []
@@ -305,8 +340,17 @@ def aggregate_recommendation_signals(
     }
 
     for source in evidence:
-        events = storage.list_structured_events_for_article(source.article_id)
-        for event in events:
+        outcome = ensure_article_structured(
+            source.article_id,
+            storage,
+            structuring_agent=structuring_agent,
+            on_failure=lambda article_id, exc: logger.exception(
+                "Failed to structure article %s during recommendation run for target %s",
+                article_id,
+                display_target(target),
+            ),
+        )
+        for event in outcome.events:
             match = classify_target_match(target, event.affected_asset)
             if not match:
                 continue

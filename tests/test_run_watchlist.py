@@ -1,0 +1,97 @@
+import os
+import tempfile
+
+import run_watchlist
+
+
+class FakeStorage:
+    def __init__(self, db_path):
+        self.db_path = db_path
+
+    def count_articles(self):
+        return 2
+
+    def close(self):
+        return None
+
+
+class EmptyStorage(FakeStorage):
+    def count_articles(self):
+        return 0
+
+
+class FakeVectorStore:
+    def __init__(self, persist_dir, collection_name):
+        self.persist_dir = persist_dir
+        self.collection_name = collection_name
+
+
+def test_parse_requested_tickers_supports_csv_and_repeat_flags():
+    args = run_watchlist.parse_args(["--tickers", "nvda, msft", "--ticker", "tsla", "--ticker", "msft"])
+    assert run_watchlist.parse_requested_tickers(args) == ["NVDA", "MSFT", "TSLA"]
+
+
+def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
+    calls = {}
+
+    monkeypatch.setattr(run_watchlist, "SQLiteNewsStore", FakeStorage)
+    monkeypatch.setattr(run_watchlist, "ChromaVectorStore", FakeVectorStore)
+
+    result = type("Result", (), {"run_id": "run-123", "ranked_items": [], "top_n": 3})()
+
+    def fake_run_watchlist(request, vector_store, storage):
+        calls["run"] = (
+            request.tickers,
+            request.top_n,
+            request.force_structure,
+            vector_store.persist_dir,
+            storage.db_path,
+        )
+        return result
+
+    def fake_render_summary(result_obj):
+        calls["summary"] = result_obj.run_id
+        return "Watchlist Triage:\n1. MSFT - High / High"
+
+    def fake_write_report(result_obj, output_dir, debug_review=False, debug_rerank=False):
+        calls["report"] = (result_obj.run_id, output_dir, debug_review, debug_rerank)
+        return os.path.join(output_dir, "watchlist.md")
+
+    monkeypatch.setattr(run_watchlist, "run_watchlist", fake_run_watchlist)
+    monkeypatch.setattr(run_watchlist, "render_watchlist_summary", fake_render_summary)
+    monkeypatch.setattr(run_watchlist, "write_watchlist_report", fake_write_report)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        exit_code = run_watchlist.main(
+            [
+                "--tickers",
+                "msft,aapl",
+                "--top-n",
+                "1",
+                "--output-dir",
+                tmpdir,
+                "--debug-review",
+                "--debug-rerank",
+                "--force-structure",
+            ]
+        )
+        captured = capsys.readouterr()
+
+        assert exit_code == 0
+        assert calls["run"][0] == ["MSFT", "AAPL"]
+        assert calls["run"][1] == 1
+        assert calls["run"][2] is True
+        assert calls["report"][2:] == (True, True)
+        assert "Report saved to:" in captured.out
+        assert "Watchlist Triage:" in captured.out
+
+
+def test_main_handles_empty_database(monkeypatch, capsys):
+    monkeypatch.setattr(run_watchlist, "SQLiteNewsStore", EmptyStorage)
+    monkeypatch.setattr(run_watchlist, "ChromaVectorStore", FakeVectorStore)
+
+    exit_code = run_watchlist.main(["--tickers", "MSFT"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "No articles in database. Run main.py first." in captured.out

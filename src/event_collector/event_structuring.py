@@ -100,6 +100,9 @@ class OpenAIEventStructuringClient(OpenAIStructuredOutputClient):
         )
 
 
+STRUCTURING_PROMPT_VERSION = "event-structuring-v1"
+
+
 STRUCTURING_SYSTEM_PROMPT = """
 You are the Event Structuring Agent for a financial news system.
 

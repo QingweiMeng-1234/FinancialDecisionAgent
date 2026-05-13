@@ -127,6 +127,7 @@ def test_vector_store_article_metadata_preserved(vector_store):
     
     assert len(results) > 0
     retrieved = results[0]
+    assert retrieved["article_id"] == 7
     assert retrieved["source"] == "news"
     assert retrieved["url"] == "https://example.com/vix"
     assert retrieved["summary"] == "Summary of market volatility"
