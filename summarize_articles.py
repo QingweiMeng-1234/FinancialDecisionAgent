@@ -14,12 +14,10 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from event_collector import (
-    ArticleSummarizationError,
-    ChromaVectorStore,
-    SQLiteNewsStore,
-    summarize_stored_articles,
-)
+from event_collector.errors import ArticleSummarizationError
+from event_collector.news_storage import SQLiteNewsStore
+from event_collector.summarization import summarize_stored_articles
+from event_collector.vector_store import ChromaVectorStore
 
 
 def parse_args():
@@ -42,7 +40,7 @@ def main():
     print(f"Started at: {datetime.now()}")
     print(f"SQLite DB: {args.db_path}")
     print(f"Chroma DB: {args.persist_dir}")
-    print(f"Model: {os.getenv('OPENAI_MODEL') or 'gpt-5.4-mini'}")
+    print(f"Model: {os.getenv('OPENAI_MODEL') or 'deepseek-v4-flash'}")
     print()
 
     storage = SQLiteNewsStore(db_path=args.db_path)

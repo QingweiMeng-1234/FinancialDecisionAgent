@@ -60,25 +60,30 @@ def test_render_rag_answer_debug_mode_includes_rerank_reasons():
 def test_run_question_uses_injected_answer_function():
     calls = []
 
-    def fake_answer_fn(question, vector_store, top_k=3):
-        calls.append((question, vector_store, top_k))
+    def fake_answer_fn(question, vector_store, top_k=3, retrieval_top_k=5, retrieval_intent="direct"):
+        calls.append((question, vector_store, top_k, retrieval_top_k, retrieval_intent))
         return make_result()
 
     output = query_news.run_question(
         "What changed?",
         vector_store=object(),
         top_k=5,
+        retrieval_top_k=7,
         answer_fn=fake_answer_fn,
         debug_rerank=True,
     )
 
     assert calls and calls[0][0] == "What changed?"
     assert calls[0][2] == 5
+    assert calls[0][3] == 7
+    assert calls[0][4] == "direct"
     assert "Confidence: medium" in output
     assert "Rerank Debug:" in output
 
 
 def test_main_supports_one_shot_question(monkeypatch, capsys):
+    cli_path = "event_collector.cli.query_news"
+
     class FakeStorage:
         def __init__(self, db_path):
             self.db_path = db_path
@@ -94,12 +99,11 @@ def test_main_supports_one_shot_question(monkeypatch, capsys):
             self.persist_dir = persist_dir
             self.collection_name = collection_name
 
-    monkeypatch.setattr(query_news, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(query_news, "ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
     monkeypatch.setattr(
-        query_news,
-        "run_question",
-        lambda question, vector_store, top_k=3, debug_rerank=False: "formatted answer",
+        f"{cli_path}.run_question",
+        lambda question, vector_store, top_k=3, retrieval_top_k=5, debug_rerank=False, retrieval_intent="direct": "formatted answer",
     )
 
     result = query_news.main(["--question", "What changed?"])
@@ -111,6 +115,8 @@ def test_main_supports_one_shot_question(monkeypatch, capsys):
 
 
 def test_main_surfaces_reranker_error(monkeypatch, capsys):
+    cli_path = "event_collector.cli.query_news"
+
     class FakeStorage:
         def __init__(self, db_path):
             self.db_path = db_path
@@ -126,13 +132,20 @@ def test_main_surfaces_reranker_error(monkeypatch, capsys):
             self.persist_dir = persist_dir
             self.collection_name = collection_name
 
-    monkeypatch.setattr(query_news, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(query_news, "ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
 
-    def failing_run_question(question, vector_store, top_k=3, debug_rerank=False):
+    def failing_run_question(
+        question,
+        vector_store,
+        top_k=3,
+        retrieval_top_k=5,
+        debug_rerank=False,
+        retrieval_intent="direct",
+    ):
         raise RuntimeError("reranker unavailable")
 
-    monkeypatch.setattr(query_news, "run_question", failing_run_question)
+    monkeypatch.setattr(f"{cli_path}.run_question", failing_run_question)
 
     result = query_news.main(["--question", "What changed?"])
     captured = capsys.readouterr()

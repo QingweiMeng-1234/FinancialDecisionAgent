@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 load_dotenv()
 
-from event_collector import FollowupInput, HumanReviewInput, SQLiteNewsStore, normalize_ticker
+from event_collector.news_storage import SQLiteNewsStore
+from event_collector.watchlist_triage import FollowupInput, HumanReviewInput, normalize_ticker
 
 
 def parse_args(argv=None):

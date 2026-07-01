@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+import json
 import logging
 import os
 import re
@@ -17,27 +18,26 @@ from event_collector.event_structuring import (
     EventStructuringAgent,
     StructuredEvent,
 )
+from event_collector.entity_kb import SQLiteEntityStore
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.openai_client_base import OpenAIStructuredOutputClient
-from event_collector.rag_answering import (
-    build_rerank_candidates,
-    build_retrieved_evidence,
-    reorder_search_results,
+from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT, RetrievalIntent, normalize_retrieval_intent
+from event_collector.retrieval_orchestration import (
+    DEFAULT_EXCERPT_CHARS,
+    DEFAULT_RETRIEVAL_TOP_K,
+    DEFAULT_SNIPPET_CHARS,
+    RetrievedArticleEvidence,
+    retrieve_evidence_bundle,
 )
 from event_collector.reranking import (
-    DEFAULT_RERANK_TOP_K,
     RAGRerankingAgent,
     RerankMetadata,
-    rerank_candidates,
 )
 from event_collector.structuring_runtime import StructuringAttemptOutcome, ensure_article_structured
 from event_collector.vector_store import VectorStore
 
 
 DEFAULT_TOP_N = 3
-DEFAULT_RETRIEVAL_TOP_K = DEFAULT_RERANK_TOP_K
-DEFAULT_EXCERPT_CHARS = 700
-DEFAULT_SNIPPET_CHARS = 220
 DEFAULT_REPORTS_DIR = os.path.join("reports", "watchlist_triage")
 TRIAGE_PROMPT_VERSION = "watchlist-triage-v1"
 REVIEWER_PROMPT_VERSION = "watchlist-reviewer-v1"
@@ -61,6 +61,7 @@ class WatchlistRunRequest:
     tickers: list[str]
     top_n: int = DEFAULT_TOP_N
     retrieval_top_k: int = DEFAULT_RETRIEVAL_TOP_K
+    retrieval_intent: RetrievalIntent = DEFAULT_RETRIEVAL_INTENT
     force_structure: bool = False
     db_path: str = "news_articles.db"
     persist_dir: str = "./chroma_data"
@@ -191,6 +192,13 @@ class RankedWatchlistItem:
 
 
 @dataclass
+class WatchlistRetrievalFailure:
+    ticker: str
+    status: str
+    error_message: str | None = None
+
+
+@dataclass
 class WatchlistRunResult:
     run_id: str
     run_at: datetime
@@ -204,6 +212,7 @@ class WatchlistRunResult:
     items: list[TickerTriageRecord]
     ranked_items: list[RankedWatchlistItem]
     status: str = "completed"
+    retrieval_failures: list[WatchlistRetrievalFailure] | None = None
 
 
 class TriageDecisionRequest(BaseModel):
@@ -242,7 +251,7 @@ class ReviewerLLMClient(Protocol):
 class OpenAIWatchlistTriageClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for watchlist triage cards."""
 
-    DEFAULT_MODEL = "gpt-5.4"
+    DEFAULT_MODEL = "deepseek-v4-pro"
     MODEL_ENV_VAR = "OPENAI_TRIAGE_MODEL"
     MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for watchlist triage"
     REFUSAL_ERROR_PREFIX = "OpenAI refused watchlist triage request"
@@ -256,10 +265,39 @@ class OpenAIWatchlistTriageClient(OpenAIStructuredOutputClient):
         )
 
 
+class DeepSeekWatchlistTriageClient(OpenAIStructuredOutputClient):
+    """DeepSeek structured-output adapter for watchlist triage cards."""
+
+    API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+    BASE_URL_ENV_VAR = "DEEPSEEK_BASE_URL"
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-pro"
+    MODEL_ENV_VAR = "DEEPSEEK_TRIAGE_MODEL"
+    FALLBACK_TO_OPENAI_MODEL = False
+    MISSING_KEY_MESSAGE = "DEEPSEEK_API_KEY is required for watchlist triage"
+    REFUSAL_ERROR_PREFIX = "DeepSeek refused watchlist triage request"
+    EMPTY_RESPONSE_MESSAGE = "DeepSeek returned no parsed watchlist triage response"
+
+    def triage_ticker(self, request: TriageDecisionRequest) -> TriageCard:
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": DEEPSEEK_TRIAGE_SYSTEM_PROMPT},
+                {"role": "user", "content": _format_triage_request(request)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        message = completion.choices[0].message
+        content = " ".join((getattr(message, "content", "") or "").split()).strip()
+        if not content:
+            raise RuntimeError(self.EMPTY_RESPONSE_MESSAGE)
+        return TriageCard.model_validate(json.loads(content))
+
+
 class OpenAIWatchlistReviewerClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for watchlist triage review."""
 
-    DEFAULT_MODEL = "gpt-5.4-mini"
+    DEFAULT_MODEL = "deepseek-v4-flash"
     MODEL_ENV_VAR = "OPENAI_REVIEWER_MODEL"
     MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for watchlist review"
     REFUSAL_ERROR_PREFIX = "OpenAI refused watchlist review request"
@@ -273,12 +311,66 @@ class OpenAIWatchlistReviewerClient(OpenAIStructuredOutputClient):
         )
 
 
+class DeepSeekWatchlistReviewerClient(OpenAIStructuredOutputClient):
+    """DeepSeek structured-output adapter for watchlist triage review."""
+
+    API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+    BASE_URL_ENV_VAR = "DEEPSEEK_BASE_URL"
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-flash"
+    MODEL_ENV_VAR = "DEEPSEEK_REVIEWER_MODEL"
+    FALLBACK_TO_OPENAI_MODEL = False
+    MISSING_KEY_MESSAGE = "DEEPSEEK_API_KEY is required for watchlist review"
+    REFUSAL_ERROR_PREFIX = "DeepSeek refused watchlist review request"
+    EMPTY_RESPONSE_MESSAGE = "DeepSeek returned no parsed watchlist review response"
+
+    def review_ticker(self, request: ReviewerRequest) -> ReviewerFinding:
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": DEEPSEEK_REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": _format_reviewer_request(request)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        message = completion.choices[0].message
+        content = " ".join((getattr(message, "content", "") or "").split()).strip()
+        if not content:
+            raise RuntimeError(self.EMPTY_RESPONSE_MESSAGE)
+        return ReviewerFinding.model_validate(json.loads(content))
+
+
 TRIAGE_SYSTEM_PROMPT = """
 You are the Triage Agent for a financial watchlist triage system.
 
 Your job is not to make a buy or sell decision. Your job is to decide whether this ticker deserves research attention now.
 
 Return one triage card using only the provided evidence and structured signals.
+
+Requirements:
+- Use only the supplied evidence. Do not use outside knowledge.
+- Focus on what makes the ticker worth reviewing now, not a long investment thesis.
+- Prefer ticker-specific evidence over generic macro noise.
+- If evidence is weak or mostly generic, use lower priority and lower confidence.
+- key_evidence, counter_evidence, and missing_questions should be concise and specific.
+- next_action should describe the next research step, not a trade instruction.
+""".strip()
+
+
+DEEPSEEK_TRIAGE_SYSTEM_PROMPT = """
+You are the Triage Agent for a financial watchlist triage system.
+
+Return only valid json matching this schema:
+{
+  "ticker": "NVDA",
+  "priority": "High",
+  "confidence": "Medium",
+  "why_now": "short explanation",
+  "key_evidence": ["point 1"],
+  "counter_evidence": ["point 2"],
+  "missing_questions": ["question 1"],
+  "next_action": "next research step"
+}
 
 Requirements:
 - Use only the supplied evidence. Do not use outside knowledge.
@@ -309,11 +401,32 @@ Requirements:
 """.strip()
 
 
+DEEPSEEK_REVIEWER_SYSTEM_PROMPT = """
+You are the Reviewer Agent for a financial watchlist triage system.
+
+Return only valid json matching this schema:
+{
+  "evidence_too_generic": false,
+  "missing_target_specific_signal": false,
+  "reasoning_jump": false,
+  "missing_counter_evidence": false,
+  "next_action_too_vague": false,
+  "summary": "short summary",
+  "should_flag_human_review": false
+}
+
+Requirements:
+- Do not change the triage card.
+- Be critical but concise.
+- Set should_flag_human_review to true when the card looks risky, weak, or underspecified.
+""".strip()
+
+
 class WatchlistTriageAgent:
     """Produces watchlist triage cards from retrieved evidence."""
 
     def __init__(self, llm_client: TriageLLMClient | None = None):
-        self.llm_client = llm_client or OpenAIWatchlistTriageClient()
+        self.llm_client = llm_client or DeepSeekWatchlistTriageClient()
 
     def triage_ticker(self, request: TriageDecisionRequest) -> TriageCard:
         raw_response = self.llm_client.triage_ticker(request)
@@ -327,7 +440,7 @@ class WatchlistReviewerAgent:
     """Reviews triage cards without changing their ranking decision."""
 
     def __init__(self, llm_client: ReviewerLLMClient | None = None):
-        self.llm_client = llm_client or OpenAIWatchlistReviewerClient()
+        self.llm_client = llm_client or DeepSeekWatchlistReviewerClient()
 
     def review_ticker(self, request: ReviewerRequest) -> ReviewerFinding:
         raw_response = self.llm_client.review_ticker(request)
@@ -342,128 +455,52 @@ def run_watchlist(
     reviewer_agent: WatchlistReviewerAgent | None = None,
     reranking_agent: RAGRerankingAgent | None = None,
     structuring_agent: EventStructuringAgent | None = None,
+    company_kb: SQLiteEntityStore | None = None,
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
     snippet_chars: int = DEFAULT_SNIPPET_CHARS,
 ) -> WatchlistRunResult:
-    """Run the full watchlist triage flow and persist one ledger entry."""
-    normalized_tickers = normalize_tickers(request.tickers)
-    triage = triage_agent or WatchlistTriageAgent()
-    reviewer = reviewer_agent or WatchlistReviewerAgent()
-    items: list[TickerTriageRecord] = []
-    run_id = str(uuid.uuid4())
-    run_at = datetime.now()
-    structuring_outcomes_by_article: dict[int, StructuringAttemptOutcome] = {}
+    """Backward-compatible watchlist seam over the deeper research workflow."""
+    from event_collector.watchlist_research import WatchlistResearchConfig, run_watchlist_research
 
-    for ticker in normalized_tickers:
-        search_results = vector_store.search(ticker, top_k=request.retrieval_top_k)
-        candidates = build_rerank_candidates(
-            search_results,
-            max_results=request.retrieval_top_k,
-            snippet_chars=snippet_chars,
-        )
-
-        rerank_metadata: RerankMetadata | None = None
-        reranked_results = search_results
-        if candidates:
-            rerank_metadata = rerank_candidates(
-                ticker,
-                candidates,
-                reranking_agent=reranking_agent,
-            )
-            reranked_results = reorder_search_results(search_results, rerank_metadata)
-
-        evidence = build_ticker_evidence(
-            reranked_results,
-            max_results=request.retrieval_top_k,
+    research_run = run_watchlist_research(
+        request,
+        storage,
+        vector_store,
+        config=WatchlistResearchConfig(
+            auto_batch_threshold=max(1, len(normalize_tickers(request.tickers))),
+            auto_batch_size=max(1, len(normalize_tickers(request.tickers))),
+            max_concurrency=1,
             excerpt_chars=excerpt_chars,
             snippet_chars=snippet_chars,
-        )
-        signals, structuring_attempts = build_structured_ticker_signals(
-            ticker,
-            evidence,
-            storage,
-            run_id=run_id,
-            structuring_outcomes_by_article=structuring_outcomes_by_article,
-            structuring_agent=structuring_agent,
-            force_structure=request.force_structure,
-        )
-
-        card = triage.triage_ticker(
-            TriageDecisionRequest(
-                ticker=ticker,
-                evidence=evidence,
-                structured_signals=signals,
-            )
-        )
-        finding = reviewer.review_ticker(
-            ReviewerRequest(
-                ticker=ticker,
-                card=card,
-                evidence=evidence,
-                structured_signals=signals,
-            )
-        )
-
-        items.append(
-            TickerTriageRecord(
-                ticker=ticker,
-                card=card,
-                reviewer_finding=finding,
-                evidence=evidence,
-                structured_signals=signals,
-                structuring_attempts=structuring_attempts,
-                rerank_metadata=rerank_metadata,
-            )
-        )
-
-    _log_watchlist_structuring_failures(run_id, items)
-    ranked_items = rank_watchlist_items(items)
-    result = WatchlistRunResult(
-        run_id=run_id,
-        run_at=run_at,
-        tickers=normalized_tickers,
-        top_n=request.top_n,
-        retrieval_top_k=request.retrieval_top_k,
-        triage_model=_resolve_agent_model(triage.llm_client),
-        reviewer_model=_resolve_agent_model(reviewer.llm_client),
-        triage_prompt_version=TRIAGE_PROMPT_VERSION,
-        reviewer_prompt_version=REVIEWER_PROMPT_VERSION,
-        items=items,
-        ranked_items=ranked_items,
+        ),
+        triage_agent=triage_agent,
+        reviewer_agent=reviewer_agent,
+        reranking_agent=reranking_agent,
+        structuring_agent=structuring_agent,
+        company_kb_provider=company_kb,
     )
-    storage.save_watchlist_run(result)
-    return result
+    _log_watchlist_structuring_failures(research_run.result.run_id, research_run.result.items)
+    return research_run.result
 
 
 def build_ticker_evidence(
-    search_results: list[dict],
-    max_results: int = DEFAULT_TOP_N,
-    excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
-    snippet_chars: int = DEFAULT_SNIPPET_CHARS,
+    evidence: list[RetrievedArticleEvidence],
 ) -> list[RetrievedTickerEvidence]:
-    """Attach SQLite article IDs and rerank positions to retrieved evidence."""
-    base_evidence = build_retrieved_evidence(
-        search_results,
-        max_results=max_results,
-        excerpt_chars=excerpt_chars,
-        snippet_chars=snippet_chars,
-    )
-    evidence: list[RetrievedTickerEvidence] = []
-    for position, (result, item) in enumerate(zip(search_results, base_evidence), start=1):
-        evidence.append(
-            RetrievedTickerEvidence(
-                source_id=item.id,
-                article_id=resolve_article_id(result),
-                title=item.title,
-                url=item.url,
-                summary=item.summary,
-                excerpt=item.excerpt,
-                snippet=item.snippet,
-                published_at=result.get("published_at"),
-                rerank_position=position,
-            )
+    """Convert shared retrieval evidence into watchlist-specific evidence."""
+    return [
+        RetrievedTickerEvidence(
+            source_id=item.id,
+            article_id=item.article_id,
+            title=item.title,
+            url=item.url,
+            summary=item.summary,
+            excerpt=item.excerpt,
+            snippet=item.snippet,
+            published_at=item.published_at,
+            rerank_position=item.rerank_position,
         )
-    return evidence
+        for item in evidence
+    ]
 
 
 def build_structured_ticker_signals(
@@ -720,20 +757,70 @@ def render_watchlist_report(
     return "\n".join(lines).strip() + "\n"
 
 
-def render_watchlist_summary(result: WatchlistRunResult) -> str:
-    """Render a compact console summary for one watchlist run."""
+def render_watchlist_summary(
+    result: WatchlistRunResult,
+    debug_review: bool = False,
+    debug_rerank: bool = False,
+) -> str:
+    """Render a console summary that includes the ranking and decision basis."""
+    ranking = {item.ticker: item for item in result.ranked_items}
+    ordered_records = sorted(result.items, key=lambda item: ranking[normalize_ticker(item.ticker)].rank)
     lines = [
         "Watchlist Triage:",
         f"Run ID: {result.run_id}",
         "",
         "Top Watchlist:",
     ]
-    for ranked in result.ranked_items[: result.top_n]:
+    for item in ordered_records[: result.top_n]:
+        ranked = ranking[normalize_ticker(item.ticker)]
         lines.append(
             f"{ranked.rank}. {ranked.ticker} - {ranked.priority.value} / {ranked.confidence.value}"
             f"{' [review]' if ranked.should_flag_human_review else ''}"
         )
-    return "\n".join(lines)
+        lines.append(f"   Why now: {item.card.why_now}")
+
+        if item.card.key_evidence:
+            lines.append(f"   Key evidence: {item.card.key_evidence[0]}")
+            for evidence_item in item.card.key_evidence[1:3]:
+                lines.append(f"     - {evidence_item}")
+        else:
+            lines.append("   Key evidence: None")
+
+        if item.card.counter_evidence:
+            lines.append(f"   Counter evidence: {item.card.counter_evidence[0]}")
+            for evidence_item in item.card.counter_evidence[1:3]:
+                lines.append(f"     - {evidence_item}")
+
+        if item.card.missing_questions:
+            lines.append(f"   Missing question: {item.card.missing_questions[0]}")
+
+        lines.append(f"   Next action: {item.card.next_action}")
+        lines.append(f"   Reviewer: {item.reviewer_finding.summary}")
+
+        if debug_review:
+            lines.append(
+                "   Review flags: "
+                f"generic={str(item.reviewer_finding.evidence_too_generic).lower()}, "
+                f"target_specific_missing={str(item.reviewer_finding.missing_target_specific_signal).lower()}, "
+                f"reasoning_jump={str(item.reviewer_finding.reasoning_jump).lower()}, "
+                f"counter_evidence_missing={str(item.reviewer_finding.missing_counter_evidence).lower()}, "
+                f"next_action_vague={str(item.reviewer_finding.next_action_too_vague).lower()}"
+            )
+
+        if item.structured_signals:
+            signal = item.structured_signals[0]
+            lines.append(
+                "   Structured signal: "
+                f"{signal.event_type}/{signal.direction}/{signal.importance}/{signal.time_horizon} - "
+                f"{signal.reasoning}"
+            )
+
+        if debug_rerank and item.rerank_metadata is not None and item.rerank_metadata.ranked_candidates:
+            rerank_reason = item.rerank_metadata.ranked_candidates[0]
+            lines.append(f"   Rerank: candidate {rerank_reason.candidate_id} kept because {rerank_reason.reason}")
+
+        lines.append("")
+    return "\n".join(lines).rstrip()
 
 
 def normalize_ticker(ticker: str) -> str:
@@ -752,29 +839,6 @@ def normalize_tickers(tickers: list[str]) -> list[str]:
         seen.add(cleaned)
         normalized.append(cleaned)
     return normalized
-
-
-def resolve_article_id(result: dict) -> int:
-    """Resolve SQLite article ID from a vector-store search result."""
-    for candidate in (result.get("article_id"), result.get("id"), result.get("url")):
-        article_id = _parse_article_id_candidate(candidate)
-        if article_id is not None:
-            return article_id
-    raise ValueError(f"Could not resolve SQLite article id from search result: {result.get('id')!r}")
-
-
-def _parse_article_id_candidate(value: object) -> int | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.isdigit():
-        return int(text)
-    match = re.search(r"(?:^|[_/:-])(\d+)$", text)
-    if match:
-        return int(match.group(1))
-    return None
 
 
 def _structured_event_matches_ticker(ticker: str, event: StructuredEvent) -> bool:
@@ -845,6 +909,23 @@ def _format_triage_request(request: TriageDecisionRequest) -> str:
     )
 
 
+def _format_retrieved_sources(
+    evidence: list[RetrievedTickerEvidence],
+    structured_signals: list[StructuredTickerSignal],
+    ticker: str,
+) -> str:
+    """Return only the retrieved-sources section used by the reviewer prompt."""
+    triage_request = TriageDecisionRequest(
+        ticker=ticker,
+        evidence=evidence,
+        structured_signals=structured_signals,
+    )
+    marker = "Retrieved Sources:\n"
+    formatted = _format_triage_request(triage_request)
+    _, _, sources = formatted.partition(marker)
+    return sources or "None"
+
+
 def _format_reviewer_request(request: ReviewerRequest) -> str:
     card = request.card
     return (
@@ -860,5 +941,5 @@ def _format_reviewer_request(request: ReviewerRequest) -> str:
         f"Retrieved evidence count: {len(request.evidence)}\n"
         f"Structured signal count: {len(request.structured_signals)}\n\n"
         "Retrieved Sources:\n"
-        f"{_format_triage_request(TriageDecisionRequest(ticker=request.ticker, evidence=request.evidence, structured_signals=request.structured_signals)).split('Retrieved Sources:\\n', 1)[1]}"
+        f"{_format_retrieved_sources(request.evidence, request.structured_signals, request.ticker)}"
     )

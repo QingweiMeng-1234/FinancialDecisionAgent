@@ -3,175 +3,237 @@ Vector store for semantic retrieval of news articles using ChromaDB.
 Uses sentence-transformers for embeddings.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
+import os
+import re
+from typing import Dict, List
+
 import chromadb
 from sentence_transformers import SentenceTransformer
 
+from event_collector.document_pipeline import split_article_document
 from event_collector.news_storage import NewsArticle
+
+DEFAULT_CHUNK_SIZE = 1000
+DEFAULT_CHUNK_OVERLAP = 200
+DEFAULT_MATCHED_CHUNKS = 2
 
 
 class VectorStore(ABC):
     """Abstract base class for vector storage and semantic search."""
-    
+
     @abstractmethod
-    def add_article(self, article_id: int, article: NewsArticle) -> str:
-        """Add or replace an article in the vector store by stable article ID."""
-        pass
-    
+    def add_article(self, article_id: int, article: NewsArticle) -> List[str]:
+        """Index one article and return its chunk record ids."""
+
     @abstractmethod
-    def search(self, query: str, top_k: int = 5) -> List[Dict]:
+    def delete_article(self, article_id: int) -> None:
+        """Delete all indexed chunks for one article."""
+
+    @abstractmethod
+    def search(self, query: str, top_k: int = 5, *, allowed_article_ids: set[int] | None = None) -> List[Dict]:
         """
         Search for articles semantically similar to the query.
-        Returns a list of articles with metadata.
+        Returns article-level results aggregated from chunk matches.
         """
-        pass
 
 
 class ChromaVectorStore(VectorStore):
     """
     Vector store backed by ChromaDB with sentence-transformers embeddings.
     """
-    
+
     def __init__(
         self,
         persist_dir: str = "./chroma_data",
         model_name: str = "all-MiniLM-L6-v2",
-        collection_name: str = "news_articles"
+        collection_name: str = "news_articles",
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+        chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+        max_matched_chunks: int = DEFAULT_MATCHED_CHUNKS,
     ):
-        """
-        Initialize ChromaVectorStore.
-        
-        Args:
-            persist_dir: Directory to persist ChromaDB data
-            model_name: Sentence-transformers model to use
-            collection_name: Name of the ChromaDB collection
-        """
         self.persist_dir = persist_dir
         self.model_name = model_name
         self.collection_name = collection_name
-        
-        # Initialize ChromaDB client with persistence using new API
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.max_matched_chunks = max_matched_chunks
+
         self.client = chromadb.PersistentClient(path=persist_dir)
-        
-        # Initialize embedding model
-        self.embedder = SentenceTransformer(model_name)
-        
-        # Get or create collection
+        self.embedder = SentenceTransformer(
+            model_name,
+            local_files_only=_resolve_local_files_only(),
+        )
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
-            metadata={"hnsw:space": "cosine"}
+            metadata={"hnsw:space": "cosine"},
         )
-        
-    
-    def add_article(self, article_id: int, article: NewsArticle) -> str:
-        """
-        Add or replace an article in the vector store.
-        Generates embeddings and stores article metadata.
-        """
-        vector_id = str(article_id)
-        
-        # Prefer compact summary-led embeddings when available.
-        text_to_embed = self._build_embedding_text(article)
-        
-        # Generate embedding
-        embedding = self.embedder.encode(text_to_embed).tolist()
-        
-        # Prepare metadata (ChromaDB can store arbitrary metadata)
-        metadata = {
-            "article_id": article_id,
-            "source": article.source,
-            "url": article.url,
-            "published_at": article.published_at.isoformat(),
-            "has_summary": article.summary is not None,
-        }
-        
-        # Prepare document (what we show in results)
-        document = f"{article.title}\n{article.description}"
-        
-        # Upsert to collection so reindexing replaces prior vectors cleanly.
-        self.collection.upsert(
-            ids=[vector_id],
-            embeddings=[embedding],
-            metadatas=[metadata],
-            documents=[document],
-            # Store full article as additional data
-            uris=[article.url],
-        )
-        
-        # Store full content separately for retrieval
-        self._store_full_content(vector_id, article)
-        
-        return vector_id
-    
-    def search(self, query: str, top_k: int = 5) -> List[Dict]:
-        """
-        Search for semantically similar articles.
-        
-        Args:
-            query: Search query text
-            top_k: Number of results to return
-            
-        Returns:
-            List of dicts with article metadata and content
-        """
-        # Embed the query
-        query_embedding = self.embedder.encode(query).tolist()
-        
-        # Search the collection
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k
-        )
-        
-        # Format results
-        formatted_results = []
-        if results and results['ids'] and len(results['ids']) > 0:
-            for i, article_id in enumerate(results['ids'][0]):
-                result = {
-                    "id": article_id,
-                    "distance": results['distances'][0][i] if results['distances'] else 0,
-                }
-                
-                # Add metadata
-                if results['metadatas'] and len(results['metadatas'][0]) > i:
-                    result.update(results['metadatas'][0][i])
-                
-                # Add document
-                if results['documents'] and len(results['documents'][0]) > i:
-                    result["title"] = results['documents'][0][i].split('\n')[0]
-                
-                # Add full content if available
-                full_content = self._retrieve_full_content(article_id)
-                if full_content:
-                    result.update(full_content)
-                
-                formatted_results.append(result)
-        
-        return formatted_results
-    
-    def _store_full_content(self, article_id: str, article: NewsArticle):
-        """Store full article content in memory cache."""
-        if not hasattr(self, '_content_cache'):
-            self._content_cache = {}
-        
-        self._content_cache[article_id] = {
-            "title": article.title,
-            "description": article.description,
-            "content": article.content,
-            "source": article.source,
-            "url": article.url,
-            "published_at": article.published_at.isoformat(),
-            "summary": article.summary,
-        }
-    
-    def _retrieve_full_content(self, article_id: str) -> Optional[Dict]:
-        """Retrieve full article content from memory cache."""
-        if not hasattr(self, '_content_cache'):
-            return None
-        return self._content_cache.get(article_id)
 
-    def _build_embedding_text(self, article: NewsArticle) -> str:
-        if article.summary:
-            return f"{article.summary}\n{article.title}\n{article.description}"
-        return f"{article.title}. {article.description}. {article.content}"
+    def add_article(self, article_id: int, article: NewsArticle) -> List[str]:
+        """
+        Add or replace one article in the vector store as chunk-level records.
+        """
+        self.delete_article(article_id)
+
+        chunk_documents = split_article_document(
+            article_id,
+            article,
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+        )
+        if not chunk_documents:
+            return []
+
+        chunks = [document.page_content for document in chunk_documents]
+        record_ids = [build_chunk_id(article_id, index) for index in range(len(chunk_documents))]
+        embeddings = self.embedder.encode(chunks).tolist()
+        metadata = [dict(document.metadata) for document in chunk_documents]
+        self.collection.upsert(
+            ids=record_ids,
+            embeddings=embeddings,
+            metadatas=metadata,
+            documents=chunks,
+        )
+        return record_ids
+
+    def delete_article(self, article_id: int) -> None:
+        # Best-effort delete by metadata first.
+        self.collection.delete(where={"article_id": article_id})
+
+        # Older collections may store article_id metadata inconsistently or use
+        # legacy chunk ids, so sweep ids as a fallback.
+        try:
+            existing = self.collection.get(include=["metadatas"])
+        except Exception:
+            return
+
+        ids = existing.get("ids") or []
+        metadatas = existing.get("metadatas") or []
+        ids_to_delete: list[str] = []
+        for index, chunk_id in enumerate(ids):
+            metadata = metadatas[index] if index < len(metadatas) else {}
+            metadata_article_id = metadata.get("article_id") if isinstance(metadata, dict) else None
+            if str(metadata_article_id).strip() == str(article_id):
+                ids_to_delete.append(chunk_id)
+                continue
+            try:
+                if parse_article_id_from_chunk_id(str(chunk_id)) == article_id:
+                    ids_to_delete.append(chunk_id)
+            except ValueError:
+                continue
+
+        if ids_to_delete:
+            self.collection.delete(ids=ids_to_delete)
+
+    def search(self, query: str, top_k: int = 5, *, allowed_article_ids: set[int] | None = None) -> List[Dict]:
+        query_embedding = self.embedder.encode(query).tolist()
+        chunk_limit = max(top_k * self.max_matched_chunks, top_k)
+        query_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": chunk_limit,
+        }
+        if allowed_article_ids is not None:
+            if not allowed_article_ids:
+                return []
+            query_kwargs["where"] = {"article_id": {"$in": sorted(allowed_article_ids)}}
+        results = self.collection.query(**query_kwargs)
+        if not results or not results.get("ids") or not results["ids"][0]:
+            return []
+
+        grouped: dict[int, dict] = {}
+        ids = results["ids"][0]
+        distances = results.get("distances", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        documents = results.get("documents", [[]])[0]
+
+        for index, chunk_id in enumerate(ids):
+            metadata = metadatas[index] if metadatas and len(metadatas) > index else {}
+            document = documents[index] if documents and len(documents) > index else ""
+            distance = distances[index] if distances and len(distances) > index else 0.0
+            article_id = int(metadata.get("article_id") or parse_article_id_from_chunk_id(chunk_id))
+
+            grouped_result = grouped.setdefault(
+                article_id,
+                {
+                    "id": str(article_id),
+                    "article_id": article_id,
+                    "title": metadata.get("title", "Untitled"),
+                    "url": metadata.get("canonical_url") or metadata.get("original_url") or metadata.get("url") or "N/A",
+                    "original_url": metadata.get("original_url"),
+                    "canonical_url": metadata.get("canonical_url") or None,
+                    "summary": metadata.get("summary") or None,
+                    "source": metadata.get("source"),
+                    "published_at": metadata.get("published_at"),
+                    "content_sha256": metadata.get("content_sha256"),
+                    "distance": distance,
+                    "matched_chunks": [],
+                },
+            )
+            grouped_result["distance"] = min(grouped_result["distance"], distance)
+            grouped_result["matched_chunks"].append(
+                {
+                    "chunk_id": chunk_id,
+                    "chunk_index": int(metadata.get("chunk_index", 0)),
+                    "content": document,
+                    "distance": distance,
+                }
+            )
+
+        article_results = []
+        for grouped_result in grouped.values():
+            matched_chunks = sorted(grouped_result["matched_chunks"], key=lambda item: item["distance"])
+            top_chunks = matched_chunks[: self.max_matched_chunks]
+            article_results.append(
+                {
+                    **grouped_result,
+                    "matched_chunks": top_chunks,
+                    "content": "\n".join(chunk["content"] for chunk in top_chunks if chunk["content"]).strip(),
+                }
+            )
+
+        article_results.sort(key=lambda item: item["distance"])
+        return article_results[:top_k]
+
+
+def build_chunk_id(article_id: int, chunk_index: int) -> str:
+    return f"{article_id}:{chunk_index}"
+
+
+def parse_article_id_from_chunk_id(chunk_id: str) -> int:
+    text = str(chunk_id).strip()
+    if not text:
+        raise ValueError("chunk_id must be non-empty")
+    prefix = text.split(":", 1)[0]
+    if prefix.isdigit():
+        return int(prefix)
+    match = re.search(r"(?:^|[_/:-])(\d+)$", text)
+    if match:
+        return int(match.group(1))
+    raise ValueError(f"Could not parse article id from chunk_id: {chunk_id!r}")
+
+
+def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE, chunk_overlap: int = DEFAULT_CHUNK_OVERLAP) -> List[str]:
+    normalized = " ".join((text or "").split()).strip()
+    if not normalized:
+        return []
+    if len(normalized) <= chunk_size:
+        return [normalized]
+
+    chunks = []
+    start = 0
+    while start < len(normalized):
+        end = min(len(normalized), start + chunk_size)
+        chunks.append(normalized[start:end].strip())
+        if end >= len(normalized):
+            break
+        start = max(end - chunk_overlap, start + 1)
+    return [chunk for chunk in chunks if chunk]
+
+
+def _resolve_local_files_only() -> bool:
+    raw_value = os.getenv("SENTENCE_TRANSFORMERS_LOCAL_FILES_ONLY")
+    if raw_value is None:
+        return True
+    return raw_value.strip().lower() not in {"0", "false", "no", "off"}

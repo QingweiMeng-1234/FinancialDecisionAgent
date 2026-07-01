@@ -33,9 +33,10 @@ def test_parse_requested_tickers_supports_csv_and_repeat_flags():
 
 def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
     calls = {}
+    cli_path = "event_collector.cli.run_watchlist"
 
-    monkeypatch.setattr(run_watchlist, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(run_watchlist, "ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
 
     result = type("Result", (), {"run_id": "run-123", "ranked_items": [], "top_n": 3})()
 
@@ -49,17 +50,17 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
         )
         return result
 
-    def fake_render_summary(result_obj):
-        calls["summary"] = result_obj.run_id
+    def fake_render_summary(result_obj, debug_review=False, debug_rerank=False):
+        calls["summary"] = (result_obj.run_id, debug_review, debug_rerank)
         return "Watchlist Triage:\n1. MSFT - High / High"
 
     def fake_write_report(result_obj, output_dir, debug_review=False, debug_rerank=False):
         calls["report"] = (result_obj.run_id, output_dir, debug_review, debug_rerank)
         return os.path.join(output_dir, "watchlist.md")
 
-    monkeypatch.setattr(run_watchlist, "run_watchlist", fake_run_watchlist)
-    monkeypatch.setattr(run_watchlist, "render_watchlist_summary", fake_render_summary)
-    monkeypatch.setattr(run_watchlist, "write_watchlist_report", fake_write_report)
+    monkeypatch.setattr(f"{cli_path}.run_watchlist", fake_run_watchlist)
+    monkeypatch.setattr(f"{cli_path}.render_watchlist_summary", fake_render_summary)
+    monkeypatch.setattr(f"{cli_path}.write_watchlist_report", fake_write_report)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         exit_code = run_watchlist.main(
@@ -82,13 +83,15 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
         assert calls["run"][1] == 1
         assert calls["run"][2] is True
         assert calls["report"][2:] == (True, True)
+        assert calls["summary"] == ("run-123", True, True)
         assert "Report saved to:" in captured.out
         assert "Watchlist Triage:" in captured.out
 
 
 def test_main_handles_empty_database(monkeypatch, capsys):
-    monkeypatch.setattr(run_watchlist, "SQLiteNewsStore", EmptyStorage)
-    monkeypatch.setattr(run_watchlist, "ChromaVectorStore", FakeVectorStore)
+    cli_path = "event_collector.cli.run_watchlist"
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", EmptyStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
 
     exit_code = run_watchlist.main(["--tickers", "MSFT"])
     captured = capsys.readouterr()

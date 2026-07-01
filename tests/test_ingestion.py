@@ -1,18 +1,19 @@
-import pytest
-import tempfile
 import os
 import sys
+import tempfile
 from datetime import datetime
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from event_collector import (
-    collect_from_all_sources,
-    ingest_events_to_storage,
-    ManualCollector,
-    NewsCollector,
-    SQLiteNewsStore,
     ChromaVectorStore,
+    Event,
+    EventBatch,
+    EventSource,
+    SQLiteNewsStore,
+    ingest_events_to_storage,
 )
 
 
@@ -31,9 +32,28 @@ class FakeSummarizer:
         return "- Default summary bullet 1\n- Default summary bullet 2\n- Default summary bullet 3"
 
 
+class FakeFetcher:
+    def __init__(self, responses=None, error=None):
+        self.responses = responses or {}
+        self.error = error
+        self.calls = []
+
+    def fetch(self, url):
+        self.calls.append(url)
+        if self.error:
+            raise self.error
+        return self.responses[url]
+
+
+class FetchResult:
+    def __init__(self, original_url, canonical_url, content):
+        self.original_url = original_url
+        self.canonical_url = canonical_url
+        self.content = content
+
+
 @pytest.fixture
 def temp_storage_dir():
-    """Create temporary directories for storage and vector store."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "news.db")
         chroma_dir = os.path.join(tmpdir, "chroma")
@@ -41,160 +61,227 @@ def temp_storage_dir():
         yield db_path, chroma_dir
 
 
-def test_ingest_events_to_sqlite_only(temp_storage_dir):
-    """Test ingesting events to SQLite storage only."""
+def test_ingest_news_fetches_exact_content_and_indexes_chunks(temp_storage_dir):
     db_path, chroma_dir = temp_storage_dir
-    
-    # Create storage
     storage = SQLiteNewsStore(db_path=db_path)
     storage.init_db()
-    
-    # Simulate a mock collector
-    from event_collector import RawEventInput, create_event, create_event_batch
-    
-    raw_inputs = [
-        RawEventInput(
-            source="news",
-            raw_text="Bitcoin rises to all-time high amid growing institutional adoption."
-        ),
-        RawEventInput(
-            source="api",
-            raw_text="Market volatility index increased significantly following FOMC announcement."
-        ),
-    ]
-    
-    batch = create_event_batch(
-        [create_event(ri) for ri in raw_inputs]
+    vector_store = ChromaVectorStore(persist_dir=chroma_dir, chunk_size=60, chunk_overlap=10)
+    summarizer = FakeSummarizer(["- Exact content captured.\n- Summary generated.\n- Chunks indexed."])
+    fetcher = FakeFetcher(
+        {
+            "https://example.com/article": FetchResult(
+                "https://example.com/article",
+                "https://example.com/article",
+                "Exact article content from publisher page. " * 5,
+            )
+        }
     )
-    
-    # Ingest to storage
-    stats = ingest_events_to_storage(batch, storage, summarizer=FakeSummarizer())
-    
-    assert stats["total_events"] == 2
-    assert stats["saved"] == 2
-    assert stats["summarized"] == 2
-    assert stats["skipped"] == 0
-    
-    # Verify storage
-    articles = storage.list_articles()
-    assert len(articles) == 2
-    
-    storage.close()
 
-
-def test_ingest_events_to_sqlite_and_vector_store(temp_storage_dir):
-    """Test ingesting events to both SQLite and vector store."""
-    db_path, chroma_dir = temp_storage_dir
-    
-    # Create storage
-    storage = SQLiteNewsStore(db_path=db_path)
-    storage.init_db()
-    
-    # Create vector store
-    vector_store = ChromaVectorStore(persist_dir=chroma_dir)
-    
-    # Simulate a mock collector
-    from event_collector import RawEventInput, create_event, create_event_batch
-    
-    raw_inputs = [
-        RawEventInput(
-            source="news",
-            raw_text="Ethereum smart contracts enable decentralized finance applications."
-        ),
-    ]
-    
-    batch = create_event_batch(
-        [create_event(ri) for ri in raw_inputs]
+    batch = EventBatch(
+        events=[
+            Event(
+                id="news-1",
+                source=EventSource.NEWS,
+                raw_text="Headline. Short description.",
+                timestamp=datetime.now(),
+                title="Headline",
+                description="Short description",
+                url="https://example.com/article",
+            )
+        ],
+        batch_id="batch-1",
+        created_at=datetime.now(),
     )
-    
-    # Ingest to both storage and vector store
+
     stats = ingest_events_to_storage(
         batch,
         storage,
         vector_store,
-        summarizer=FakeSummarizer(["- Ethereum enables DeFi.\n- Smart contracts are central.\n- Adoption supports usage."]),
+        summarizer=summarizer,
+        content_fetcher=fetcher,
     )
-    
-    assert stats["total_events"] == 1
+
+    record = storage.list_article_records()[0]
     assert stats["saved"] == 1
-    assert stats["summarized"] == 1
+    assert stats["updated"] == 0
     assert stats["indexed"] == 1
-    
-    # Verify storage
-    articles = storage.list_articles()
-    assert len(articles) == 1
-    
-    # Verify vector search works
-    results = vector_store.search("Ethereum DeFi", top_k=1)
-    assert len(results) > 0
-    assert "Ethereum" in results[0].get("title", "")
-    assert results[0]["summary"].startswith("- Ethereum")
-    
-    storage.close()
-    vector_store.client = None  # Cleanup
+    assert record.article.content.startswith("Exact article content")
+    assert record.content_status == "ready"
+    assert record.summary_status == "ready"
+    assert record.index_status == "ready"
+    assert vector_store.collection.count() > 1
 
 
-def test_ingest_duplicate_article_skips_before_summarization(temp_storage_dir):
-    """Test duplicate URLs are skipped before summarization runs."""
-    db_path, _ = temp_storage_dir
-    storage = SQLiteNewsStore(db_path=db_path)
-    storage.init_db()
-
-    from event_collector import Event, EventBatch, EventSource
-
-    shared_id = "duplicate-event"
-    timestamp = datetime.now()
-    batch = EventBatch(
-        events=[
-            Event(id=shared_id, source=EventSource.NEWS, raw_text="A long enough duplicate article body about market stress and rates.", timestamp=timestamp),
-            Event(id=shared_id, source=EventSource.NEWS, raw_text="A long enough duplicate article body about market stress and rates.", timestamp=timestamp),
-        ],
-        batch_id="batch-1",
-        created_at=timestamp,
-    )
-    summarizer = FakeSummarizer()
-
-    stats = ingest_events_to_storage(batch, storage, summarizer=summarizer)
-
-    assert stats["saved"] == 1
-    assert stats["summarized"] == 1
-    assert stats["skipped"] == 1
-    assert len(summarizer.calls) == 1
-    storage.close()
-
-
-def test_ingest_failure_keeps_saved_row_unindexed(temp_storage_dir):
-    """Test summarization failure leaves the row saved with no summary and raises."""
+def test_ingest_existing_article_reuses_article_id_and_rebuilds_chunks(temp_storage_dir):
     db_path, chroma_dir = temp_storage_dir
     storage = SQLiteNewsStore(db_path=db_path)
     storage.init_db()
-    vector_store = ChromaVectorStore(persist_dir=chroma_dir)
-
-    from event_collector import RawEventInput, create_event, create_event_batch, ArticleSummarizationError
-
-    batch = create_event_batch(
-        [
-            create_event(
-                RawEventInput(
-                    source="news",
-                    raw_text="A sufficiently long article about inflation cooling and stocks rallying afterward.",
-                )
+    vector_store = ChromaVectorStore(persist_dir=chroma_dir, chunk_size=50, chunk_overlap=10)
+    first_fetcher = FakeFetcher(
+        {
+            "https://example.com/article?utm_source=a": FetchResult(
+                "https://example.com/article?utm_source=a",
+                "https://example.com/article",
+                "First version of exact content. " * 4,
             )
-        ]
+        }
+    )
+    second_fetcher = FakeFetcher(
+        {
+            "https://example.com/article?utm_source=b": FetchResult(
+                "https://example.com/article?utm_source=b",
+                "https://example.com/article",
+                "Updated version of exact content with more detail. " * 4,
+            )
+        }
     )
 
-    with pytest.raises(ArticleSummarizationError):
-        ingest_events_to_storage(
-            batch,
-            storage,
-            vector_store,
-            summarizer=FakeSummarizer(error=RuntimeError("summary failed")),
-        )
+    first_batch = EventBatch(
+        events=[
+            Event(
+                id="news-1",
+                source=EventSource.NEWS,
+                raw_text="Headline A",
+                timestamp=datetime.now(),
+                title="Headline",
+                description="Description",
+                url="https://example.com/article?utm_source=a",
+            )
+        ],
+        batch_id="batch-a",
+        created_at=datetime.now(),
+    )
+    second_batch = EventBatch(
+        events=[
+            Event(
+                id="news-2",
+                source=EventSource.NEWS,
+                raw_text="Headline B",
+                timestamp=datetime.now(),
+                title="Headline",
+                description="Description",
+                url="https://example.com/article?utm_source=b",
+            )
+        ],
+        batch_id="batch-b",
+        created_at=datetime.now(),
+    )
 
-    articles = storage.list_article_records()
-    assert len(articles) == 1
-    assert articles[0].article.summary is None
+    ingest_events_to_storage(first_batch, storage, vector_store, summarizer=FakeSummarizer(), content_fetcher=first_fetcher)
+    first_record = storage.list_article_records()[0]
+    first_chunk_count = vector_store.collection.count()
+
+    stats = ingest_events_to_storage(second_batch, storage, vector_store, summarizer=FakeSummarizer(), content_fetcher=second_fetcher)
+    second_record = storage.list_article_records()[0]
+
+    assert stats["saved"] == 0
+    assert stats["updated"] == 1
+    assert first_record.id == second_record.id
+    assert "Updated version" in second_record.article.content
+    assert vector_store.collection.count() > 0
+    assert vector_store.collection.count() != first_chunk_count
+
+
+def test_ingest_fetch_failure_keeps_reference_and_marks_content_failed(temp_storage_dir):
+    db_path, chroma_dir = temp_storage_dir
+    storage = SQLiteNewsStore(db_path=db_path)
+    storage.init_db()
+    vector_store = ChromaVectorStore(persist_dir=chroma_dir, chunk_size=60, chunk_overlap=10)
+    fetcher = FakeFetcher(error=RuntimeError("fetch failed"))
+
+    batch = EventBatch(
+        events=[
+            Event(
+                id="news-1",
+                source=EventSource.NEWS,
+                raw_text="Headline",
+                timestamp=datetime.now(),
+                title="Headline",
+                description="Description",
+                url="https://example.com/article",
+            )
+        ],
+        batch_id="batch-1",
+        created_at=datetime.now(),
+    )
+
+    stats = ingest_events_to_storage(batch, storage, vector_store, summarizer=FakeSummarizer(), content_fetcher=fetcher)
+    record = storage.list_article_records()[0]
+
+    assert stats["saved"] == 1
+    assert stats["content_failed"] == 1
+    assert record.content_status == "failed"
+    assert record.article.content == ""
     assert vector_store.collection.count() == 0
 
-    storage.close()
-    vector_store.client = None
+
+def test_ingest_summary_failure_keeps_canonical_content(temp_storage_dir):
+    db_path, chroma_dir = temp_storage_dir
+    storage = SQLiteNewsStore(db_path=db_path)
+    storage.init_db()
+    vector_store = ChromaVectorStore(persist_dir=chroma_dir, chunk_size=60, chunk_overlap=10)
+    fetcher = FakeFetcher(
+        {
+            "https://example.com/article": FetchResult(
+                "https://example.com/article",
+                "https://example.com/article",
+                "Exact article content from publisher page. " * 3,
+            )
+        }
+    )
+
+    batch = EventBatch(
+        events=[
+            Event(
+                id="news-1",
+                source=EventSource.NEWS,
+                raw_text="Headline",
+                timestamp=datetime.now(),
+                title="Headline",
+                description="Description",
+                url="https://example.com/article",
+            )
+        ],
+        batch_id="batch-1",
+        created_at=datetime.now(),
+    )
+
+    stats = ingest_events_to_storage(
+        batch,
+        storage,
+        vector_store,
+        summarizer=FakeSummarizer(error=RuntimeError("summary failed")),
+        content_fetcher=fetcher,
+    )
+    record = storage.list_article_records()[0]
+
+    assert stats["summary_failed"] == 1
+    assert record.article.content.startswith("Exact article content")
+    assert record.summary_status == "failed"
+
+
+def test_ingest_non_news_event_uses_raw_text_as_canonical_content(temp_storage_dir):
+    db_path, chroma_dir = temp_storage_dir
+    storage = SQLiteNewsStore(db_path=db_path)
+    storage.init_db()
+    vector_store = ChromaVectorStore(persist_dir=chroma_dir, chunk_size=60, chunk_overlap=10)
+
+    batch = EventBatch(
+        events=[
+            Event(
+                id="api-1",
+                source=EventSource.API,
+                raw_text="Treasury yields spiked while the VIX moved sharply higher after the latest Fed minutes.",
+                timestamp=datetime.now(),
+            )
+        ],
+        batch_id="batch-api",
+        created_at=datetime.now(),
+    )
+
+    stats = ingest_events_to_storage(batch, storage, vector_store, summarizer=FakeSummarizer())
+    record = storage.list_article_records()[0]
+
+    assert stats["saved"] == 1
+    assert record.article.content.startswith("Treasury yields spiked")
+    assert record.content_status == "ready"
