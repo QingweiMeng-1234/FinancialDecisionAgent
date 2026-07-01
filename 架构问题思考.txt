@@ -1,0 +1,313 @@
+问题1：
+src/event_collector/__init__.py 现在既像 package facade，又装了领域对象、collector、转换和 ingestion 逻辑，Interface 已经开始接近 Implementation，属于偏 shallow 的 module。
+
+成因：
+优先考虑的是 把能力做出来，所以 module 是按实现顺序长出来的，不是按最终 seam 设计出来的。
+
+这种演化路径很常见：
+
+先做 Event
+再做 collector
+再做 storage
+再做 summarization
+再做 RAG
+再做 recommendation / watchlist
+最后为了方便调用，把它们都从 __init__.py 暴露出去
+
+这样每一步单看都合理，但累计起来就容易出现两个结果：
+
+module 是按“新增功能”切的，不是按“调用方最该知道什么”切的
+所以 implementation history 留在了 interface 里。
+
+一开始方便的 facade，后来变成了承载业务的地方
+__init__.py 最初可能只是为了 import 方便，后来顺手放了 domain、collector、ingestion，就慢慢从 package entry 变成了业务 module。
+
+所以这不是“没考虑架构”的二元问题，更像是：
+
+你先做了局部最优
+但还没做一次“回头按架构重新收 seam”的整理
+
+问题2：
+rag_answering.py、recommendation.py、watchlist_triage.py 三条主流程都重复了同一套检索编排：search -> rerank -> reorder -> build evidence -> resolve article id
+
+你是按“每个功能一条完整管道”在长代码，而不是先抽出“这些管道共享的 deep module”。
+
+所以每条管道都很自然地变成：
+
+自己 search
+自己 rerank
+自己 reorder
+自己 build evidence
+自己 resolve article id
+这在功能开发阶段非常顺手，因为每个 use case 都能独立闭环；但架构上会带来一个后果：
+
+共享复杂度没有沉到一个 module 后面，而是横着复制到了多个 use case 里。
+
+这类重复比普通“几行重复代码”更值得重视，因为它重复的不是语法，而是 policy：
+
+检索多少条
+rerank 之前构造什么 candidate
+evidence 长什么样
+article id 怎么解析
+空结果怎么处理
+哪些字段算 retrieval contract
+一旦这些 policy 分散在三个 module 里，它们就不再是“实现细节”，而变成三个地方各自维护的事实。
+这时候 repo 缺的确实不是功能，而是一个统一的 Retrieval Orchestration module 来承载这套共享 policy。
+
+所以你这句话我会稍微加强一下：
+
+不是单纯“管道有重复的地方”，而是：
+
+每条管道都把同一段检索编排 implementation 内嵌进了自己的 interface 背后，导致共享 policy 没有形成独立 seam。
+
+这就是为什么它 shallow。
+因为每个 use case module 都暴露了自己那份检索知识，而不是把检索知识藏到一个更深的 module 后面。
+
+一个更健康的形状应该是：
+
+rag_answering 只关心“怎么基于 evidence 回答”
+recommendation 只关心“怎么基于 evidence 和 structured signals 做判断”
+watchlist_triage 只关心“怎么基于 evidence 给 ticker 排优先级”
+共享的 retrieval orchestration module 负责：
+search
+rerank
+result reorder
+evidence shaping
+article id resolution
+retrieval metadata
+也就是说，use case module 负责业务判断，共享 module 负责证据准备。
+
+所以，是的，你看到的两个问题其实是同一种架构成因在不同位置的表现：
+
+__init__.py：共享能力没有被重新收口，facade 和 implementation 混在一起
+三条主流程：共享管道没有被重新收口，use case 和 retrieval orchestration 混在一起
+
+能直接看到两层重复：主流程重复，以及证据整形重复。
+
+先看三条主流程的骨架。
+
+在 rag_answering.py (line 163) 里：
+
+python
+
+
+
+search_results = vector_store.search(question, top_k=max(top_k, retrieval_top_k))
+candidates = build_rerank_candidates(...)
+rerank_metadata = rerank_candidates(...)
+reranked_results = reorder_search_results(search_results, rerank_metadata)
+evidence = build_retrieved_evidence(...)
+
+
+
+在 recommendation.py (line 208) 里几乎同样一套：
+
+python
+
+
+
+search_results = vector_store.search(target, top_k=max(top_k, retrieval_top_k))
+candidates = build_rerank_candidates(...)
+rerank_metadata = rerank_candidates(...)
+reranked_results = reorder_search_results(search_results, rerank_metadata)
+retrieved_evidence = build_retrieved_evidence(...)
+recommendation_evidence = build_recommendation_evidence(...)
+
+
+
+在 watchlist_triage.py (line 358) 里也是同一套路，只是放进了 for ticker in normalized_tickers 循环：
+
+python
+
+
+
+search_results = vector_store.search(ticker, top_k=request.retrieval_top_k)
+candidates = build_rerank_candidates(...)
+rerank_metadata = rerank_candidates(...)
+reranked_results = reorder_search_results(search_results, rerank_metadata)
+evidence = build_ticker_evidence(...)
+
+
+
+所以第一层重复不是“都用了 vector store”，而是同一段检索编排 policy 被分别内嵌进三个 use case module：
+
+
+先查 raw search results
+
+再构造 rerank candidates
+
+再调用 reranker
+
+再按 rerank 顺序重排
+
+再转成下游 evidence
+
+
+再看第二层重复，recommendation 和 watchlist 都在做“把 retrieval evidence 再补成自己要的 shape”，而这一步里还重复了 resolve_article_id。
+
+在 recommendation.py (line 284)：
+
+python
+
+
+
+for result, item in zip(reranked_results[: len(retrieved_evidence)], retrieved_evidence):
+    evidence.append(
+        RecommendationEvidence(
+            article_id=resolve_article_id(result),
+            source_id=item.id,
+            ...
+        )
+    )
+
+
+
+它自己的 resolve_article_id 在 recommendation.py (line 302)：
+
+python
+
+
+
+for candidate in (result.get("article_id"), result.get("id"), result.get("url")):
+    article_id = _parse_article_id_candidate(candidate)
+    if article_id is not None:
+        return article_id
+
+
+
+而在 watchlist_triage.py (line 452)：
+
+python
+
+
+
+for position, (result, item) in enumerate(zip(search_results, base_evidence), start=1):
+    evidence.append(
+        RetrievedTickerEvidence(
+            source_id=item.id,
+            article_id=resolve_article_id(result),
+            ...
+        )
+    )
+
+
+
+它自己的 resolve_article_id 在 watchlist_triage.py (line 757)：
+
+python
+
+
+
+for candidate in (result.get("article_id"), result.get("id"), result.get("url")):
+    article_id = _parse_article_id_candidate(candidate)
+    if article_id is not None:
+        return article_id
+
+
+
+这里已经不是“相似”，而是同一实现复制了两份。
+
+所以这段代码能说明两件事：
+
+rag_answering、recommendation、watchlist_triage 的上半段在重复同一个 Retrieval Orchestration 流程。
+recommendation 和 watchlist_triage 的下半段又各自重复了 evidence enrichment 和 article-id resolution。
+
+这也是为什么我说缺的不是几个 helper，而是一个 module。
+
+因为重复的不只是函数体，而是一整套共享 contract：
+
+
+raw search result 长什么样
+
+rerank candidate 怎么构造
+
+rerank 后怎么回到原结果
+
+evidence 最少包含哪些字段
+
+article id 从哪些候选字段解析
+
+空结果怎么表示
+
+
+这些都属于一个独立的 seam，应该沉到统一的 Retrieval Orchestration module 后面，而不是散落在三个 use case module 里。
+
+如果你愿意，我下一步可以直接把这段重复收敛成一个具体的目标接口草图，比如：
+
+python
+
+
+
+bundle = retrieval_orchestrator.retrieve(query=..., top_k=..., retrieval_top_k=...)
+
+
+
+然后说明 bundle 里应该放哪些字段，才能同时服务 answer / recommendation / watchlist。
+
+news_storage.py 很有分量，但一个 SQLiteNewsStore 同时承担 articles、structured events、watchlist ledger、review/followup，多种概念堆在一个 seam 上，locality 正在变差。
+LLM 相关 module 已经有一些好迹象，比如 Protocol + OpenAI adapter 的形状是对的，但 prompt formatting、失败语义、model 选择还分散，没有形成更深的公共 module。
+顶层脚本很多，而且 main.py 和 ingest_news.py 基本重复；tests 也大量围绕脚本和 re-export 做 monkeypatch。这通常说明调用方在替浅 Interface 扛复杂度
+
+但 prompt formatting、失败语义、model 选择还分散，没有形成更深的公共 module。
+
+可以举具体代码的例子么
+10:56 AM
+
+
+可以，而且这块其实很典型。openai_client_base.py 已经抽出了一层公共能力，但它抽到的还只是“怎么调 OpenAI structured output”，还没有抽到“一类 LLM operation 的完整 module”。
+
+先看它现在真正统一了什么：
+
+OpenAIStructuredOutputClient 统一了 OpenAI client 初始化、chat.completions.parse(...) 调用、message.refusal 检查、message.parsed is None 检查、以及 model env fallback。openai_client_base.py (line 10)
+但下面这三类知识，还是分散在各个 use case module 里。
+
+1. Prompt formatting 还分散
+每个 module 都自己定义 system prompt，也自己把 request 拼成字符串。
+
+例子：
+
+event structuring 自己定义 STRUCTURING_SYSTEM_PROMPT，自己 _format_article(...)。event_structuring.py (line 86) event_structuring.py (line 139)
+summarization 自己定义 SUMMARIZATION_SYSTEM_PROMPT，自己 _format_article(...)。summarization.py (line 51) summarization.py (line 134)
+reranking 自己定义 RERANKING_SYSTEM_PROMPT，自己 _format_request(...)。reranking.py (line 84) reranking.py (line 145)
+RAG answering 自己定义 ANSWERING_SYSTEM_PROMPT，自己 _format_request(...)。rag_answering.py (line 101) rag_answering.py (line 225)
+recommendation 自己定义 RECOMMENDATION_SYSTEM_PROMPT，自己 _format_recommendation_request(...)。recommendation.py (line 136) recommendation.py (line 500)
+watchlist triage/reviewer 各自再来一套 prompt + formatter。watchlist_triage.py (line 227) watchlist_triage.py (line 242) watchlist_triage.py (line 520) watchlist_triage.py (line 545)
+所以现在公共层只知道“给我 system_prompt/user_content/response_format”，但并不知道“这一类操作的 prompt contract 应该长什么样”。
+
+2. 失败语义还分散
+虽然 base client 统一了“refusal”和“empty parsed response”的低层错误，但每个 module 对失败的处理方式不一样，而且规则散落。
+
+例子：
+
+reranker 输出校验失败会直接 raise ValueError，不做 fallback。reranking.py (line 135)
+answer_query(...) 里，没检索到 candidate 会返回一个低置信度结果对象；但 reranker 挂了会直接抛异常，不回退到原排序。rag_answering.py (line 174)
+recommend_target(...) 里，“没 evidence”“只有 general market context”“没有 target-specific structured evidence” 都是不同的 insufficiency 分支，各自拼自己的 reason 文案。recommendation.py (line 215) recommendation.py (line 239) recommendation.py (line 248)
+structuring runtime 则是另一种语义：失败会写 DB 状态为 failed，并允许下次 retry。structuring_runtime.py (line 60)
+summarization 失败会包装成 ArticleSummarizationError(article_id, ...)。summarization.py (line 127)
+也就是说，现在没有一个更深的公共 module 在统一回答这些问题：
+
+这个 LLM operation 失败时，是返回空结果、低置信度结果、还是抛异常？
+是否允许 fallback？
+是否要持久化失败状态？
+哪类失败是“正常业务上的 insufficient evidence”，哪类是“真正 runtime error”？
+3. Model 选择也还分散
+base client 只提供 _resolve_model(...) 机制，但“每类能力默认用什么 model、读哪个 env var”还是分散在每个 adapter 里。
+
+例子：
+
+structuring：DEFAULT_MODEL = "gpt-5.4-mini"。event_structuring.py (line 73)
+summarization：DEFAULT_MODEL = "gpt-5.4-mini"。summarization.py (line 41)
+reranking：DEFAULT_MODEL = "gpt-5.4-mini"，MODEL_ENV_VAR = "OPENAI_RERANK_MODEL"。reranking.py (line 68)
+answering：DEFAULT_MODEL = "gpt-5.4"，MODEL_ENV_VAR = "OPENAI_ANSWER_MODEL"。rag_answering.py (line 91)
+recommendation：DEFAULT_MODEL = "gpt-5.4"，但也复用了 OPENAI_ANSWER_MODEL。recommendation.py (line 126)
+watchlist triage/reviewer：分别有 OPENAI_TRIAGE_MODEL 和 OPENAI_REVIEWER_MODEL。watchlist_triage.py (line 204) watchlist_triage.py (line 219)
+所以现在“怎么 resolve model”是共通的，但“这些 operation 为什么选这个 model、哪些 operation 应该共享配置、哪些不该”还没有形成更深的公共语言。
+
+一句话说透：
+
+现在的 openai_client_base 是个 transport-level helper
+还不是一个 LLM operation-level deep module
+它统一了“怎么发请求”，但没有统一“这类能力的 prompt contract、失败 contract、model contract”。
+
+如果你愿意，我下一步可以直接继续往前推，给你画一个更具体的重构方向：
+这块如果要做成 deep module，应该抽成 llm_ops/ 还是 prompt_specs/，以及哪些东西该共用、哪些不该硬抽。
