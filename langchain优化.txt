@@ -1,0 +1,82 @@
+之前的workflow:
+=== Previous Flow View (Expanded) ===
+[NewsArticle]
+  raw article content + article metadata
+        |
+        v
+[chunk_text() inside vector_store.py]
+  - normalize whitespace
+  - fixed-size sliding window
+  - chunk_overlap
+        |
+        v
+[manual metadata construction inside add_article()]
+  metadata = {
+    article_id,
+    chunk_index,
+    original_url,
+    canonical_url,
+    source,
+    published_at,
+    content_sha256,
+    title,
+    summary,
+    url
+  }
+        |
+        v
+[ChromaVectorStore.add_article()]
+  - embed chunk texts
+  - upsert into Chroma
+
+  现在的workflow:
+  === Metadata Flow View ===
+[NewsArticle]
+  content
+  title / url / source / published_at / summary / content_sha256
+        |
+        v
+[LangChain Document]
+  page_content = normalized article content
+  metadata = {
+    article_id,
+    title,
+    url,
+    original_url,
+    canonical_url,
+    source,
+    published_at,
+    summary,
+    content_sha256
+  }
+        |
+        v
+[TextSplitter]
+  strategy = RecursiveCharacterTextSplitter
+  params   = chunk_size + chunk_overlap
+        |
+        v
+[Chunk Documents]
+  page_content = one chunk
+  metadata = inherited article metadata + chunk_index
+        |
+        v
+[Vector Store]
+  responsibilities:
+  - embed chunk texts
+  - upsert ids/documents/metadatas into Chroma
+  - search and aggregate chunk hits back to article level
+
+  坏处：
+  1. 没有标准化的中间表示
+     article -> chunk之间，没有一个像document的统一对象
+     原始NewsArticle -> 裸字符串chunk -> 手工metadata dict
+     Document的作用：
+        1. 统一文本和上下文
+        2. metadata自动随文本走
+        3. 给后续步骤一个标准输入
+
+2. chunk策略定死了
+3. content layer
+document processing layer
+vector store layer

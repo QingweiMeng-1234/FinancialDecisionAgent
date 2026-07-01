@@ -1,0 +1,1161 @@
+“我现在做的这个项目，本质上是一个金融新闻驱动的 AI research workflow。
+它主要解决三个问题：第一，金融新闻量大而且噪音多，人工很难快速判断最近发生了什么，以及哪些信息真正和某只股票相关；
+第二，单纯让 LLM 直接回答很容易变成凭印象总结，所以我把新闻处理成可检索、可引用、可追溯的证据链；
+第三，在证据相对充分的前提下，我再基于这些结构化信息去做 watchlist triage 和 Buffett 风格的投资建议，而不是直接让模型自由发挥。”
+
+完整链条：
+输入一个 watchlist。
+对每个 ticker 调 retrieve_evidence_bundle(...) 做 retrieval。
+retrieval 内部先向 vector store 搜索，再做低质量过滤、company attribution、KB boost、candidate rerank。
+把 retrieval 命中的文章懒加载成 structured events。
+把 evidence + structured_signals 交给 WatchlistTriageAgent 出 triage card。
+再把 card 交给 WatchlistReviewerAgent 做 second-pass critique。
+最后按 priority -> confidence -> ticker 排序，形成 ranked watchlist。
+
+1. 数据库里面的metadata有哪些？
+
+articles:
+
+1. source, title, description, url, published_at, summary, original_url, normalized_url, canonical url, content_path, content_sha256, content_status
+index_status,summary_status, structuring_status, fetched_at
+
+为什么需要description?
+当正文太长或缺失时，仍有一段可用的语义信息
+
+不同url的用途：
+1. normalized_url: 用来去重
+2. original_url: 保留原始来源
+
+content_sha256: 哈希指纹。检查内容有没有变化
+
+structured_events:
+1. event_type, direction, importance, time_horizon, affected_asset
+
+watchlist_*
+1. run元数据，evidence使用情况，、reviewer finding、human review、followup
+
+run元数据包括run_id,top_n, retrieval_top_k, model usage
+
+chunk data: 
+article_id
+title
+url
+original_url
+canonical_url
+source
+published_at
+content_sha256
+summary
+chunk_index
+
+2. 深挖多个vector db 的trade-off？ Pgvector,chromadb
+
+pgvector:向量存chunk + embedding在postgres里面
+pgvector:把向量检索并入主数据库。事务，JOIN，过滤，备份PITR权限模型都沿用Postgres。
+ExactNN:直接算但是慢，如果还有排序过滤等操作还会继续往上涨
+ANN: HNSW：召回折中，但是建索引更慢，吃更多内存
+IVF：建的更快更深个内存，但是召回差
+
+pgvector在RAG里面的角色
+1. 把原始资料切成 chunks
+2. 把每个 chunk 变成 embedding vector
+3. 把这些向量存进库里
+4. 用户提问时，把问题也变成一个 query vector
+5. 用相似度搜索找出最接近的几个 chunks，再交给 LLM 回答
+
+
+chromaDB:
+1. 上手快，文档、metadata、query、persistent client 一体化
+2.对 chunk/document/metadata 的心智模型更自然，适合快速做 RAG 实验。
+3. ：metadata filter、文档过滤、embedding function 都是内建概念。
+4. 事务语义、复杂关系查询、跨表分析不如 Postgres 原生顺手；当评估、review、feedback 变复杂时，通常还得旁边再放一个关系库。
+5. 代价：生产治理通常不如 “全进 Postgres” 统一。
+
+单轮内 critique loop：Reviewer 对 Triage 结果找问题，输出 should_flag_human_review
+跨轮学习 loop：watchlist_human_reviews 和 watchlist_followups 把真实使用反馈存下来
+
+4. 语块之间的cosine similarity怎么计算？
+cosine_similarity(a, b) = (a · b) / (||a|| * ||b||)
+---------------------------------------------------------------
+5. 语块内部的cosine vector怎么获得？
+1. chunk -> attention_mask (哪些地方需要attention,哪些地方是padding)
+2. chunk -> n个token -> 384维 -> n x 384
+3. mean pooling -> n x 384 -> 384
+
+---------------------------------------------------------------
+6. AGENT.md和skills是怎么约束agent的
+AGENT.md约束
+1. 明确项目目标。会限制输出风格：不能把自己当投资决策系统
+不能把自己当泛问答机器人
+要围绕“研究优先级”组织结果
+
+2. 角色边界：防止agent越权
+3. 定义成功标准：
+    明确说好输出应该是：
+
+evidence-grounded
+easy to review
+easy to revisit later
+useful for deciding where to spend research time
+这会影响 agent 的偏好：
+
+更重证据，而不是更会说
+更重可审计性，而不是更像“聪明观点”
+更重 workflow usefulness，而不是表面上的流畅回答
+
+4. 闭环定义
+它规定项目的 closed loop 不是“股价后来涨没涨”，而是“系统有没有帮助人把注意力放到对的地方，并能根据失败改进”，见 AGENT.md (line 254) 和 AGENT.md (line 288)。
+这会影响后续 human review、followup、evaluation 的设计方向。
+
+Skill约束什么？
+
+约束一件事情具体怎么干。
+
+1. 不是想用就用，而是只有specify要用的时候才用。
+
+2. 规定工作流程，比如说reproduce -> minimise -> hypothesise -> instrument -> fix -> regression-test
+3. 规定信息获取方式，比如顺序，渠道
+4. 输出结构
+5. 方法论偏好
+
+
+-------------------------------------------------------------
+Memory 如何管理？
+比如会话元数据记忆，包括设备类型，时区使用习惯等，不存入长期记忆。比如用户记忆，
+使用结构化档案卡，稳定的存储事实而不是用向量数据库的模糊匹配。比如以及近期对话摘要，存轻量级清单二不存原文，不做检索，静态注入。
+比如滑动窗口策略，存储当前最近的n条消息，提供即时语境，超过token上限丢弃等等。
+
+简单来说，就是长期事实（比如用户年龄，经验，职业）用结构化存储，近期脉络靠轻量摘要。当前语境靠滑动窗口，而历史海量案例靠向量检索
+
+-------------------------------------------------------------
+ReAct的架构是啥？
+1. 核心不在于让模型一开始就给答案。而是让模型在一个循环里判断下一步该做什么，在调用工具拿信息，然后根据返回结果继续推理，
+直到得到最终结论。
+Thought -> Action -> Observation -> Thought
+
+架构长什么样？
+1. Planner / Reasoner
+      根据当前目标和上下文决定下一步
+
+2. Tools
+    搜索，数据库查询，API调用，执行代码
+    API调用：
+
+3. Memory/State
+    保存中间结果和历史observation
+
+4. Controller/loop
+    负责驱动循环：
+    调模型 -> 解析action -> 执行工具 -> 回填observation -> 再调模型到终止
+    怎么终止：
+    1. 显式输出Final answer
+    2. 达成任务目标，比如查询这个订单是否延误。
+    3. 达到max step
+    4. 连续重复无增益。
+    5. 工具失败更多。
+
+----------------------------------------------------------------------
+怎么把LLM接入后端？
+
+1. 不要把LLM散落在代码里面。而是先做一层model adapter,把prompt,模型名，结构化输出，异常处理统一收口。
+   业务层只关心输入输出schema,不关心底层实现。
+    比如：OpenAIStructuredOutputClient
+    统一读取 API key / model / base_url
+    统一 chat.completions.parse
+        发system 和 user prompt
+        指定response format
+
+    统一处理 refusal
+        refusal就是模型拒绝回答
+    统一处理“parsed 为空”的异常
+
+    好处是：
+    1. 切换供应商更容易
+        我可以直接切成DeepSeek v4只需要改Model调用层就行。
+    2. 失败模式一致，便于监控和重试
+        实际上解耦了之后最Benefit的一点就是失败模式清晰多了。更容易监控
+
+----------------------------------------------------------------------
+怎么实现function/tool call?
+
+1. 不是直接让模型输出答案，而先输出一个结构化的action，由后端执行，再把结果返回模型。
+比如：search_articles(query="NVDA AI demand")，get_company_profile(ticker="NVDA")
+后端controller:
+    1. 校验参数
+    2. 执行工具
+    3. 捕获异常
+    4. 返回observation送回模型。
+
+tooling的设计本质也是隔离，即每个部分都只做该做的事情。比如agent的部分就是相当于一个程序员。
+只做reason -> action -> observation的loop，而其他的操作比如调用函数这种的就交给后端处理
+
+Tooling 隔离的好处：
+1. 可控性更强，模型不乱碰数据库
+2. 安全性更高，
+3. 可测试：连mock tool,不必链接真实服务
+4. 可监控：你能看到是推理选错工具还是工具执行失败
+5. 可替换：工具实现变了，但是agent不一定要改
+6. 可降级：某个tool挂了，可以降级到另一个tool上
+
+
+2. 结合repo:
+    有检索工具，retrieve_evidence_bundle()
+    rerank工具，rerank_candidates()
+    时间结构化工具，
+    最终回答工具
+
+如果改造成一个真正的tool-calling agent, 不会让模型直接访问数据库或者向量库，
+而是暴露受控工具，比如search_news, lookup_company, rerank_evidence, 让后端负责权限，参数校验，重试等等。
+
+----------------------------------------------------------------------
+怎么把外部知识集成到LLM工作流里面？
+1. 原始内容层
+    1. SQLite + 文件系统保存文章identity和全文，不暴露给用户
+
+2. 检索层
+    1. Chroma 向量检索，先召回候选文档
+
+3. 知识增强层
+    公司实体库，别名,ticker attribution
+
+    具体怎么做的？
+    Company_profile.yaml种子数据
+    SQLiteEntityStore 持久化数据
+        存公司本体
+        别名
+        关联实体
+        实体关系
+        类似于一个轻量级的graph
+    build_expanded_query(company) 扩展query
+
+    目的：
+    扩大召回
+    提高精度
+
+4. 推理前压缩层
+    rerank, top-k重新排序，减少无关上下文
+
+5.推理层
+    answering agent只消费被筛过的数据
+
+Langchain:
+
+用 Document 统一中间表示，文章内容和 metadata 传递更标准。
+用现成 splitter 替代手写 chunking，后面想换 semantic chunking 或 token-aware splitter 更容易。
+把“文档预处理”和“向量库/检索业务逻辑”拆开，边界更清楚。
+
+-----------------------------------------------------------------------
+怎么控制成本
+1. 分层用模
+    summarization, rerank, classification
+    贵模型只做final synthesis或者高价值节点
+
+    为什么 retrieval / rerank / summarization 可以用廉价模型？
+    summarization：把一篇文章压成 3-5 条事实
+    rerank：比较几个候选哪个更相关
+    classification / structuring：给文章打标签、抽 event
+    输出空间小
+    目标明确
+    不要求复杂开放式推理
+2. 先检索后生成
+    不把全量知识塞进上下文
+    先召回，在rerank, 在截断
+
+3. 结构化输出代替随机生成
+    减少废话，下游更容易消费，失败更容易重试
+
+4. 缓存和持久化
+    已经总结过的文章不反复总结
+    已经结构化过的文章别重复抽取
+    检索/排序的结果可以做短期缓存
+
+5. 大任务拆解成便宜的节点。
+    先用便宜模型判断能不能做，再通过贵模型去做reasoning.
+
+
+----------------------------------------------------------------------
+怎么处理失败和异常？
+
+1. 模型层失败
+    1. 超时
+    2. 限流
+    3. refusal
+    4. 返回空parsed object
+
+2. 工具层失败
+    1. 向量库无结果
+    2. SQL执行报错
+    3. 文件内容缺失
+
+3. 业务层失败
+    1. 即使模型调用成功，证据也不足以支撑结论
+
+处理原则：
+1. 区分系统失败还是证据不足
+2. 系统失败可以重试和降级，但是有边界。429/500可以重试，但是schema问题不适合重试
+3. 证据不足要诚实返回，不捏造答案
+4. 每个节点要做schema validation
+    Schema Validation包括：
+        Ranking:
+        1. 必须返回至少k个
+        2. 不能重复
+        3. 不能凭空invent新的id
+        4. 不能漏掉旧的id
+
+        Rag answering
+        1. Cited Point
+            text 非空
+            citation id 至少一个
+    
+    还要业务自洽
+5. 保留中间产物方便排查。
+6. 清晰责任边界
+7. 幂等和去重
+
+-----------------------------------------------------------------------
+现场设计AI backend骨架
+系统主干 + 安全性保证
+1. API layer
+    接收用户请求，做auth, 限流
+
+2. Orchestrator
+    决定走哪条workflow: 问答，检索，推荐，分析
+
+3. Tool adapter
+    Search, SQL, HTTP API, vector store, knowledge base
+
+4. LLM adapters
+    统一不同模型厂商的调用方式和 structured output
+
+5. State store
+    保存对话、tool results、trace,中间结果
+
+6. guardrails
+    Schema 检验，参数检验，max steps, fallback
+
+7. Observability
+    Token, latency, tool success rate, halliucination proxy, cost per request
+------------------------------------------------------------------------
+文章结构化是啥
+
+文章会被转成 StructuredEvent，字段包括：
+
+event_type
+direction
+importance
+time_horizon
+affected_asset
+reasoning
+evidence_excerpt
+
+为什么要做？
+决策信号
+
+------------------------------------------------------------------------------
+Agent v.s. workflow
+
+workflow 模式
+特点：
+1. 步骤预定义
+2. 顺序清晰
+3. 易测试，易监控，易控成本
+4. 适合稳定的业务流程
+
+Agent 模式
+1. 模型动态决定下一步
+2. 可以工具调用，多轮探索
+3. 更适合开放问题的复杂交互。
+
+问题
+成本高
+容易循环
+observability更难做
+
+--------------------------------------------------------------------------------
+你为什么做 knowledge base？”
+你答：因为系统知道 ticker，但不知道这个 ticker 在现实世界里是谁。真实新闻更常写公司名、产品名、CEO 名，而不是 ticker。
+
+“你怎么发现 retrieval 有问题？”
+你答：做了同公司多 query form 的 sanity check，比如 MSFT/Microsoft/Azure/Satya Nadella，发现 ticker-only 召回很差。
+
+“你做了哪些架构升级？”
+你答：把共享检索编排收口成统一模块；把 article identity、canonical content、derived artifacts 分层；把单次输出和长期反馈账本分开。
+
+“多 Agent 不是套概念吗？”
+你答：不是并行聊天，而是明确职责链路。retrieval 找证据，structuring 抽信号，triage 先判断，reviewer 做 second-pass critique，evaluation 吸收长期反馈。
+
+“你怎么控制 hallucination？”
+你答：structured output、证据引用、source id 校验、review loop、insufficient evidence 默认保守返回。
+
+“为什么选 Chroma 不选 pgvector？”
+你答：原型和实验期优先开发速度与文档/metadata 一体化；但我明确知道 pgvector 在事务、JOIN、统一治理上的优势，生产化可以迁移。
+
+------------------------------------------------------------------------------------------------------
+你的系统的演化逻辑是啥？
+1. 纯ticker召回差，大约在12%左右。一开始我没有先怀疑模型，而是先怀疑 retrieval。因为在金融场景里，回答质量往往不是 generation 先出问题，而是 evidence 没拿对。
+2. 第一步，我先做 sanity check。不是一上来跑大规模 benchmark，而是拿同一家公司的一组不同 query form 去测检索入口，
+例如 MSFT、Microsoft、Azure、Satya Nadella。理论上它们都应该至少部分命中到同一家公司相关材料。
+如果 ticker-only 的 query 能命中，而公司全名、产品名、CEO 名命不中，说明索引或召回入口过于依赖单一别名。
+3. 第二步，我做 golden set。也就是人工挑一批高价值问题，给每个问题标注“应该召回哪些文档/片段才算答得出来”。
+    这样后面才能把问题拆成 retriever 问题、generator 问题，避免只看最终答案拍脑袋判断。
+4. 第三步，我发现只有 summary 不够。summary 对宏观概览有帮助，但对于很多金融问题，
+    用户问的是细节、原文口径、时间点、限定条件、风险披露。summary 往往会丢掉这些决定答案正确性的关键信息。
+5. 最后我补了两类东西：一个是结构化 knowledge base，比如公司别名、ticker、产品线、管理层实体映射；另一个是 canonical full text，也就是保留权威原文作为最终证据层。前者解决召回入口弱，后者解决 summary 信息损失和可审计性不足。
+所以这个过程不是“调 prompt 让答案更像”，而是把系统从“模糊检索 + 模糊生成”拉回到“证据优先”。
+
+----------------------------------------------------------------------------------------------------------
+Sanity Check怎么做？
+我先没上大评估，而是做了一个 MSFT 的 sanity check。用 msft / microsoft / azure / satya nadella 这几种 query form 去看底层文章库的命中情况，
+还专门检查了“能命中 microsoft 但命不中 msft”的样本。这个实验的目的不是算最终指标，而是快速验证 retrieval entry point 是否过度依赖 ticker。
+
+------------------------------------------------------------------------------------------------------------
+QuantGPT:
+目标：
+替研究员完成一轮因子研究闭环：提出因子假设，生成表达式，跑回测，做评分和反过拟合验证，决定是否继续迭代，最后沉淀研究结论和候选因子
+
+设计：
+1. Tool Layer，比如说
+run_backtest
+score_factor
+diagnose_factor
+run_anti_overfit
+run_rolling_validation
+
+2. Agent Orchestrator
+而是让 Agent 调工具、看结果、再决定下一步
+
+3. iteration loop
+先分析已有 trajectory
+再用 select_strategy 选策略，见 iteration.py (line 414)
+策略可能是 EXPLORE / EXPLOIT / RECOMBINE / SIMPLIFY
+再调 LLM 生成新表达式
+然后跑回测和评分
+把结果写回 trajectory
+继续下一轮
+
+------------------------------------------------------------------------------------------------------
+Retriever 评估
+构造对比链路
+你不是只测一条检索链，而是对比：
+ticker_only
+entity_kb_enhanced
+deepseek_entity_kb_enhanced
+入口在 retrieval_eval.py (line 168)
+
+做人工标注集
+你先生成 annotation skeleton，再人工标 relevant / not_relevant。
+这块在 generate-annotations 和 annotation file 结构里，入口是 run_retrieval_eval.py (line 1)
+
+按 ticker 跑 retrieval comparison
+每个 ticker 会产出一组 top-k 文章，再和标注文件对齐。
+
+算 retrieval metrics
+真正算分的是 ChainMetrics，见 retrieval_eval.py (line 126) 和 retrieval_eval.py (line 1008)
+
+我先做 sanity check 验证 query form 问题，再做 per-ticker 的人工标注 golden set。评估时我对比 ticker-only 和 entity-KB-enhanced 两条检索链，按 top-K 计算 Precision@K、Recall@K、Hit@K 和 false positive rate，
+
+--------------------------------------------------------------------
+Agent的本质是去模拟谁的工作
+
+AI支付场景：
+
+把 Agent 设计成“数字运营 + 风控 + 财务执行员”
+它要去完成：
+
+1. 理解用户/商家的交易意图
+2. 组装订单
+3. 选择支付路径
+4. 执行支付
+5. 处理分账/退款/补单
+6. 对异常交易做解释或升级人工
+7. 全程留下可审计证据
+
+1. Agent Orchestrator
+这层相当于 QuantGPT 里的研究主循环，但在支付里，它负责：
+接收目标：用户要买什么，商家要怎么收款，平台要怎么分账
+判断当前状态：是否有库存、订单是否合法、账户是否可支付、是否命中风控
+决定下一步动作：创建订单、锁库存、发起支付、等待确认、执行分账、通知结果
+遇到异常时决定：重试、回滚、人工接管、冻结交易
+
+2. Tool Layer:
+create_order
+quote_price
+lock_inventory
+create_payment_intent
+select_payment_method
+run_risk_check
+confirm_payment
+split_settlement
+issue_refund
+query_transaction_status
+explain_risk_decision
+escalate_to_human
+和 QuantGPT 一样，Agent 本身不直接“做支付”，它只调用这些受控工具。
+
+3. Policy / Guardrail Layer
+这是支付版里比 QuantGPT 更重要的一层，相当于把“研究纪律”升级成“执行纪律”。
+在 QuantGPT 里是：
+
+不能重复实验
+要做反过拟合
+要做交叉验证
+在支付里就变成：
+
+高风险动作必须二次确认
+超金额阈值必须人工审批
+模型不能直接改收款账户
+所有支付请求必须经过权限校验和风控校验
+幂等键必须存在
+分账比例必须符合合同配置
+退款不能超过原单金额
+工具参数必须白名单化
+
+4. Ledger/Audit/Memory Layer
+QuantGPT 有 knowledge base，记录 rules / findings / failures。
+支付 Agent 也需要自己的“长期记忆”，但不是聊天记忆，而是操作记忆：
+订单状态机
+支付流水
+风控命中记录
+分账规则版本
+Agent 决策日志
+人工接管记录
+失败恢复策略
+
+为什么要放到“长期记忆”里
+严格说，不一定都放进 LLM 的长期语义记忆里。
+
+更准确的做法是分层：
+
+事务层持久化
+存当前订单/支付/分账状态、决策日志、人工接管记录、补偿动作
+策略层知识库
+存从大量事件中抽象出来的恢复规则、升级规则、风控经验
+
+长期记忆的本质：
+
+1. 状态连续性
+    知道流程走到哪里，避免每步重开
+2. 失败路径收敛
+3. 操作纪律沉淀
+    把反复出现的经验变成规则、策略、升级路径
+    Hard Policy, soft policy, learned heuristics
+
+最底层通常是 event log + state snapshot。
+
+event log（到达这个状态的历史路径）
+每次关键动作一条事件，比如：
+{
+  "event_id": "evt_123",
+  "order_id": "ord_456",
+  "payment_id": "pay_789",
+  "timestamp": "2026-05-30T10:15:02Z",
+  "actor_type": "agent",
+  "actor_id": "payment_orchestrator_v3",
+  "event_type": "risk_check_failed",
+  "step": "pre_payment_risk_check",
+  "inputs": {
+    "amount": 29900,
+    "merchant_id": "m_001"
+  },
+  "decision": {
+    "action": "escalate_to_human",
+    "reason_code": "risk_score_above_threshold"
+  },
+  "artifacts": {
+    "risk_score": 0.92,
+    "rule_hits": ["new_device", "high_amount"]
+  }
+}
+state snapshot （给AI一个语境）
+不是每次都从头 replay event，所以通常还会有当前聚合状态，例如：
+{
+  "order_id": "ord_456",
+  "status": "awaiting_manual_review",
+  "current_owner": "human_ops",
+  "last_event_id": "evt_123",
+  "retry_count": 1,
+  "recoverable": true
+}
+失败恢复策略
+分两层：
+
+运行时：某笔交易当前绑定的 recovery plan，存在 workflow state 里
+全局策略：恢复规则模板，存在 policy/rules 表里
+比如：
+
+{
+  "failure_type": "payment_timeout",
+  "recovery_policy": {
+    "strategy": "query_then_retry",
+    "max_retries": 2,
+    "fallback_action": "manual_review"
+  }
+}
+
+Agent怎么总结？
+1. 抽样本：
+先从 event log 里抽某一类 case，比如：
+payment_timeout
+manual_review
+split_failed
+
+2. 结构化
+
+3. 找模式
+比如：
+
+哪种 action sequence 成功率最高
+哪类 case 最常转人工
+哪种 gateway 最常超时
+哪种恢复路径平均耗时最短
+
+4. 让 Agent 做归纳
+这时再让 Agent 读“统计结果 + 代表性案例”，输出候选纪律。
+例如 Agent 输出：
+
+候选规则 1：
+对于 gw_a 的支付超时，优先执行 query -> wait 30s -> single retry
+证据：
+在最近 200 个样本中，该路径成功率最高且重复扣款风险最低
+适用边界：
+仅适用于 risk_passed=true 且 retry_count=0/1
+风险：
+不适用于高金额订单
+这一步 Agent 更像“分析师”，不是“立法者”。
+
+审核后升级
+最后由：
+人
+policy engine
+安全审核流程
+决定这条候选纪律是否正式进入：
+
+playbook
+workflow rule
+routing policy
+
+Agent 怎么用这些 event log 和 state snapshot
+最直接的用法有 4 类。
+
+1. 恢复上下文
+Agent 接手一笔单子时，先读 state snapshot，立刻知道：
+订单当前在哪个状态
+上一步是谁做的
+最后一个事件是什么
+还能不能恢复
+已经重试过几次
+这样它不用重新推断“现在该做什么”。
+
+比如看到：
+
+status = awaiting_manual_review
+current_owner = human_ops
+recoverable = true
+那 Agent 就不会继续扣款，而是知道当前应该等待人工结论，或者在人工处理完后继续后续步骤。
+
+2. 决定下一步动作
+Agent 决策时不只是看“当前输入”，还要看“历史轨迹”。
+比如 event log 里显示：
+
+已经发起过 2 次支付确认
+两次都是 payment_timeout
+上一次已触发 query_transaction_status
+网关侧状态还是 unknown
+这时 Agent 就不该第三次无脑重试，而应该切到：
+
+人工接管
+发补偿任务
+等待异步回调
+冻结订单
+也就是说，历史事件序列直接约束下一步 action space。
+
+避免重复和错误动作
+很多支付事故都不是“模型不会推理”，而是“重复做了不该重复做的事”。
+例如：
+
+已经分账成功，又分了一次
+已经退款成功，又触发二次退款
+人工已接管，Agent 还在继续自动执行
+订单已取消，Agent 还在补扣款
+只要 Agent 每次动作前查询 snapshot 和 recent events，它就能做幂等判断和状态校验。
+
+学习恢复策略和升级路径
+单笔事件日志还能被总结成“经验模式”。
+例如系统发现：
+
+payment_timeout + gateway=X + risk_passed
+常见最优策略是 先查单再补偿
+split_failed + ledger_written
+常见最优策略是 冻结结算并人工复核
+manual_review + amount > threshold
+常见升级对象应是 senior_ops
+这些就能慢慢沉淀成更高层的策略知识，帮助 Agent 下次更稳。
+
+这些长期记忆对 Agent 的帮助
+核心帮助有三类。
+
+1. 让 Agent 有连续性
+没有长期记忆时，Agent 更像 stateless function：
+
+给一段上下文
+产一个答案
+下一轮再来时几乎重新开始
+有长期记忆时，Agent 像 stateful operator：
+
+知道自己处理到哪
+知道之前试过什么
+知道什么动作已经发生过
+知道当前应该由谁接手
+这对支付、研发、客服这类长事务场景都很关键。
+
+2. 让 Agent 有纪律
+长期记忆让 Agent 不只是“会做”，而是“按规则连续地做”。
+
+比如：
+
+超过 2 次重试必须升级
+订单进入 manual_review 后禁止自动扣款
+已退款订单禁止再次分账
+这些都需要历史状态支持，不是单次 prompt 能可靠保证的。
+
+3. 让 Agent 有复盘和改进能力
+没有这些数据，你只能知道“出过问题”。
+有这些数据，你才能知道：
+
+问题在哪一步最常发生
+哪种恢复策略成功率最高
+哪类 case 最常转人工
+哪个 Agent 版本更稳
+这就是从“会执行”走向“会持续优化”的基础。
+
+
+
+例子：
+支付主循环 Agent 可以是：
+读交易上下文 -> 生成执行计划 -> 调工具执行 -> 校验结果 -> 风险评估 -> 失败恢复/升级 -> 更新状态与审计
+
+例如一次下单支付闭环：
+
+用户说“帮我给这个 SaaS 套餐续费，并按渠道分账”
+Agent 解析目标，确认商品、金额、商户、分账规则
+调 create_order
+调 run_risk_check
+低风险则调 create_payment_intent + confirm_payment
+支付成功后调 split_settlement
+写入账本和审计日志
+若失败则调 query_transaction_status / 重试 / 人工升级
+
+二 AI内部提效 Agent
+
+内部提效 Agent 模拟的是“高水平工程师/Tech Lead 的日常工作流”。
+
+它不是代码补全而已，而是要覆盖研发闭环：
+
+理解需求
+拆任务
+找上下文
+改代码
+跑测试
+看日志
+做 code review
+写文档
+跟进发布
+所以这不是一个聊天 Copilot，而是一个“研发工作流 Orchestrator”。
+
+也按 4 层拆。
+
+Engineering Orchestrator
+负责决定当前任务处于哪个阶段：
+需求澄清
+方案设计
+实现
+测试
+review
+发布
+复盘
+
+Tool Layer
+类似 QuantGPT 的工具箱，这里工具可能是：
+search_code
+read_design_docs
+create_branch
+edit_file
+run_tests
+run_linter
+inspect_logs
+open_pr
+summarize_diff
+generate_migration_plan
+
+Workflow Policy Layer
+对应研发纪律：
+没看上下文前不能大改
+高风险改动必须先测试
+schema change 必须带 migration
+线上变更必须可回滚
+PR 必须附风险说明
+涉及支付/账务代码必须双 review
+
+Knowledge Layer
+这层是：
+repo 文档
+ADR
+历史事故
+coding conventions
+common failure patterns
+service ownership map
+
+
+----------------------------------------
+为什么用openclaw？
+1. 想用自然语言发任务
+2. 自己做多不编排
+3. 多个工具源
+4. 分开决策层和执行层分开
+
+这其实是一个多agent的结构
+OpenClaw 负责
+听懂你的自然语言
+决定该用 query_news_research 还是 recommend_stock
+决定什么时候串联多个步骤
+financial-agent 负责
+新闻检索
+RAG 证据整理
+推荐结论
+watchlist triage
+公司画像查询
+
+动机：
+因为系统开始变成多能力源协同，尤其要接入 QuantGPT 这类第二专业能力，
+所以需要一个上层 orchestrator，OpenClaw 就是这层编排器
+有QuantGPT 后，系统从单一金融研究能力，演变为多金融能力协同架构。
+为了避免让 financial-agent 直接耦合 QuantGPT，并保持各能力源独立演进、独立隔离、统一调度，需要引入一层上层 agent/orchestrator。OpenClaw 就承担这层角色。
+
+---------------------------------------------
+OpenClaw agent.md，user.md, 以及identity.md都是怎么写的？
+
+agents.md: 
+
+先说明 OpenClaw 是顶层 orchestrator
+再列出各个角色，比如 financial-agent、QuantGPT
+给每个角色写职责边界
+最后写 routing rules，也就是“什么任务走谁，不该乱升级到谁”
+
+User.md:长期用户设置
+
+Identity.md
+这个工作区的AI是啥身份。
+
+----------------------------------------------
+OpenClaw没有调用工具而是直接自动上网搜怎么办？
+TOOLS.md 还是上游自带的泛化模板，根本没告诉 OpenClaw 你的本地关键工具是什么，
+也没有限制“先走 financial-agent，不要默认网页搜索”。我直接把这层 prompt 约束补上
+通过TOOLS.md以及BOOTSTRAP.md
+但TOOLS.md只能“提醒 OpenClaw 应该怎么做”
+不能真正禁止某些工具出现
+真正的硬机制要靠 openclaw.json 里的：
+mcp.servers
+tools.profile
+tools.allow
+tools.deny
+
+暂时给的6个工具：
+refresh_news
+query_news_research
+recommend_stock
+run_watchlist_triage
+get_company_profile
+retrieve_supporting_articles
+----------------------------------------
+OpenClaw 本身应该是自反馈
+
+----------------------------------------
+什么是MCP？在这个项目里面有什么用处？
+
+MCP: 让LLM能调用外部工具/服务的标准协议。
+
+用处：
+1. 把CLI脚本编程AI可调用的tool, 可以让OpenClaw直接从MCP调用
+2. 安全隔离，只有白名单的tool可以调用
+3. 运行时边界隔离
+
+----------------------------------------
+如果业务方说“我要一个智能 agent”，你会怎么推进？
+
+先别默认一定要做 agent
+1. 要先判断这是 workflow 问题、copilot 问题，还是 agent 问题。
+很多需求并不需要自主决策，多一步 agent 反而更脆弱。
+
+2. 先定义任务边界和成功标准
+业务方说“要一个智能 agent”通常是模糊需求。你要先问清楚：
+
+它替谁工作
+具体完成什么任务
+哪一步最耗时
+什么结果算成功
+哪些错误绝对不能犯
+
+3. 先做最小闭环，不要先铺全栈
+不是先上 orchestrator + subagent + storage + guardrail，而是先挑一个高频、低风险、可验证的子任务做 MVP。
+
+4. human-in-the-loop 很重要
+企业场景里，很多时候不是全自动，而是“agent 先做，人工确认”。这个点讲出来会很加分，说明你有生产意识。
+
+具体来说，我会分这么几层去设计agent:
+
+1. API层，做鉴权，限流
+2. Orchestrator作为agent和subagent的编排器
+3. Tooling layer：把人的工作转化为工具，做好隔离
+4. storage layer: 存中间态，持久化数据
+5. guardrail layer: schema检验，参数检验
+6. 可观测性
+
+
+-----------------------------------------
+你怎么判断一个 agent 做得好不好？
+回答不要只说准确率。
+至少提这几个维度：
+任务完成率
+关键错误率
+人工接管率
+延迟
+成本
+可解释性/可追踪性
+用户是否真的愿意持续使用
+
+----------------------------------------
+遇到不确定、需求经常变的情况，我通常不会把它当成单纯的沟通问题，而是先把它拆成几个可验证的假设。
+
+因为很多时候所谓需求变了，本质上是业务方一开始也还没完全想清楚，他们需要通过看到东西来收敛判断。
+
+我一般会先做三件事。第一是拆里程碑，不追求一开始就把终局方案定义完整，而是先找最小可闭环版本，
+比如先验证这个能力有没有价值、核心链路能不能跑通、用户是否真的愿意用。
+第二是尽快拿反馈，我会优先做能让业务方看到真实效果的原型或小版本，用真实样例去对齐，而不是停留在抽象讨论。
+第三是把模糊目标转成可验证假设，比如我们当前是在赌召回质量、执行成功率，还是交互体验，这样每一轮变化都能落到具体问题上。
+
+同时我会比较主动地同步风险，而不是闷头做。
+比如我会明确告诉对方，哪些是已经确定的，哪些还在验证，哪些方案虽然能做但成本或者风险高。
+这样即使需求继续变化，团队也知道我们现在在哪个阶段、为什么这样取舍，而不是到快交付时才发现认知不一致。
+
+对我来说，ownership 不是把所有变化都自己扛住，而是让项目在不确定里仍然持续收敛，大家始终知道下一步是什么、风险在哪里、我们为什么这么做。
+
+
+----------------------------------------
+为什么不按语义切分？
+1. 实现简单，行为可预测。
+chunk 大小、overlap、召回数这些参数比较容易系统化调试。
+2. 文章短
+
+
+------------------------------------------
+提示词通用 SOP
+
+先写清目标
+不要先写“你是一个很厉害的 AI”，先写“你要完成什么”。
+例如：请基于给定材料，输出一份面向投资研究员的简明总结。
+
+再写清边界
+说明什么能做，什么不能做。
+例如：只能使用我提供的材料，不要补充外部事实；不确定时明确说不确定。
+
+定义输入
+告诉模型它会拿到什么。
+例如：输入包含：问题、新闻摘要、结构化事件、候选证据。
+
+定义输出
+这是最容易被忽略、但最影响稳定性的部分。
+例如：输出为 JSON，字段包括 summary、risks、missing_info。
+
+给判断标准
+告诉模型“好答案长什么样”。
+例如：优先引用直接证据；避免空泛表述；风险与反证必须分开写。
+
+给流程
+复杂任务不要只写结果，要写步骤。
+例如：
+先筛选相关信息
+再识别支持点与反证
+最后生成结论
+
+处理异常
+提前规定证据不足、信息冲突时怎么办。
+例如：如果证据不足，直接输出 insufficient_evidence=true，并解释缺口。
+
+最后再补角色
+角色是辅助，不是主体。
+例如：你是一名谨慎的研究助手。
+
+--------------------------------------------------
+Transformer架构：
+
+一个标准 Transformer 大概长这样：
+
+输入 tokens
+变成 embeddings
+加上位置编码
+进入多层 attention + MLP
+输出每个 token 的新表示
+做下一个 token 预测，或者分类、检索等任务
+---------------------------------------------
+Multi-Head Attention
+不是只看一种关系，而是并行从多个“视角”看上下文。
+有的 head 学语法关系，有的学指代，有的学长距离依赖。
+
+Feed Forward Network
+attention 聚合完信息后，再过一个小的全连接网络，增强表达能力。
+
+Residual + LayerNorm
+帮助训练更稳定、更深。
+
+self-attention是啥？
+
+每个 token 和其他 token 算相关性，再聚合信息。
+这里通常会有 Q / K / V：
+
+Q：我想找什么
+K：我有什么特征可供匹配
+V：真正要拿走的信息
+
+Q 和 K 算相似度，得到权重；再用权重去加权求和 V。
+
+当前 token 先产出一个 Q
+所有 token 都各自产出 K 和 V
+用这个 Q 去和所有 K 算相似度
+相似度高的 token，会把自己的 V 更多地贡献出来
+最后加权求和，得到当前 token 的新表示
+
+Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) V
+
+-----------------------------------------------
+模型为何产生幻觉？
+
+1. 知识不完整，冲突或者过时
+2. 没有验证机制
+3. 超出知识边界
+4. prompt不清晰
+5. 上下文过长导致的偏移
+
+如何解决：
+1. 知识增强 + query 扩写
+2. prompt输出约束
+3. 工具化校验
+4. 输入约束
+
+------------------------------------------
+工具过多如何快速收敛？
+1. 做工具分层和路由。不要把二三十个工具一次性全暴露给模型，而是先按领域分组，比如“库存查询”“运输调度”“知识检索”“报表生成”。
+先让一个路由层判断任务属于哪一类，只把这一类下面的少量工具交给 Agent。这样本质上是在缩小搜索空间。
+
+2. 把工具描述写得非常清楚，并减少重叠能力。很多 Agent 不收敛，是因为多个工具看起来都能用，比如都能“查数据”，模型就会来回试。
+
+3. 限制规划深度和调用预算。工程上我会设置最大步骤数、最大工具调用次数、超时、重试上限。
+
+4. 先规划后执行，而不是边想边乱调工具。可以要求 Agent 先输出一个简短 plan，说明它为什么选这几个工具，再进入执行。这样能减少无效探索，也方便插入校验节点。
+
+5. 高频工作简化为工作流。
+
+
+------------------------------------------
+KV cache
+
+def attention_with_kv_cache(x_new, Wq, Wk, Wv, k_cache, v_cache):
+    # x_new: 当前新 token 的 hidden state, shape [1, d_model]
+    # k_cache: 历史缓存的 K, shape [past_len, d_k]
+    # v_cache: 历史缓存的 V, shape [past_len, d_v]
+
+    # 只给当前新 token 算 Q/K/V
+    Q_new = x_new @ Wq           # [1, d_k]
+    K_new = x_new @ Wk           # [1, d_k]
+    V_new = x_new @ Wv           # [1, d_v]
+
+    # 关键点：把新的 K/V 追加到历史缓存
+    K_all = concat(k_cache, K_new, dim=0)
+    V_all = concat(v_cache, V_new, dim=0)
+
+    # 当前 token 只用自己的 Q，去和“历史+当前”的 K 做 attention
+    scores = Q_new @ K_all.T     # [1, past_len + 1]
+    weights = softmax(scores, dim=-1)
+    out = weights @ V_all        # [1, d_v]
+
+    return out, K_all, V_all
+
+--------------------------------------------
+RLHF 里，人类偏好数据怎么收集、怎么判断？
+
+第一步：先有一个 SFT 模型
+因为 base model 连基本指令都未必听得好，先 SFT，得到一个能正常回答的 assistant。
+
+第二步：让模型对同一个 prompt 生成多个候选回答
+比如一个问题，生成 2 到 4 个不同答案。
+
+第三步：人工标注偏好
+标注员看到同一个 prompt 下的多个回答，做排序或成对比较，比如：
+
+A 比 B 好
+或 A > C > B
+判断标准通常包括：
+
+是否有帮助
+是否正确
+是否完整
+是否安全
+是否符合风格要求
+是否避免明显幻觉或违规内容
+也就是说，偏好不是只看“像不像人话”，而是按标注规范综合判断。
+
+第四步：训练奖励模型 Reward Model
+输入是：
+
+prompt
+answer A
+answer B
+目标是让奖励模型学会给人类更偏好的回答更高分。
+典型做法是 pairwise ranking loss。
+
+第五步：用强化学习优化策略模型
+比如 PPO，让当前模型生成的回答更容易拿到高 reward。
+
+---------------------------------------------------
+模型蒸馏模型
+1. 输出蒸馏 / Logits Distillation
+最经典。
+teacher 对每个 token 输出一个概率分布，student 去拟合这个分布，而不是只看硬标签。
+
+2. Response Distillation / Sequence Distillation
+直接用 teacher 生成高质量答案，把它当成 student 的监督数据。
+
+3. 中间层蒸馏
+不只学最终输出，还学隐藏层表示、attention map、特征结构。
+
+这样 student 会更像 teacher 的内部表征方式。
+但工程复杂度更高，而且 teacher/student 架构差异大时不一定好做。
+
+蒸馏的典型流程
+你可以这样讲：
+
+选一个 teacher，大模型效果足够好
+准备任务数据或 prompt 集
+让 teacher 产出回答、logits 或中间表示
+设计 student 的训练目标
+训练 student 去拟合 teacher 行为
+在目标任务和资源指标上评估：效果、延迟、成本
+
+-------------------------------------------------------
+如何保证安全：
+
+1. 能力边界：先默认拒绝，再按白名单开放
+2. 执行边界：不是任意执行，而是受控 workflow
+refresh_news 是研究面里唯一允许写状态/改数据的工具
+它还有“每天最多执行一次”的限制，避免 Agent 无限制刷新、刷爆配额或制造数据抖动，逻辑在 [src/event_collector/financial_agent_mcp.py (line 315)](C:/Users/weber/Documents/GitHub/Financial Agent/src/event_collector/financial_agent_mcp.py:315)
+
+3. 运行环境边界：做了隔离，不让 Agent 直接碰宿主
+这个项目还专门做了 Docker 隔离的 OpenClaw runtime。设计上：
+financial-agent MCP 服务跑在宿主本地
+OpenClaw 跑在 Docker 隔离环境里
+通信只走固定的 Streamable HTTP 通道
+宿主侧 MCP 服务只绑定 127.0.0.1
+
+4. 数据边界：尽量不给敏感信息曝光路径
+agent 只能看任务需要的结构化结果，不该看到运行时 secrets，也不该通过日志旁路看到它们。
+
+5. 
