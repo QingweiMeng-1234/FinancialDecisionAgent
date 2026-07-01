@@ -4,3 +4,10 @@ chromadb
 sentence-transformers
 pytest
 openai
+PyYAML
+trafilatura
+tqdm
+langchain-core
+langchain-text-splitters
+grandalf
+mcp

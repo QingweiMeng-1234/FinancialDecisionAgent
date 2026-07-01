@@ -137,13 +137,29 @@ def test_news_collector():
     os.environ["NEWSAPI_API_KEY"] = "dummy_key"
 
     original_get = event_collector.requests.get
+    calls = []
 
     class DummyResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
         def raise_for_status(self):
             pass
 
         def json(self):
-            return {
+            return self.payload
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        calls.append((url, params, headers))
+        if url.endswith("/top-headlines/sources"):
+            return DummyResponse(
+                {
+                    "status": "ok",
+                    "sources": [{"id": "source-one"}, {"id": "source-two"}],
+                }
+            )
+        return DummyResponse(
+            {
                 "status": "ok",
                 "articles": [
                     {"title": "News headline one", "description": "Description of news one that is definitely long enough."},
@@ -151,8 +167,9 @@ def test_news_collector():
                     {"title": "News headline three", "description": "Description of news three that is definitely long enough."},
                 ],
             }
+        )
 
-    event_collector.requests.get = lambda url, params=None, timeout=None: DummyResponse()
+    event_collector.requests.get = fake_get
 
     try:
         collector = NewsCollector()
@@ -162,6 +179,8 @@ def test_news_collector():
         assert len(raw_inputs) == 3
         assert all(ri.source == "news" for ri in raw_inputs)
         assert all(len(ri.raw_text) >= 50 for ri in raw_inputs)
+        assert calls[0][0].endswith("/top-headlines/sources")
+        assert calls[1][0].endswith("/everything")
     finally:
         if original_key is None:
             os.environ.pop("NEWSAPI_API_KEY", None)

@@ -9,16 +9,23 @@ from event_collector.event_structuring import (
     StructuredEvent,
     TimeHorizon,
 )
+from event_collector.entity_kb import CompanyProfile, SQLiteEntityStore, build_expanded_query
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 from event_collector.watchlist_triage import (
     FollowupInput,
     HumanReviewInput,
     TriageConfidence,
+    TriageDecisionRequest,
     TriagePriority,
+    ReviewerRequest,
+    RetrievedTickerEvidence,
+    StructuredTickerSignal,
     WatchlistReviewerAgent,
     WatchlistRunRequest,
     WatchlistTriageAgent,
+    _format_reviewer_request,
     render_watchlist_report,
+    render_watchlist_summary,
     run_watchlist,
 )
 from event_collector.reranking import RAGRerankingAgent
@@ -231,6 +238,16 @@ def test_run_watchlist_persists_ranked_results_and_report_fields():
         assert "## 2. AAPL" in report
         assert "### Reviewer" in report
         assert "### Evidence" in report
+
+        summary = render_watchlist_summary(result, debug_review=True, debug_rerank=True)
+        assert "1. MSFT - High / High" in summary
+        assert "Why now: Company-specific demand and pricing evidence justify attention now." in summary
+        assert "Key evidence: Azure demand commentary stayed strong." in summary
+        assert "Counter evidence: Enterprise budgets could tighten if macro weakens." in summary
+        assert "Missing question: How broad is the AI demand uplift across segments?" in summary
+        assert "Next action: Review segment commentary and guidance changes." in summary
+        assert "Reviewer: Specific enough for a first-pass review." in summary
+        assert "Rerank: candidate" in summary
 
         storage.close()
 
@@ -731,6 +748,52 @@ def test_watchlist_feedback_stub_rows_are_saved():
         storage.close()
 
 
+def test_format_reviewer_request_includes_retrieved_sources_without_crashing():
+    request = ReviewerRequest(
+        ticker="MSFT",
+        card=WatchlistTriageAgent(FakeTriageClient()).triage_ticker(
+            TriageDecisionRequest(
+                ticker="MSFT",
+                evidence=[],
+                structured_signals=[],
+            )
+        ),
+        evidence=[
+            RetrievedTickerEvidence(
+                source_id=1,
+                article_id=101,
+                title="Microsoft AI demand rises",
+                url="https://example.com/msft",
+                summary="Azure demand remains strong.",
+                excerpt="Microsoft commentary points to durable AI demand.",
+                snippet="Azure demand remains strong.",
+                published_at=datetime.now().isoformat(),
+                rerank_position=1,
+            )
+        ],
+        structured_signals=[
+            StructuredTickerSignal(
+                event_id="evt-msft",
+                article_id=101,
+                source_id=1,
+                event_type="company",
+                direction="positive",
+                importance="high",
+                time_horizon="short_term",
+                affected_asset="MSFT",
+                reasoning="AI demand improved the setup.",
+                evidence_excerpt="Microsoft saw durable AI demand.",
+            )
+        ],
+    )
+
+    formatted = _format_reviewer_request(request)
+
+    assert "Retrieved Sources:" in formatted
+    assert "Source [1]" in formatted
+    assert "Microsoft AI demand rises" in formatted
+
+
 def test_schema_init_keeps_articles_and_structured_events_working():
     with tempfile.TemporaryDirectory() as tmpdir:
         storage = SQLiteNewsStore(db_path=os.path.join(tmpdir, "news.db"))
@@ -743,4 +806,55 @@ def test_schema_init_keeps_articles_and_structured_events_working():
         assert len(storage.list_structured_events_for_article(article_id)) == 1
         assert storage.conn.execute("SELECT COUNT(*) FROM watchlist_runs").fetchone()[0] == 0
 
+        storage.close()
+
+
+def test_run_watchlist_uses_company_kb_expanded_query_when_available():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = SQLiteNewsStore(db_path=os.path.join(tmpdir, "news.db"))
+        storage.init_db()
+        company_kb = SQLiteEntityStore(db_path=os.path.join(tmpdir, "entities.db"))
+        company_kb.init_db()
+        company_kb.upsert_company_profile(
+            CompanyProfile(
+                ticker="MSFT",
+                canonical_name="Microsoft",
+                website="https://www.microsoft.com",
+                ir_url="https://www.microsoft.com/en-us/Investor",
+                ceo_name="Satya Nadella",
+                products=("Azure",),
+            )
+        )
+        company = company_kb.load_company_by_ticker("MSFT")
+
+        msft_article_id = _store_article(storage, "Azure AI demand rises", "https://example.com/msft-azure")
+        _store_event(storage, msft_article_id, "MSFT", "evt-msft")
+        vector_store = FakeVectorStore(
+            {
+                build_expanded_query(company): [
+                    _search_result(
+                        msft_article_id,
+                        "Azure AI demand rises",
+                        "Azure demand remained strong.",
+                        "Azure demand remained strong in enterprise accounts.",
+                        "https://example.com/msft-azure",
+                    )
+                ]
+            }
+        )
+
+        result = run_watchlist(
+            WatchlistRunRequest(tickers=["MSFT"], top_n=1, retrieval_top_k=1),
+            vector_store,
+            storage,
+            triage_agent=WatchlistTriageAgent(FakeTriageClient()),
+            reviewer_agent=WatchlistReviewerAgent(FakeReviewerClient()),
+            reranking_agent=RAGRerankingAgent(PassThroughRerankingClient()),
+            company_kb=company_kb,
+        )
+
+        assert vector_store.calls == [(build_expanded_query(company), 1)]
+        assert result.items[0].evidence[0].title == "Azure AI demand rises"
+
+        company_kb.close()
         storage.close()

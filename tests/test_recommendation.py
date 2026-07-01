@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-from types import SimpleNamespace
 import tempfile
 
 import pytest
@@ -16,6 +15,7 @@ from event_collector.event_structuring import (
 )
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 from event_collector.rag_answering import ConfidenceLevel
+from event_collector.retrieval_orchestration import RetrievedArticleEvidence
 from event_collector.recommendation import (
     AggregatedSignal,
     RecommendationAgent,
@@ -653,27 +653,32 @@ def test_recommend_target_marks_failures_and_retries_on_next_hit():
 
 
 def test_build_recommendation_evidence_preserves_article_ids():
-    search_results = make_search_results()
     retrieved = [
-        SimpleNamespace(
+        RetrievedArticleEvidence(
             id=1,
+            article_id=10,
             title="Microsoft cloud strength",
             url="https://example.com/msft",
             summary="- Azure demand remained strong.",
             excerpt="Microsoft reported strong enterprise demand.",
             snippet="- Azure demand remained strong.",
+            published_at="2026-05-10T10:00:00",
+            rerank_position=1,
         ),
-        SimpleNamespace(
+        RetrievedArticleEvidence(
             id=2,
+            article_id=11,
             title="Macro rates pressure",
             url="https://example.com/macro",
             summary="- Higher rates could pressure valuations.",
             excerpt="Rates may stay higher for longer.",
             snippet="- Higher rates could pressure valuations.",
+            published_at="2026-05-10T11:00:00",
+            rerank_position=2,
         ),
     ]
 
-    evidence = build_recommendation_evidence(search_results, retrieved)
+    evidence = build_recommendation_evidence(retrieved)
 
     assert [item.article_id for item in evidence] == [10, 11]
     assert evidence[0].published_at == "2026-05-10T10:00:00"

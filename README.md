@@ -3,9 +3,11 @@
 Minimal financial-news RAG pipeline with:
 
 - news collection
-- SQLite storage
+- package-native CLI entrypoints
+- SQLite reference / identity storage
+- filesystem-backed exact article content storage
 - article summarization
-- Chroma vector indexing
+- Chroma chunk-level vector indexing
 - retrieval + reranking
 - grounded answer generation
 
@@ -26,17 +28,19 @@ $env:OPENAI_API_KEY="your-openai-key"
 $env:NEWSAPI_API_KEY="your-newsapi-key"
 ```
 
+Project context and module seams now live in [CONTEXT.md](./CONTEXT.md).
+
 Optional model overrides:
 
 ```powershell
-$env:OPENAI_ANSWER_MODEL="gpt-5.4"
-$env:OPENAI_RERANK_MODEL="gpt-5.4-mini"
+$env:OPENAI_ANSWER_MODEL="deepseek-v4-pro"
+$env:OPENAI_RERANK_MODEL="deepseek-v4-flash"
 ```
 
 If you do not set the per-agent model vars, the defaults are:
 
-- answering: `gpt-5.4`
-- reranking: `gpt-5.4-mini`
+- answering: `deepseek-v4-pro`
+- reranking: `deepseek-v4-flash`
 
 ## End-To-End Run
 
@@ -44,17 +48,25 @@ This is the main E2E command. It will:
 
 1. collect news
 2. store articles in SQLite
-3. summarize the articles
-4. index them in Chroma
-5. retrieve candidates for your question
-6. rerank the candidates
-7. generate a grounded answer
+3. fetch and store exact article content on disk
+4. summarize the articles
+5. index fixed-size content chunks in Chroma
+6. retrieve candidates for your question
+7. rerank the candidates
+8. generate a grounded answer
 
 Run:
 
 ```powershell
 python main.py --question "What are the biggest themes in the latest news?" --debug-rerank
 ```
+
+Implementation note:
+
+- root-level `*.py` files are compatibility wrappers
+- package-native CLI implementations live under `src/event_collector/cli/`
+- the collect-and-ingest workflow lives in `src/event_collector/news_ingestion.py`
+- retrieval fan-out and failure handling live in `src/event_collector/retrieval_execution.py`
 
 You should see:
 
@@ -116,17 +128,21 @@ python structure_events.py --db-path news_articles.db
 - `OPENAI_API_KEY` is required for summarization, reranking, and answer generation.
 - `NEWSAPI_API_KEY` is required for live news collection through `NewsCollector`.
 - `main.py` currently includes `ManualCollector`, so the run may prompt for manual input depending on your session flow.
+- SQLite stores article identity/reference data such as URLs, content paths, hashes, summaries, and processing status.
+- Exact article content is stored on disk at `data/articles/{article_id}.txt`.
+- Chroma stores chunk-level vectors with record ids shaped like `{article_id}:{chunk_index}`.
+- Current chunking is fixed-size with overlap. Semantic chunking is still a TODO.
 
 ## TODO
 
 ### RAG
 
-- Add chunking to the retrieval pipeline.
+- Upgrade fixed-size chunking to semantic chunking.
 - Add evaluation methods for retrieval, reranking, and grounded answer quality.
 
 ### Decision
 
-- Add an agent-driven decision flow that uses an agent plus a Buffett-style skill to make recommendations for user-specified stocks.
+- Add an agent-driven decision flow that uses an agent plus a Buffett-style skill to make recommendations for user-specified stocks. (Done)
 
 ### Storage
 
