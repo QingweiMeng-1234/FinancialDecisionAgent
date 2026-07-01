@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, Field, field_validator
@@ -50,7 +51,7 @@ class SummarizationLLMClient(Protocol):
 class OpenAIArticleSummarizationClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for article summarization."""
 
-    DEFAULT_MODEL = "gpt-5.4-mini"
+    DEFAULT_MODEL = "deepseek-v4-flash"
     MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for article summarization"
     REFUSAL_ERROR_PREFIX = "OpenAI refused summarization request"
     EMPTY_RESPONSE_MESSAGE = "OpenAI returned no parsed article summary"
@@ -61,6 +62,35 @@ class OpenAIArticleSummarizationClient(OpenAIStructuredOutputClient):
             user_content=_format_article(article),
             response_format=SummaryResponse,
         )
+
+
+class DeepSeekArticleSummarizationClient(OpenAIStructuredOutputClient):
+    """DeepSeek structured-output adapter for article summarization."""
+
+    API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+    BASE_URL_ENV_VAR = "DEEPSEEK_BASE_URL"
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-flash"
+    MODEL_ENV_VAR = "DEEPSEEK_SUMMARIZATION_MODEL"
+    FALLBACK_TO_OPENAI_MODEL = False
+    MISSING_KEY_MESSAGE = "DEEPSEEK_API_KEY is required for article summarization"
+    REFUSAL_ERROR_PREFIX = "DeepSeek refused summarization request"
+    EMPTY_RESPONSE_MESSAGE = "DeepSeek returned no parsed article summary"
+
+    def summarize_article(self, article: ArticleForSummarization) -> SummaryResponse:
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": DEEPSEEK_SUMMARIZATION_SYSTEM_PROMPT},
+                {"role": "user", "content": _format_article(article)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        message = completion.choices[0].message
+        content = " ".join((getattr(message, "content", "") or "").split()).strip()
+        if not content:
+            raise RuntimeError(self.EMPTY_RESPONSE_MESSAGE)
+        return SummaryResponse.model_validate(json.loads(content))
 
 
 SUMMARIZATION_SYSTEM_PROMPT = """
@@ -77,11 +107,33 @@ Boundaries:
 """.strip()
 
 
+DEEPSEEK_SUMMARIZATION_SYSTEM_PROMPT = """
+You are the Article Summarization Agent for a financial news system.
+
+Return only valid json matching this schema:
+{
+  "bullets": [
+    "bullet 1",
+    "bullet 2",
+    "bullet 3"
+  ]
+}
+
+Requirements:
+- Summarize one article into 3 to 5 factual bullet points for retrieval and downstream reasoning.
+- Return only facts supported by the article.
+- Do not recommend BUY, HOLD, or SELL.
+- Do not add market opinions not stated in the article.
+- Do not rewrite the title or description.
+- Focus on the main event, important entities, concrete numbers, and why the article matters.
+""".strip()
+
+
 class SummarizationAgent:
     """Turns article content into a compact factual bullet summary."""
 
     def __init__(self, llm_client: SummarizationLLMClient | None = None):
-        self.llm_client = llm_client or OpenAIArticleSummarizationClient()
+        self.llm_client = llm_client or DeepSeekArticleSummarizationClient()
 
     def summarize_article(self, article: ArticleForSummarization) -> str:
         raw_response = self.llm_client.summarize_article(article)
@@ -128,9 +180,15 @@ def summarize_stored_articles(
             processed += 1
 
             if vector_store:
-                vector_store.add_article(record.id, record.article)
-                indexed += 1
+                try:
+                    vector_store.add_article(record.id, record.article)
+                    storage.mark_article_processing_status(record.id, index_status="ready")
+                    indexed += 1
+                except Exception:
+                    storage.mark_article_processing_status(record.id, index_status="failed")
+                    raise
         except Exception as exc:
+            storage.mark_article_processing_status(record.id, summary_status="failed")
             raise ArticleSummarizationError(record.id, str(exc)) from exc
 
     return {

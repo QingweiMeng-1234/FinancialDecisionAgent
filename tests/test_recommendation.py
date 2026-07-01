@@ -1,5 +1,5 @@
+import os
 from datetime import datetime
-from types import SimpleNamespace
 import tempfile
 
 import pytest
@@ -8,11 +8,14 @@ from pydantic import ValidationError
 from event_collector.event_structuring import (
     EventDirection,
     EventImportance,
+    EventStructuringAgent,
     EventType,
     StructuredEvent,
     TimeHorizon,
 )
+from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 from event_collector.rag_answering import ConfidenceLevel
+from event_collector.retrieval_orchestration import RetrievedArticleEvidence
 from event_collector.recommendation import (
     AggregatedSignal,
     RecommendationAgent,
@@ -24,6 +27,7 @@ from event_collector.recommendation import (
     normalize_target,
     recommend_target,
     render_recommendation_report,
+    resolve_article_id,
     sanitize_target_for_filename,
     write_recommendation_report,
 )
@@ -44,6 +48,9 @@ class FakeStorage:
     def __init__(self, event_map):
         self.event_map = event_map
         self.calls = []
+
+    def get_article_structuring_state(self, article_id):
+        return ("success", datetime.now(), None)
 
     def list_structured_events_for_article(self, article_id):
         self.calls.append(article_id)
@@ -71,6 +78,19 @@ class FakeRerankingClient:
         if self.error is not None:
             raise self.error
         return self.response
+
+
+class FakeStructuringClient:
+    def __init__(self, response_by_article_id=None, error_article_ids=None):
+        self.response_by_article_id = response_by_article_id or {}
+        self.error_article_ids = set(error_article_ids or [])
+        self.calls = []
+
+    def extract_events(self, article):
+        self.calls.append(article)
+        if article.article_id in self.error_article_ids:
+            raise RuntimeError(f"boom-{article.article_id}")
+        return {"events": list(self.response_by_article_id.get(article.article_id, []))}
 
 
 def make_event(
@@ -115,6 +135,29 @@ def make_search_results():
             "published_at": "2026-05-10T11:00:00",
         },
     ]
+
+
+def make_pass_through_rerank_response():
+    return {
+        "ranked_candidates": [
+            {"candidate_id": "1", "reason": "Direct company evidence."},
+            {"candidate_id": "2", "reason": "Useful context."},
+        ]
+    }
+
+
+def _store_article(storage, title, url):
+    return storage.save_article(
+        NewsArticle(
+            source="news",
+            title=title,
+            description=title,
+            content=f"{title} content with enough detail for retrieval and structuring.",
+            url=url,
+            published_at=datetime.now(),
+            summary=f"{title} summary",
+        )
+    )
 
 
 def test_recommendation_agent_accepts_valid_structured_output():
@@ -379,31 +422,289 @@ def test_recommend_target_returns_insufficient_evidence_when_no_results():
     assert result.aggregation is None
 
 
+def test_recommend_target_structures_missing_events_and_persists_them():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = SQLiteNewsStore(db_path=os.path.join(tmpdir, "news.db"))
+        storage.init_db()
+        msft_article_id = _store_article(storage, "Microsoft cloud strength", "https://example.com/msft")
+        macro_article_id = _store_article(storage, "Macro rates pressure", "https://example.com/macro")
+        vector_store = FakeVectorStore(
+            [
+                {
+                    "id": str(msft_article_id),
+                    "article_id": msft_article_id,
+                    "title": "Microsoft cloud strength",
+                    "url": "https://example.com/msft",
+                    "summary": "- Azure demand remained strong.",
+                    "content": "Microsoft reported strong enterprise demand and cloud momentum.",
+                    "published_at": "2026-05-10T10:00:00",
+                },
+                {
+                    "id": str(macro_article_id),
+                    "article_id": macro_article_id,
+                    "title": "Macro rates pressure",
+                    "url": "https://example.com/macro",
+                    "summary": "- Higher rates could pressure valuations.",
+                    "content": "The Fed signaled rates may stay higher for longer.",
+                    "published_at": "2026-05-10T11:00:00",
+                },
+            ]
+        )
+        structuring_agent = EventStructuringAgent(
+            llm_client=FakeStructuringClient(
+                response_by_article_id={
+                    msft_article_id: [
+                        {
+                            "event_type": "Company",
+                            "direction": "Positive",
+                            "importance": "High",
+                            "time_horizon": "Long-term",
+                            "affected_asset": "MSFT",
+                            "reasoning": "Azure demand stayed strong.",
+                            "evidence_excerpt": "Microsoft reported strong enterprise demand.",
+                        }
+                    ],
+                    macro_article_id: [],
+                }
+            )
+        )
+        client = FakeRecommendationClient(
+            {
+                "decision": "HOLD",
+                "confidence": "medium",
+                "time_horizon": "Long-term",
+                "reasoning": "Company strength exists but this is still only a first-pass read.",
+                "key_risks": ["News flow alone is incomplete."],
+                "insufficient_evidence": False,
+                "sources": [],
+            }
+        )
+
+        result = recommend_target(
+            "MSFT",
+            vector_store,
+            storage,
+            recommendation_agent=RecommendationAgent(llm_client=client),
+            reranking_agent=RAGRerankingAgent(FakeRerankingClient(make_pass_through_rerank_response())),
+            structuring_agent=structuring_agent,
+        )
+
+        assert result.aggregation is not None
+        assert result.aggregation.target_specific_event_count == 1
+        assert len(structuring_agent.llm_client.calls) == 2
+        stored_events = storage.list_structured_events_for_article(msft_article_id)
+        assert len(stored_events) == 1
+        status, _, error = storage.get_article_structuring_state(msft_article_id)
+        assert status == "success"
+        assert error is None
+        zero_status, _, zero_error = storage.get_article_structuring_state(macro_article_id)
+        assert zero_status == "success"
+        assert zero_error is None
+
+
+def test_recommend_target_skips_restructuring_after_zero_event_success():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = SQLiteNewsStore(db_path=os.path.join(tmpdir, "news.db"))
+        storage.init_db()
+        msft_article_id = _store_article(storage, "Microsoft cloud strength", "https://example.com/msft")
+        macro_article_id = _store_article(storage, "Macro rates pressure", "https://example.com/macro")
+        storage.mark_article_structuring_result(msft_article_id, status="success")
+        storage.mark_article_structuring_result(macro_article_id, status="success")
+        vector_store = FakeVectorStore(
+            [
+                {
+                    "id": str(msft_article_id),
+                    "article_id": msft_article_id,
+                    "title": "Microsoft cloud strength",
+                    "url": "https://example.com/msft",
+                    "summary": "- Azure demand remained strong.",
+                    "content": "Microsoft reported strong enterprise demand and cloud momentum.",
+                    "published_at": "2026-05-10T10:00:00",
+                },
+                {
+                    "id": str(macro_article_id),
+                    "article_id": macro_article_id,
+                    "title": "Macro rates pressure",
+                    "url": "https://example.com/macro",
+                    "summary": "- Higher rates could pressure valuations.",
+                    "content": "The Fed signaled rates may stay higher for longer.",
+                    "published_at": "2026-05-10T11:00:00",
+                },
+            ]
+        )
+        structuring_agent = EventStructuringAgent(
+            llm_client=FakeStructuringClient(
+                response_by_article_id={
+                    msft_article_id: [
+                        {
+                            "event_type": "Company",
+                            "direction": "Positive",
+                            "importance": "High",
+                            "time_horizon": "Long-term",
+                            "affected_asset": "MSFT",
+                            "reasoning": "Should not rerun.",
+                            "evidence_excerpt": "Should not rerun.",
+                        }
+                    ]
+                }
+            )
+        )
+
+        result = recommend_target(
+            "MSFT",
+            vector_store,
+            storage,
+            reranking_agent=RAGRerankingAgent(FakeRerankingClient(make_pass_through_rerank_response())),
+            structuring_agent=structuring_agent,
+        )
+
+        assert result.insufficient_evidence is True
+        assert structuring_agent.llm_client.calls == []
+
+
+def test_recommend_target_marks_failures_and_retries_on_next_hit():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = SQLiteNewsStore(db_path=os.path.join(tmpdir, "news.db"))
+        storage.init_db()
+        msft_article_id = _store_article(storage, "Microsoft cloud strength", "https://example.com/msft")
+        macro_article_id = _store_article(storage, "Macro rates pressure", "https://example.com/macro")
+        vector_store = FakeVectorStore(
+            [
+                {
+                    "id": str(msft_article_id),
+                    "article_id": msft_article_id,
+                    "title": "Microsoft cloud strength",
+                    "url": "https://example.com/msft",
+                    "summary": "- Azure demand remained strong.",
+                    "content": "Microsoft reported strong enterprise demand and cloud momentum.",
+                    "published_at": "2026-05-10T10:00:00",
+                },
+                {
+                    "id": str(macro_article_id),
+                    "article_id": macro_article_id,
+                    "title": "Macro rates pressure",
+                    "url": "https://example.com/macro",
+                    "summary": "- Higher rates could pressure valuations.",
+                    "content": "The Fed signaled rates may stay higher for longer.",
+                    "published_at": "2026-05-10T11:00:00",
+                },
+            ]
+        )
+        failing_agent = EventStructuringAgent(
+            llm_client=FakeStructuringClient(error_article_ids={msft_article_id, macro_article_id})
+        )
+
+        first = recommend_target(
+            "MSFT",
+            vector_store,
+            storage,
+            reranking_agent=RAGRerankingAgent(FakeRerankingClient(make_pass_through_rerank_response())),
+            structuring_agent=failing_agent,
+        )
+
+        assert first.insufficient_evidence is True
+        status, _, error = storage.get_article_structuring_state(msft_article_id)
+        assert status == "failed"
+        assert f"boom-{msft_article_id}" in error
+
+        retry_agent = EventStructuringAgent(
+            llm_client=FakeStructuringClient(
+                response_by_article_id={
+                    msft_article_id: [
+                        {
+                            "event_type": "Company",
+                            "direction": "Positive",
+                            "importance": "High",
+                            "time_horizon": "Long-term",
+                            "affected_asset": "MSFT",
+                            "reasoning": "Retry succeeded.",
+                            "evidence_excerpt": "Microsoft reported strong enterprise demand.",
+                        }
+                    ],
+                    macro_article_id: [],
+                }
+            )
+        )
+        second = recommend_target(
+            "MSFT",
+            vector_store,
+            storage,
+            recommendation_agent=RecommendationAgent(
+                llm_client=FakeRecommendationClient(
+                    {
+                        "decision": "HOLD",
+                        "confidence": "medium",
+                        "time_horizon": "Long-term",
+                        "reasoning": "Retry produced enough target-specific evidence for a cautious hold.",
+                        "key_risks": ["This is still only a news-grounded pass."],
+                        "insufficient_evidence": False,
+                        "sources": [],
+                    }
+                )
+            ),
+            reranking_agent=RAGRerankingAgent(FakeRerankingClient(make_pass_through_rerank_response())),
+            structuring_agent=retry_agent,
+        )
+
+        assert second.aggregation is not None
+        retry_status, _, retry_error = storage.get_article_structuring_state(msft_article_id)
+        assert retry_status == "success"
+        assert retry_error is None
+
+
 def test_build_recommendation_evidence_preserves_article_ids():
-    search_results = make_search_results()
     retrieved = [
-        SimpleNamespace(
+        RetrievedArticleEvidence(
             id=1,
+            article_id=10,
             title="Microsoft cloud strength",
             url="https://example.com/msft",
             summary="- Azure demand remained strong.",
             excerpt="Microsoft reported strong enterprise demand.",
             snippet="- Azure demand remained strong.",
+            published_at="2026-05-10T10:00:00",
+            rerank_position=1,
         ),
-        SimpleNamespace(
+        RetrievedArticleEvidence(
             id=2,
+            article_id=11,
             title="Macro rates pressure",
             url="https://example.com/macro",
             summary="- Higher rates could pressure valuations.",
             excerpt="Rates may stay higher for longer.",
             snippet="- Higher rates could pressure valuations.",
+            published_at="2026-05-10T11:00:00",
+            rerank_position=2,
         ),
     ]
 
-    evidence = build_recommendation_evidence(search_results, retrieved)
+    evidence = build_recommendation_evidence(retrieved)
 
     assert [item.article_id for item in evidence] == [10, 11]
     assert evidence[0].published_at == "2026-05-10T10:00:00"
+
+
+def test_resolve_article_id_accepts_legacy_vector_id_suffix():
+    article_id = resolve_article_id(
+        {
+            "id": "internal://news/f106d0be-7da9-4d56-baa6-fccac6f01089_6",
+            "url": "internal://news/f106d0be-7da9-4d56-baa6-fccac6f01089",
+        }
+    )
+
+    assert article_id == 6
+
+
+def test_resolve_article_id_prefers_explicit_metadata():
+    article_id = resolve_article_id(
+        {
+            "id": "legacy-non-numeric",
+            "article_id": 42,
+            "url": "https://example.com/article",
+        }
+    )
+
+    assert article_id == 42
 
 
 def test_filename_helpers_normalize_target_tokens():

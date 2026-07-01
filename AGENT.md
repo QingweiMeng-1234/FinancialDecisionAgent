@@ -1,329 +1,315 @@
 # AGENT.md
 
-## Project: Financial Multi-Agent Reasoning Environment
+## Project: Financial Watchlist Triage System
 
-This project is a lightweight multi-agent system for reasoning about market events and producing an explainable investment decision. The goal is not to predict prices directly, but to convert messy market information into structured signals, aggregate those signals, and make a decision using a consistent investment framework.
+This project is a lightweight multi-agent system for prioritizing investment research.
+Its job is not to make autonomous buy or sell decisions. Its job is to help a researcher decide:
+
+1. which tickers are worth reviewing first today
+2. why they matter now
+3. what evidence supports or challenges that view
+4. what is still missing before deeper analysis
+
+The system is designed around short feedback loops. A good output is not just plausible. It must be:
+
+- evidence-grounded
+- easy to review
+- easy to revisit later
+- useful for deciding where to spend research time
+
+---
+
+## Product Goal
+
+The primary goal is to turn a noisy stream of market news into a ranked watchlist for daily research triage.
+
+For each ticker in a watchlist, the system should produce a triage card with:
+
+- `priority`: `high`, `medium`, or `low`
+- `why_now`: why this ticker deserves attention now
+- `key_evidence`: the most relevant supporting evidence
+- `counter_evidence`: the main conflicting or cautionary evidence
+- `missing_questions`: what still needs verification
+- `next_action`: whether this ticker is worth a deeper 10-minute review
+
+The final output of one run is a ranked list of the most important tickers to review first.
+
+---
 
 ## Design Principles
 
-1. Keep each agent narrowly scoped.
-2. Make every intermediate output inspectable.
-3. Prefer structured reasoning over vague market commentary.
-4. Separate short-term market noise from long-term business fundamentals.
-5. Keep the system simple enough to demo, but modular enough to extend.
+1. Keep each agent narrowly scoped to one cognitive task.
+2. Make intermediate outputs inspectable and storable.
+3. Prefer ticker-specific evidence over generic market noise.
+4. Separate evidence collection, signal structuring, prioritization, and critique.
+5. Build for fast feedback: same-day review and short-horizon follow-up.
+6. Treat the ledger and evaluation set as first-class assets.
+
+---
+
+## Who This Is For
+
+This system is for a human researcher working through a fixed watchlist under time pressure.
+
+It is useful when the user asks:
+
+- What should I look at first today?
+- Which names have real ticker-specific developments?
+- Which names only look interesting because of broad macro noise?
+- Which names have enough evidence for a deeper pass?
+
+This system is not trying to replace full investment judgment, valuation work, or portfolio construction.
 
 ---
 
 ## Agent Overview
 
-The environment contains four core agents:
+The environment contains five core agents:
 
-1. Event Collector Agent
+1. Retrieval Agent
 2. Event Structuring Agent
-3. Aggregation Agent
-4. Decision Agent
-
-Optional future extension:
-
-5. Risk Agent
+3. Triage Agent
+4. Reviewer Agent
+5. Evaluation Agent
 
 ---
 
-## 1. Event Collector Agent
+## 1. Retrieval Agent
 
 ### Purpose
-Collect the raw market events that the system will reason about.
+Find the most relevant recent evidence for each ticker in the watchlist.
 
 ### Responsibility
-The Event Collector Agent gathers relevant daily market information from manual input, news snippets, APIs, or user-provided descriptions.
+The Retrieval Agent builds ticker-focused queries, searches the document store, and returns candidate evidence.
 
 ### Input
 ```json
 {
-  "source": "manual | news | api",
-  "raw_text": "Fed signals higher rates for longer after inflation data comes in above expectations."
+  "ticker": "NVDA",
+  "window": "last 3 days"
 }
 ```
 
 ### Output
 ```json
 {
-  "events": [
+  "ticker": "NVDA",
+  "retrieved_docs": [
     {
-      "id": "event_001",
-      "raw_text": "Fed signals higher rates for longer after inflation data comes in above expectations."
+      "article_id": 101,
+      "title": "Nvidia supplier commentary signals continued AI demand",
+      "url": "https://example.com/article",
+      "summary": "Demand commentary remains strong.",
+      "content": "..."
     }
   ]
 }
 ```
 
 ### Boundary
-This agent does not interpret whether the event is good or bad. It only collects and normalizes raw event input.
+This agent does not interpret the documents or assign a ticker priority.
 
 ---
 
 ## 2. Event Structuring Agent
 
 ### Purpose
-Convert unstructured market information into standardized decision signals.
+Convert retrieved evidence into normalized, investment-relevant signals.
 
 ### Responsibility
-The Event Structuring Agent reads each raw event and extracts a structured representation.
-
-### Input
-```json
-{
-  "id": "event_001",
-  "raw_text": "Fed signals higher rates for longer after inflation data comes in above expectations."
-}
-```
+The Event Structuring Agent reads retrieved documents and extracts structured events.
 
 ### Output Schema
 ```json
 {
-  "event_id": "event_001",
-  "event_type": "Macro | Company | Sector | Market",
+  "article_id": 101,
+  "event_type": "Company | Macro | Sector | Market",
   "direction": "Positive | Negative | Neutral",
   "importance": "High | Medium | Low",
   "time_horizon": "Short-term | Long-term | Both",
-  "affected_asset": "AAPL | MSFT | SPY | General Market",
-  "reasoning": "Higher expected rates may pressure equity valuations, especially growth stocks."
-}
-```
-
-### Example
-```json
-{
-  "event_id": "event_001",
-  "event_type": "Macro",
-  "direction": "Negative",
-  "importance": "High",
-  "time_horizon": "Short-term",
-  "affected_asset": "General Market",
-  "reasoning": "Higher interest rates increase discount rates and can reduce equity valuations."
+  "affected_asset": "NVDA | General Market",
+  "reasoning": "Supplier commentary suggests continued demand strength.",
+  "evidence_excerpt": "Management said AI-related orders remain strong into next quarter."
 }
 ```
 
 ### Boundary
-This agent does not make a final investment decision. It only classifies and explains individual events.
+This agent does not rank the ticker and does not decide whether it is worth reviewing.
 
 ---
 
-## 3. Aggregation Agent
+## 3. Triage Agent
 
 ### Purpose
-Combine multiple structured events into a system-level market view.
+Turn structured signals into a research-priority recommendation for one ticker.
 
 ### Responsibility
-The Aggregation Agent weighs signals, identifies conflicts, and determines the dominant driver.
-
-### Scoring Rule
-Basic scoring:
-
-```text
-Positive = +1
-Neutral  =  0
-Negative = -1
-```
-
-Importance multiplier:
-
-```text
-High   = 3
-Medium = 2
-Low    = 1
-```
-
-Final event score:
-
-```text
-event_score = direction_score * importance_multiplier
-```
+The Triage Agent aggregates retrieved evidence and structured events into a single triage card.
 
 ### Input
 ```json
 {
-  "structured_events": [
-    {
-      "event_type": "Macro",
-      "direction": "Negative",
-      "importance": "High",
-      "time_horizon": "Short-term"
-    },
-    {
-      "event_type": "Company",
-      "direction": "Positive",
-      "importance": "High",
-      "time_horizon": "Long-term"
-    }
-  ]
-}
-```
-
-### Output
-```json
-{
-  "macro_score": -3,
-  "company_score": 3,
-  "sector_score": 0,
-  "market_score": 0,
-  "net_score": 0,
-  "dominant_driver": "Mixed: macro pressure offsets company strength",
-  "conflicts": [
-    "Short-term macro headwind conflicts with long-term company fundamentals."
-  ],
-  "summary": "The overall signal is mixed. Macro conditions are negative, but company-specific fundamentals are positive."
-}
-```
-
-### Boundary
-This agent does not say BUY, HOLD, or SELL. It prepares the reasoning context for the Decision Agent.
-
----
-
-## 4. Decision Agent — Buffett Lens
-
-### Purpose
-Make the final investment judgment using a consistent long-term investment framework.
-
-### Responsibility
-The Decision Agent interprets the aggregated signal through a Buffett-style lens: business quality, long-term fundamentals, margin of safety, and market overreaction.
-
-### Decision Rules
-The Decision Agent should:
-
-1. Separate temporary market pressure from durable business impairment.
-2. Favor strong long-term fundamentals over short-term noise.
-3. Avoid buying when the signal is positive but uncertainty is too high.
-4. Explain confidence rather than pretending certainty.
-
-### Input
-```json
-{
-  "macro_score": -3,
-  "company_score": 3,
-  "net_score": 0,
-  "dominant_driver": "Mixed: macro pressure offsets company strength",
-  "conflicts": [
-    "Short-term macro headwind conflicts with long-term company fundamentals."
-  ]
+  "ticker": "NVDA",
+  "retrieved_docs": [],
+  "structured_events": []
 }
 ```
 
 ### Output Schema
 ```json
 {
-  "decision": "BUY | HOLD | SELL",
-  "confidence": 0.7,
-  "time_horizon": "Short-term | Long-term",
-  "reasoning": "Short-term macro pressure is negative, but long-term company fundamentals remain strong.",
-  "key_risk": "If rates remain elevated longer than expected, valuation pressure may persist."
+  "ticker": "NVDA",
+  "priority": "High",
+  "confidence": "Medium",
+  "why_now": "Recent company-specific evidence suggests continued AI demand strength.",
+  "key_evidence": [
+    "Supplier commentary pointed to sustained AI server demand.",
+    "Recent reporting highlighted strong demand visibility into next quarter."
+  ],
+  "counter_evidence": [
+    "Valuation sensitivity remains a risk if broader market sentiment weakens."
+  ],
+  "missing_questions": [
+    "Is demand strength broad-based or concentrated in a few customers?"
+  ],
+  "next_action": "Worth a deeper review of demand durability and margin implications."
 }
 ```
 
-### Example Output
-```json
-{
-  "decision": "HOLD",
-  "confidence": 0.65,
-  "time_horizon": "Long-term",
-  "reasoning": "The signal is mixed: macro conditions are unfavorable, but company-specific fundamentals remain strong. A Buffett-style framework would avoid overreacting to short-term macro noise.",
-  "key_risk": "Persistent high interest rates could continue to pressure valuation multiples."
-}
-```
+### Boundary
+This agent does not perform full valuation, full portfolio construction, or final buy/sell execution logic.
 
 ---
 
-## Optional Future Agent: Risk Agent
+## 4. Reviewer Agent
 
 ### Purpose
-Adjust confidence and flag downside risks before the final decision is presented.
+Challenge the triage card before it reaches the user.
 
 ### Responsibility
-The Risk Agent reviews the Aggregation Agent and Decision Agent outputs to identify concentration risk, uncertainty, downside scenarios, and missing information.
+The Reviewer Agent checks whether the triage output is evidence-grounded, specific, and actionable.
+
+### Review Questions
+The Reviewer Agent should challenge:
+
+1. Is the evidence too generic?
+2. Is the output relying on broad macro noise instead of ticker-specific signals?
+3. Does the reasoning jump beyond the evidence?
+4. Is key counter-evidence missing?
+5. Is the next action concrete enough to be useful?
 
 ### Output
 ```json
 {
-  "risk_level": "Low | Medium | High",
-  "confidence_adjustment": -0.1,
-  "risk_notes": [
-    "The decision depends heavily on one company-specific positive event.",
-    "Macro conditions remain uncertain."
-  ]
+  "evidence_too_generic": false,
+  "missing_target_specific_signal": false,
+  "reasoning_jump": false,
+  "next_action_too_vague": false,
+  "summary": "The triage case is mostly well supported, but valuation sensitivity should remain explicit.",
+  "should_flag_human_review": false
 }
 ```
 
-This agent is not required for the first implementation. It is a natural extension if the system needs stronger risk control.
+### Boundary
+This agent does not replace the Triage Agent. It critiques and adjusts confidence, but it does not own the primary triage decision.
+
+---
+
+## 5. Evaluation Agent
+
+### Purpose
+Turn daily usage and human review into a feedback loop.
+
+### Responsibility
+The Evaluation Agent analyzes stored triage runs and human feedback to identify failure patterns and measure usefulness.
+
+### Core Metrics
+
+- `precision@3`: how many top-3 names were actually worth reviewing
+- `overlap@3`: overlap between system top-3 and human top-3
+- `miss_rate`: important names the system failed to rank highly
+- `specificity_rate`: share of top names supported by ticker-specific evidence
+- `reasoning_pass_rate`: share of top names without clear reasoning jumps
+- `follow_through_rate`: share of top names that still looked worth tracking after short follow-up
+
+### Boundary
+This agent does not generate the watchlist itself. It exists to improve later runs.
 
 ---
 
 ## End-to-End Flow
 
 ```text
-Raw Market Event
-      ↓
-Event Collector Agent
-      ↓
-Event Structuring Agent
-      ↓
-Aggregation Agent
-      ↓
-Decision Agent
-      ↓
-Final Investment Decision
+Watchlist
+  -> Retrieval Agent
+  -> Event Structuring Agent
+  -> Triage Agent
+  -> Reviewer Agent
+  -> Ranked Triage Output
+  -> Human Review
+  -> Evaluation Agent
+  -> Prompt / retrieval / workflow improvements
 ```
 
 ---
 
-## Minimal Demo Flow
+## Ledger and Feedback Loop
 
-### Input
+Every triage run should be persisted.
+
+For each ticker, the system should store:
+
+- run date
+- retrieved evidence
+- reranked evidence
+- structured events
+- final triage card
+- reviewer findings
+- model and prompt versions
+
+Human review should then add:
+
+- whether the ticker was actually worth reviewing
+- whether the evidence was ticker-specific
+- whether the reasoning was sound
+- whether an important ticker was missed
+- whether follow-up evidence over the next 1-3 days supported the priority
+
+This creates the core feedback loop:
+
 ```text
-Apple reports stronger-than-expected earnings, but the Fed signals that interest rates may stay high for longer.
+triage
+  -> human review
+  -> short-term follow-up
+  -> failure analysis
+  -> system update
 ```
 
-### Event Structuring Output
-```json
-[
-  {
-    "event_type": "Company",
-    "direction": "Positive",
-    "importance": "High",
-    "time_horizon": "Long-term",
-    "reasoning": "Stronger earnings suggest durable business performance."
-  },
-  {
-    "event_type": "Macro",
-    "direction": "Negative",
-    "importance": "High",
-    "time_horizon": "Short-term",
-    "reasoning": "Higher rates can pressure equity valuations."
-  }
-]
-```
-
-### Aggregation Output
-```json
-{
-  "macro_score": -3,
-  "company_score": 3,
-  "net_score": 0,
-  "dominant_driver": "Mixed signal",
-  "conflicts": [
-    "Company fundamentals are positive, but macro conditions are negative."
-  ]
-}
-```
-
-### Final Decision Output
-```json
-{
-  "decision": "HOLD",
-  "confidence": 0.65,
-  "reasoning": "The company-specific signal is strong, but macro uncertainty offsets the near-term upside. A long-term investor would monitor valuation rather than overreacting.",
-  "key_risk": "If high interest rates persist, valuation multiples may compress."
-}
-```
+This is the project's main notion of "closed loop." The loop is not "did the stock go up?" The loop is "did the system help the researcher focus attention on the right names, for the right reasons, and can we improve it when it fails?"
 
 ---
+
+## Minimal Success Criteria
+
+The first useful version of this project should be able to:
+
+1. read a watchlist of 10-20 tickers
+2. retrieve recent evidence for each ticker
+3. produce a triage card for each ticker
+4. rank the watchlist by research priority
+5. store the output in a ledger
+6. accept human review feedback
+7. report simple usefulness metrics over multiple runs
+
+---
+
+## What This Project Is Not
+
+This project is not:
+
+- a fully autonomous trading system
+- a claim of consistent alpha generation
+- a substitute for valuation work, management assessment, or portfolio sizing
+- a generic chatbot for financial Q&A
+
+It is a research workflow system built to prioritize attention, preserve evidence, and learn from fast feedback.

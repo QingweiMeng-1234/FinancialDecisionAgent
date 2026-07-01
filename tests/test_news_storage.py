@@ -1,213 +1,103 @@
-import pytest
-import tempfile
 import os
-from datetime import datetime
 import sys
+import tempfile
+from datetime import datetime
+from types import SimpleNamespace
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from event_collector.news_storage import (
-    SQLiteNewsStore,
     NewsArticle,
+    SQLiteNewsStore,
+    compute_content_sha256,
+    normalize_url,
 )
 
 
 @pytest.fixture
 def temp_db():
-    """Create a temporary SQLite database for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "test_news.db")
-        yield db_path
+        yield os.path.join(tmpdir, "test_news.db")
 
 
 @pytest.fixture
 def storage(temp_db):
-    """Create a fresh SQLiteNewsStore for each test."""
     store = SQLiteNewsStore(db_path=temp_db)
     store.init_db()
     yield store
-    # Ensure connection is closed for cleanup
     store.close()
 
 
-def test_init_db_creates_schema(temp_db):
-    """Test that init_db creates the articles table."""
-    store = SQLiteNewsStore(db_path=temp_db)
-    store.init_db()
-    
-    # Verify table exists by attempting to insert
-    article = NewsArticle(
-        source="news",
-        title="Test Article",
-        description="Test description",
-        content="Full article content",
-        url="https://example.com/article",
-        published_at=datetime.now(),
-        summary=None,
-    )
-    store.save_article(article)
-    assert store.count_articles() == 1
-    store.close()
-
-
-def test_save_article(storage):
-    """Test saving a news article."""
-    article = NewsArticle(
-        source="news",
-        title="Bitcoin Surges",
-        description="Bitcoin rises to new highs",
-        content="Full article about bitcoin",
-        url="https://example.com/bitcoin",
-        published_at=datetime.now(),
-        summary=None,
-    )
-    
-    article_id = storage.save_article(article)
-    
-    assert article_id is not None
-    assert storage.count_articles() == 1
-
-
-def test_get_article(storage):
-    """Test retrieving a saved article."""
-    article = NewsArticle(
-        source="news",
-        title="ETH Analysis",
-        description="Ethereum technical analysis",
-        content="Ethereum is trading at $2000",
-        url="https://example.com/eth",
-        published_at=datetime.now(),
-        summary=None,
-    )
-    
-    article_id = storage.save_article(article)
-    retrieved = storage.get_article(article_id)
-    
-    assert retrieved is not None
-    assert retrieved.title == "ETH Analysis"
-    assert retrieved.url == "https://example.com/eth"
-
-
-def test_deduplication_on_url(storage):
-    """Test that saving the same URL twice only stores it once."""
-    article1 = NewsArticle(
-        source="news",
-        title="Market Update",
-        description="Daily update",
-        content="Market content",
-        url="https://example.com/market",
-        published_at=datetime.now(),
-        summary=None,
-    )
-    
-    article2 = NewsArticle(
-        source="news",
-        title="Market Update (Duplicate)",
-        description="Daily update duplicate",
-        content="Market content duplicate",
-        url="https://example.com/market",  # Same URL
-        published_at=datetime.now(),
-        summary=None,
-    )
-    
-    storage.save_article(article1)
-    storage.save_article(article2)
-    
-    assert storage.count_articles() == 1
-
-
-def test_list_articles(storage):
-    """Test retrieving all articles."""
-    articles = [
+def test_save_article_persists_content_to_file(storage):
+    article_id = storage.save_article(
         NewsArticle(
             source="news",
-            title=f"Article {i}",
-            description=f"Description {i}",
-            content=f"Content {i}",
-            url=f"https://example.com/article{i}",
+            title="Bitcoin Surges",
+            description="Bitcoin rises to new highs",
+            content="Full article about bitcoin",
+            url="https://example.com/bitcoin?utm_source=test",
             published_at=datetime.now(),
-            summary=None,
         )
-        for i in range(3)
-    ]
-    
-    for article in articles:
-        storage.save_article(article)
-    
-    retrieved = storage.list_articles()
-    assert len(retrieved) == 3
-    assert all(isinstance(a, NewsArticle) for a in retrieved)
-
-
-def test_delete_article(storage):
-    """Test deleting an article."""
-    article = NewsArticle(
-        source="news",
-        title="To Delete",
-        description="Temporary",
-        content="Temp content",
-        url="https://example.com/delete",
-        published_at=datetime.now(),
-        summary=None,
     )
-    
-    article_id = storage.save_article(article)
-    assert storage.count_articles() == 1
-    
-    storage.delete_article(article_id)
-    assert storage.count_articles() == 0
+
+    record = storage.get_article_record(article_id)
+    assert record is not None
+    assert record.article.content == "Full article about bitcoin"
+    assert record.article.content_status == "ready"
+    assert os.path.exists(record.article.content_path)
+    assert record.article.normalized_url == "https://example.com/bitcoin"
 
 
-def test_search_by_source(storage):
-    """Test filtering articles by source."""
-    article1 = NewsArticle(
+def test_create_or_get_article_reference_dedupes_by_normalized_url(storage):
+    first_id, first_created = storage.create_or_get_article_reference(
         source="news",
-        title="News Article",
-        description="From news API",
-        content="News content",
-        url="https://example.com/news1",
-        published_at=datetime.now(),
-        summary=None,
-    )
-    
-    article2 = NewsArticle(
-        source="api",
-        title="API Article",
-        description="From market API",
-        content="API content",
-        url="https://example.com/api1",
-        published_at=datetime.now(),
-        summary=None,
-    )
-    
-    storage.save_article(article1)
-    storage.save_article(article2)
-    
-    news_articles = storage.list_articles(source="news")
-    assert len(news_articles) == 1
-    assert news_articles[0].title == "News Article"
-
-
-def test_article_with_summary_placeholder(storage):
-    """Test that articles can store summary (for future summarizer subagent)."""
-    article = NewsArticle(
-        source="news",
-        title="Long Article",
+        title="Market Update",
         description="Description",
-        content="Very long article content " * 100,
-        url="https://example.com/long",
+        original_url="https://example.com/article?utm_source=a",
         published_at=datetime.now(),
-        summary="This is a placeholder summary to be filled by summarizer.",
     )
-    
-    article_id = storage.save_article(article)
-    retrieved = storage.get_article(article_id)
-    
-    assert retrieved.summary == "This is a placeholder summary to be filled by summarizer."
+    second_id, second_created = storage.create_or_get_article_reference(
+        source="news",
+        title="Market Update Duplicate",
+        description="Description duplicate",
+        original_url="https://example.com/article?utm_source=b",
+        published_at=datetime.now(),
+    )
+
+    assert first_created is True
+    assert second_created is False
+    assert first_id == second_id
 
 
-def test_update_article_summary(storage):
-    """Test updating the stored summary for an existing article."""
+def test_update_article_content_sets_hash_and_resets_processing_states(storage):
+    article_id, _ = storage.create_or_get_article_reference(
+        source="news",
+        title="Needs Content",
+        description="Pending",
+        original_url="https://example.com/pending",
+        published_at=datetime.now(),
+    )
+    storage.update_article_summary(article_id, "- Existing summary")
+    storage.mark_article_processing_status(article_id, index_status="ready")
+
+    storage.update_article_content(
+        article_id,
+        content="Canonical full text for the article.",
+        canonical_url="https://example.com/canonical",
+    )
+
+    article = storage.get_article(article_id)
+    assert article.content == "Canonical full text for the article."
+    assert article.content_sha256 == compute_content_sha256("Canonical full text for the article.")
+    assert article.summary is None
+    assert article.summary_status == "pending"
+    assert article.index_status == "pending"
+    assert article.canonical_url == "https://example.com/canonical"
+
+
+def test_update_article_summary_marks_summary_ready(storage):
     article_id = storage.save_article(
         NewsArticle(
             source="news",
@@ -216,18 +106,48 @@ def test_update_article_summary(storage):
             content="Treasury yields rose after stronger than expected payrolls data.",
             url="https://example.com/rates",
             published_at=datetime.now(),
-            summary=None,
         )
     )
 
-    updated = storage.update_article_summary(article_id, "- Yields moved higher.\n- Payrolls data surprised to the upside.\n- Rates repriced quickly.")
+    updated = storage.update_article_summary(article_id, "- Yields moved higher.")
 
+    article = storage.get_article(article_id)
     assert updated is True
-    assert storage.get_article(article_id).summary.startswith("- Yields moved higher.")
+    assert article.summary == "- Yields moved higher."
+    assert article.summary_status == "ready"
 
 
-def test_list_article_records_missing_summary(storage):
-    """Test listing only articles that still need summarization."""
+def test_update_article_source_metadata_preserves_summary_and_content(storage):
+    article_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="Legacy row",
+            description="Only had internal URL before",
+            content="Stored content that should remain intact.",
+            url="internal://news/legacy-id",
+            published_at=datetime.now(),
+            summary="- Existing summary",
+        )
+    )
+
+    updated = storage.update_article_source_metadata(
+        article_id,
+        original_url="https://example.com/story?utm_source=test",
+        canonical_url="https://example.com/story",
+        title="Recovered headline",
+    )
+
+    article = storage.get_article(article_id)
+    assert updated is True
+    assert article.content == "Stored content that should remain intact."
+    assert article.summary == "- Existing summary"
+    assert article.original_url == "https://example.com/story?utm_source=test"
+    assert article.canonical_url == "https://example.com/story"
+    assert article.normalized_url == "https://example.com/story"
+    assert article.title == "Recovered headline"
+
+
+def test_list_article_records_missing_summary_only_returns_ready_content(storage):
     missing_id = storage.save_article(
         NewsArticle(
             source="news",
@@ -236,22 +156,83 @@ def test_list_article_records_missing_summary(storage):
             content="An article without a generated summary yet.",
             url="https://example.com/missing-summary",
             published_at=datetime.now(),
-            summary=None,
         )
     )
-    storage.save_article(
-        NewsArticle(
-            source="news",
-            title="Has Summary",
-            description="Complete summary",
-            content="An article with a generated summary already stored.",
-            url="https://example.com/has-summary",
-            published_at=datetime.now(),
-            summary="- Summary line 1\n- Summary line 2\n- Summary line 3",
-        )
+    failed_id, _ = storage.create_or_get_article_reference(
+        source="news",
+        title="Failed Content",
+        description="No full text",
+        original_url="https://example.com/failed",
+        published_at=datetime.now(),
     )
+    storage.mark_article_processing_status(failed_id, content_status="failed")
 
     missing = storage.list_article_records_missing_summary()
 
-    assert len(missing) == 1
-    assert missing[0].id == missing_id
+    assert [record.id for record in missing] == [missing_id]
+
+
+def test_normalize_url_strips_tracking_and_fragment():
+    assert normalize_url("https://Example.com/story/?utm_source=x&id=1#top") == "https://example.com/story?id=1"
+
+
+def test_watchlist_run_schema_adds_nullable_report_path_column(storage):
+    columns = {
+        row["name"]
+        for row in storage.conn.execute("PRAGMA table_info(watchlist_runs)").fetchall()
+    }
+
+    assert "report_path" in columns
+
+
+def test_save_and_fetch_watchlist_report_path(storage):
+    result = SimpleNamespace(
+        run_id="watch-1",
+        run_at=datetime(2026, 6, 5, 1, 0, 0),
+        tickers=["MSFT"],
+        top_n=1,
+        retrieval_top_k=5,
+        triage_model="triage",
+        reviewer_model="reviewer",
+        triage_prompt_version="triage-v1",
+        reviewer_prompt_version="reviewer-v1",
+        status="completed",
+        ranked_items=[
+            SimpleNamespace(
+                ticker="MSFT",
+                rank=1,
+            )
+        ],
+        items=[
+            SimpleNamespace(
+                ticker="MSFT",
+                evidence=[],
+                structured_signals=[],
+                structuring_attempts=[],
+                card=SimpleNamespace(
+                    priority=SimpleNamespace(value="High"),
+                    confidence=SimpleNamespace(value="High"),
+                    why_now="why now",
+                    next_action="next",
+                    key_evidence=[],
+                    counter_evidence=[],
+                    missing_questions=[],
+                ),
+                reviewer_finding=SimpleNamespace(
+                    should_flag_human_review=False,
+                    evidence_too_generic=False,
+                    missing_target_specific_signal=False,
+                    reasoning_jump=False,
+                    missing_counter_evidence=False,
+                    next_action_too_vague=False,
+                    summary="ok",
+                ),
+            )
+        ],
+    )
+
+    storage.save_watchlist_run(result)
+
+    assert storage.fetch_watchlist_report_path("watch-1") is None
+    assert storage.save_watchlist_report_path("watch-1", "reports/watchlist_triage/watch-1.md") is True
+    assert storage.fetch_watchlist_report_path("watch-1") == "reports/watchlist_triage/watch-1.md"

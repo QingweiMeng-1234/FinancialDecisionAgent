@@ -300,7 +300,7 @@ def test_answer_query_reranks_top_five_then_answers_from_best_three():
     assert [evidence.id for evidence in request.evidence] == [1, 2, 3]
     assert [evidence.title for evidence in request.evidence] == ["Article four", "Article two", "Article five"]
     assert request.evidence[0].summary == "- Summary four"
-    assert request.evidence[0].snippet == "- Summary four"
+    assert request.evidence[0].snippet == "Fourth article content."
     assert request.evidence[1].summary is None
     assert [item.candidate_id for item in result.rerank_metadata.ranked_candidates] == ["4", "2", "5", "1", "3"]
 
