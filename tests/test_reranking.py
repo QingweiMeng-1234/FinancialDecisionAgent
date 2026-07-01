@@ -62,6 +62,7 @@ def test_reranking_agent_accepts_valid_reordering_and_preserves_reasons():
     assert [item.candidate_id for item in result.ranked_candidates] == ["2", "1", "3"]
     assert result.ranked_candidates[0].reason.startswith("Most directly")
     assert client.calls[0].question == "Why is oil moving?"
+    assert client.calls[0].retrieval_intent == "direct"
 
 
 def test_reranking_agent_rejects_invented_candidate_ids():
@@ -136,3 +137,23 @@ def test_rerank_candidates_helper_uses_injected_agent():
 
     assert [item.candidate_id for item in result.ranked_candidates] == ["3", "1", "2"]
     assert all(item.reason for item in result.ranked_candidates)
+
+
+def test_reranking_agent_passes_indirect_intent_to_client():
+    client = FakeRerankingClient(
+        {
+            "ranked_candidates": [
+                {"candidate_id": "2", "reason": "Best indirect match."},
+                {"candidate_id": "1", "reason": "Still relevant."},
+                {"candidate_id": "3", "reason": "Less relevant."},
+            ]
+        }
+    )
+
+    RAGRerankingAgent(llm_client=client).rerank_candidates(
+        "How does this affect Microsoft?",
+        make_candidates(),
+        retrieval_intent="indirect",
+    )
+
+    assert client.calls[0].retrieval_intent == "indirect"

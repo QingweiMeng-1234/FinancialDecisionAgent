@@ -28,9 +28,10 @@ class FakeVectorStore:
 
 def test_main_generates_recommendation_and_report(monkeypatch, capsys):
     calls = {}
+    cli_path = "event_collector.cli.recommend_stock"
 
-    monkeypatch.setattr(recommend_stock, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(recommend_stock, "ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
 
     response = type(
         "Recommendation",
@@ -48,16 +49,23 @@ def test_main_generates_recommendation_and_report(monkeypatch, capsys):
         },
     )()
 
-    def fake_recommend_target(target, vector_store, storage, top_k=3):
-        calls["recommend"] = (target, vector_store.persist_dir, storage.db_path, top_k)
+    def fake_recommend_target(
+        target,
+        vector_store,
+        storage,
+        top_k=3,
+        retrieval_top_k=5,
+        retrieval_intent="direct",
+    ):
+        calls["recommend"] = (target, vector_store.persist_dir, storage.db_path, top_k, retrieval_top_k, retrieval_intent)
         return response
 
     def fake_write_report(target, response_obj, output_dir, debug_rerank=False, debug_aggregation=False):
         calls["report"] = (target, output_dir, debug_rerank, debug_aggregation)
         return os.path.join(output_dir, "report.md")
 
-    monkeypatch.setattr(recommend_stock, "recommend_target", fake_recommend_target)
-    monkeypatch.setattr(recommend_stock, "write_recommendation_report", fake_write_report)
+    monkeypatch.setattr(f"{cli_path}.recommend_target", fake_recommend_target)
+    monkeypatch.setattr(f"{cli_path}.write_recommendation_report", fake_write_report)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = recommend_stock.main(
@@ -74,14 +82,17 @@ def test_main_generates_recommendation_and_report(monkeypatch, capsys):
 
         assert result == 0
         assert calls["recommend"][0] == "MSFT"
+        assert calls["recommend"][4] == 5
+        assert calls["recommend"][5] == "direct"
         assert calls["report"][0] == "MSFT"
         assert "Report saved to:" in captured.out
         assert "Decision: HOLD" in captured.out
 
 
 def test_main_handles_empty_database(monkeypatch, capsys):
-    monkeypatch.setattr(recommend_stock, "SQLiteNewsStore", EmptyStorage)
-    monkeypatch.setattr(recommend_stock, "ChromaVectorStore", FakeVectorStore)
+    cli_path = "event_collector.cli.recommend_stock"
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", EmptyStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
 
     result = recommend_stock.main(["--target", "MSFT"])
     captured = capsys.readouterr()
@@ -91,13 +102,14 @@ def test_main_handles_empty_database(monkeypatch, capsys):
 
 
 def test_main_surfaces_recommendation_error(monkeypatch, capsys):
-    monkeypatch.setattr(recommend_stock, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(recommend_stock, "ChromaVectorStore", FakeVectorStore)
+    cli_path = "event_collector.cli.recommend_stock"
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
 
-    def fake_recommend_target(target, vector_store, storage, top_k=3):
+    def fake_recommend_target(target, vector_store, storage, top_k=3, retrieval_top_k=5, retrieval_intent="direct"):
         raise RuntimeError("recommendation unavailable")
 
-    monkeypatch.setattr(recommend_stock, "recommend_target", fake_recommend_target)
+    monkeypatch.setattr(f"{cli_path}.recommend_target", fake_recommend_target)
 
     result = recommend_stock.main(["--target", "MSFT"])
     captured = capsys.readouterr()

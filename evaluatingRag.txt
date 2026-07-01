@@ -1,0 +1,138 @@
+How to evaluate faithfulness:
+
+Input:
+Question + Retreived docs + answer
+
+Steps:
+1. LLM  breaks the answer into individual claims (bullet points)
+2. Compare it with the Retreived docs: Is each claim supported by the Retreived doc?
+3. score = supported claims/all claims
+
+In short, this is to evaluate: how much Relevance can llm Retreive from the given context.
+
+How to evaluate Answer Relevance?
+
+Input:
+Question + answer
+
+Steps:
+1. Use LLM to generate N questions based on the answer
+2. Find the cosine similarity beteween genereated questions and questions
+3. score = average similarity
+
+In short, it evaluates how well is the answer answering the question.
+
+
+How to evaluate context Relevance?
+
+Input: Question + Retreived doc
+
+Steps:
+1. Use LLM to pick the sentences that are useful to the answer.
+2. score = useful sentence / all sentence in Retreived docs.
+
+in short, the more focus, the higher score is. 
+
+More Question:
+Use LLM to score what itself does, would that self-grade?
+54 llms, 2000 rag output.
+NVidia experiement to test the relevance between human 标注 v.s. llm 标注,
+and found high correlation.
+
+llama 3 70B relativitity reach 0.88, higher than human beings.
+
+but there are some issues:
+1. 位置偏差。对于同一个问题，如果rag答案A1和rag答案A2换顺序，score会降低很多
+Example:
+
+Original order:
+
+Answer A
+Answer B
+
+Judge says: A is better
+
+Swapped order:
+
+Answer B
+Answer A
+
+Judge says: B is better
+2. 冗长偏差：越长越被偏好
+3. 自我偏好：模型系统性的为自己的/同一家族的输出打高分
+
+解决方案：
+1. 约束条件下的最优解
+2. 传统指标评不了语义，而人评不过来量。
+3. 所以LLM当裁判 + 偏差环节 + 人工校准
+
+具体方案：
+1. 工程手段：
+    1. A B答案顺序各评一次
+    2. 评分标准中加简洁性维度，解决冗长偏差。
+    3. 不同模型家族当裁判解决自我偏好
+
+2. 用微调小模型做裁判。
+3. 人机混合：
+    1. 大部分样本自动评，高风险和边界case叫人工审核。
+
+实际工作怎么评估：分层测试
+1. 单独测retriever
+2. 单独测generator
+3. 测e2e
+
+前提：先造一个黄金测试集（20-50条）
+
+测retriever的时候，你需要知道哪些文档是正确的才能算precision/recall
+每条包含：用户问题，对应正确的文档是哪些，以及标准答案。覆盖常见问题，多文档综合题，知识库里面没有答案的题，以及信息过时没答案的题
+第一层：测retriever:
+Precision@K: Top-K里面多少相关的
+Recall@K：相关文档被找到了几个？
+MRR：第一个相关文档排第几
+NDCG：相关文档拍的越靠前分越高
+第二层：单独测generator
+跳过retreiver,直接喂完美文档
+测faithfullness + Answer Relevance
+完美上下文仍出错 -》generator问题
+
+第三层：端到端。诊断矩阵
+诊断矩阵
+
+┌────────┬───────────┬───────────┬──────────────────────────────┐
+│ 端到端 │ Retriever │ Generator │ 问题在哪                     │
+├────────┼───────────┼───────────┼──────────────────────────────┤
+│ 差     │ 好        │ 好        │ 交互问题（上下文截断）       │
+│ 差     │ 差        │ 好        │ 检索问题（调 embedding）     │
+│ 差     │ 好        │ 差        │ 生成问题（调 prompt）        │
+│ 差     │ 差        │ 差        │ 全都得调                     │
+└────────┴───────────┴───────────┴──────────────────────────────┘
+工具：RAGAS，DeepEval
+面试回答：
+1. 第一层用RAGAS/DeepEval做自动化初筛，快速发现明显问题
+2. 第二层积累领域定制测试集(gold testing set)，把真实的失败case不断加进去，这才是团队最宝贵的资产
+3. 第三层人工抽检，高风险系统不可能省略这一步。
+
+RAG的七个失败模式
+1. 检索侧：
+    1. 内容缺失
+    2. 排名太低
+    3. 上下文截断
+
+2. 生成侧：
+    1. 提取失败
+    2. 格式错误
+    3. 粒度不当
+    4. 回答不完整
+
+
+面试回答框架（5层）
+
+① 评估维度：三大核心维度
+
+② 方法论：分层测 + 诊断矩阵
+
+③ LLM-as-Judge 局限 + 缓解（及格线）
+
+④ 工具选择（诚实评价）
+
+⑤ 三层叠加方案（加分项 · 优秀线）

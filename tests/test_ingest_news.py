@@ -3,96 +3,68 @@ import ingest_news
 
 def test_main_runs_ingestion_only(monkeypatch, capsys):
     calls = {}
+    cli_path = "event_collector.cli.ingest_news"
 
-    class FakeStorage:
-        def __init__(self, db_path):
-            calls["db_path"] = db_path
+    def fake_run_news_pipeline(request):
+        calls["request"] = request
+        return type(
+            "Result",
+            (),
+            {
+                "collected_events": 2,
+                "stats": {
+                    "total_events": 2,
+                    "saved": 2,
+                    "summarized": 2,
+                    "indexed": 2,
+                    "skipped": 0,
+                },
+                "total_articles": 4,
+                "answer_text": None,
+            },
+        )()
 
-        def init_db(self):
-            calls["init_db"] = True
-
-        def count_articles(self):
-            return 4
-
-        def close(self):
-            calls["closed"] = True
-
-    class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name):
-            calls["persist_dir"] = persist_dir
-            calls["collection_name"] = collection_name
-
-    monkeypatch.setattr(ingest_news, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(ingest_news, "ChromaVectorStore", FakeVectorStore)
-    monkeypatch.setattr(ingest_news, "ManualCollector", lambda: "manual")
-    monkeypatch.setattr(ingest_news, "NewsCollector", lambda: "news")
-    monkeypatch.setattr(ingest_news, "collect_from_all_sources", lambda collectors: type("Batch", (), {"events": [1, 2]})())
-    monkeypatch.setattr(
-        ingest_news,
-        "ingest_events_to_storage",
-        lambda batch, storage, vector_store: {
-            "total_events": 2,
-            "saved": 2,
-            "summarized": 2,
-            "indexed": 2,
-            "skipped": 0,
-        },
-    )
+    monkeypatch.setattr(f"{cli_path}.run_news_pipeline", fake_run_news_pipeline)
 
     result = ingest_news.main([])
     captured = capsys.readouterr()
 
     assert result == 0
     assert "Ready for grounded RAG queries." in captured.out
+    assert "Collected 2 events" in captured.out
     assert "Summarized:    2" in captured.out
-    assert calls["closed"] is True
+    assert calls["request"].db_path == "news_articles.db"
+    assert calls["request"].persist_dir == "./chroma_data"
+    assert calls["request"].include_manual is False
+    assert calls["request"].news_endpoint == "everything"
+    assert calls["request"].news_days_back == 7
+    assert calls["request"].show_progress is True
 
 
 def test_main_runs_question_after_ingestion(monkeypatch, capsys):
     calls = {}
+    cli_path = "event_collector.cli.ingest_news"
 
-    class FakeStorage:
-        def __init__(self, db_path):
-            self.db_path = db_path
+    def fake_run_news_pipeline(request):
+        calls["request"] = request
+        return type(
+            "Result",
+            (),
+            {
+                "collected_events": 1,
+                "stats": {
+                    "total_events": 1,
+                    "saved": 1,
+                    "summarized": 1,
+                    "indexed": 1,
+                    "skipped": 0,
+                },
+                "total_articles": 1,
+                "answer_text": "formatted grounded answer",
+            },
+        )()
 
-        def init_db(self):
-            return None
-
-        def count_articles(self):
-            return 1
-
-        def close(self):
-            calls["closed"] = True
-
-    class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name):
-            self.persist_dir = persist_dir
-            self.collection_name = collection_name
-
-    monkeypatch.setattr(ingest_news, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(ingest_news, "ChromaVectorStore", FakeVectorStore)
-    monkeypatch.setattr(ingest_news, "ManualCollector", lambda: "manual")
-    monkeypatch.setattr(ingest_news, "NewsCollector", lambda: "news")
-    monkeypatch.setattr(ingest_news, "collect_from_all_sources", lambda collectors: type("Batch", (), {"events": [1]})())
-    monkeypatch.setattr(
-        ingest_news,
-        "ingest_events_to_storage",
-        lambda batch, storage, vector_store: {
-            "total_events": 1,
-            "saved": 1,
-            "summarized": 1,
-            "indexed": 1,
-            "skipped": 0,
-        },
-    )
-
-    def fake_run_question(question, vector_store, top_k=3, debug_rerank=False):
-        calls["question"] = question
-        calls["top_k"] = top_k
-        calls["debug_rerank"] = debug_rerank
-        return "formatted grounded answer"
-
-    monkeypatch.setattr(ingest_news, "run_question", fake_run_question)
+    monkeypatch.setattr(f"{cli_path}.run_news_pipeline", fake_run_news_pipeline)
 
     result = ingest_news.main(["--question", "What changed?", "--top-k", "5", "--debug-rerank"])
     captured = capsys.readouterr()
@@ -100,34 +72,71 @@ def test_main_runs_question_after_ingestion(monkeypatch, capsys):
     assert result == 0
     assert "Grounded RAG Answer:" in captured.out
     assert "formatted grounded answer" in captured.out
-    assert calls["question"] == "What changed?"
-    assert calls["top_k"] == 5
-    assert calls["debug_rerank"] is True
-    assert calls["closed"] is True
+    assert calls["request"].question == "What changed?"
+    assert calls["request"].top_k == 5
+    assert calls["request"].debug_rerank is True
+
+
+def test_main_supports_batch_ingest_flags(monkeypatch, capsys):
+    calls = {}
+    cli_path = "event_collector.cli.ingest_news"
+
+    def fake_run_news_pipeline(request):
+        calls["request"] = request
+        return type(
+            "Result",
+            (),
+            {
+                "collected_events": 1,
+                "stats": {
+                    "total_events": 1,
+                    "saved": 1,
+                    "summarized": 1,
+                    "indexed": 1,
+                    "skipped": 0,
+                },
+                "total_articles": 1,
+                "answer_text": None,
+            },
+        )()
+
+    monkeypatch.setattr(f"{cli_path}.run_news_pipeline", fake_run_news_pipeline)
+
+    result = ingest_news.main(
+        [
+            "--include-manual",
+            "--news-endpoint",
+            "top-headlines",
+            "--news-days-back",
+            "3",
+            "--news-page",
+            "2",
+            "--news-sort-by",
+            "popularity",
+            "--news-page-size",
+            "25",
+            "--no-progress",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert result == 0
+    assert "Collected 1 events" in captured.out
+    assert calls["request"].include_manual is True
+    assert calls["request"].news_endpoint == "top-headlines"
+    assert calls["request"].news_days_back == 3
+    assert calls["request"].news_page == 2
+    assert calls["request"].news_sort_by == "popularity"
+    assert calls["request"].news_page_size == 25
+    assert calls["request"].show_progress is False
 
 
 def test_main_surfaces_ingestion_or_query_errors(monkeypatch, capsys):
-    class FakeStorage:
-        def __init__(self, db_path):
-            self.db_path = db_path
-
-        def init_db(self):
-            return None
-
-        def close(self):
-            return None
-
-    class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name):
-            self.persist_dir = persist_dir
-            self.collection_name = collection_name
-
-    monkeypatch.setattr(ingest_news, "SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(ingest_news, "ChromaVectorStore", FakeVectorStore)
-    monkeypatch.setattr(ingest_news, "ManualCollector", lambda: "manual")
-    monkeypatch.setattr(ingest_news, "NewsCollector", lambda: "news")
-    monkeypatch.setattr(ingest_news, "collect_from_all_sources", lambda collectors: type("Batch", (), {"events": [1]})())
-    monkeypatch.setattr(ingest_news, "ingest_events_to_storage", lambda batch, storage, vector_store: (_ for _ in ()).throw(RuntimeError("ingest failed")))
+    cli_path = "event_collector.cli.ingest_news"
+    monkeypatch.setattr(
+        f"{cli_path}.run_news_pipeline",
+        lambda request: (_ for _ in ()).throw(RuntimeError("ingest failed")),
+    )
 
     result = ingest_news.main([])
     captured = capsys.readouterr()

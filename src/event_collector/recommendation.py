@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+import json
+import logging
 import os
 import re
 from typing import Any, Protocol
@@ -12,6 +14,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field, field_validator
 
 from event_collector.event_structuring import (
+    EventStructuringAgent,
     EventDirection,
     EventImportance,
     EventType,
@@ -23,27 +26,29 @@ from event_collector.openai_client_base import OpenAIStructuredOutputClient
 from event_collector.rag_answering import (
     ConfidenceLevel,
     RAGSource,
-    RetrievedEvidence,
-    build_retrieved_evidence,
-    build_rerank_candidates,
-    reorder_search_results,
+)
+from event_collector.retrieval_execution import RetrievalWorkItem, execute_retrieval_batch
+from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT, RetrievalIntent, normalize_retrieval_intent
+from event_collector.retrieval_orchestration import (
+    DEFAULT_EXCERPT_CHARS,
+    DEFAULT_RETRIEVAL_TOP_K,
+    DEFAULT_SNIPPET_CHARS,
+    RetrievedArticleEvidence,
+    resolve_article_id,
 )
 from event_collector.reranking import (
-    DEFAULT_RERANK_TOP_K,
     RAGRerankingAgent,
     RerankMetadata,
-    rerank_candidates,
 )
+from event_collector.structuring_runtime import ensure_article_structured
 from event_collector.vector_store import VectorStore
 
 
 DEFAULT_TOP_K = 3
-DEFAULT_RETRIEVAL_TOP_K = DEFAULT_RERANK_TOP_K
-DEFAULT_EXCERPT_CHARS = 700
-DEFAULT_SNIPPET_CHARS = 220
 DEFAULT_REPORTS_DIR = os.path.join("reports", "recommendations")
 GENERAL_MARKET_SLUG = "general-market"
 GENERAL_MARKET_LABEL = "General Market"
+logger = logging.getLogger(__name__)
 
 
 class RecommendationDecision(str, Enum):
@@ -144,7 +149,7 @@ class RecommendationLLMClient(Protocol):
 class OpenAIRecommendationClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for Buffett-lens recommendations."""
 
-    DEFAULT_MODEL = "gpt-5.4"
+    DEFAULT_MODEL = "deepseek-v4-pro"
     MODEL_ENV_VAR = "OPENAI_ANSWER_MODEL"
     MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for recommendation generation"
     REFUSAL_ERROR_PREFIX = "OpenAI refused recommendation request"
@@ -156,6 +161,35 @@ class OpenAIRecommendationClient(OpenAIStructuredOutputClient):
             user_content=_format_recommendation_request(request),
             response_format=RecommendationResponse,
         )
+
+
+class DeepSeekRecommendationClient(OpenAIStructuredOutputClient):
+    """DeepSeek structured-output adapter for Buffett-lens recommendations."""
+
+    API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+    BASE_URL_ENV_VAR = "DEEPSEEK_BASE_URL"
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-pro"
+    MODEL_ENV_VAR = "DEEPSEEK_RECOMMENDATION_MODEL"
+    FALLBACK_TO_OPENAI_MODEL = False
+    MISSING_KEY_MESSAGE = "DEEPSEEK_API_KEY is required for recommendation generation"
+    REFUSAL_ERROR_PREFIX = "DeepSeek refused recommendation request"
+    EMPTY_RESPONSE_MESSAGE = "DeepSeek returned no parsed recommendation"
+
+    def recommend(self, request: RecommendationDecisionRequest) -> RecommendationResponse:
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": DEEPSEEK_RECOMMENDATION_SYSTEM_PROMPT},
+                {"role": "user", "content": _format_recommendation_request(request)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        message = completion.choices[0].message
+        content = " ".join((getattr(message, "content", "") or "").split()).strip()
+        if not content:
+            raise RuntimeError(self.EMPTY_RESPONSE_MESSAGE)
+        return RecommendationResponse.model_validate(json.loads(content))
 
 
 RECOMMENDATION_SYSTEM_PROMPT = """
@@ -176,11 +210,39 @@ Requirements:
 """.strip()
 
 
+DEEPSEEK_RECOMMENDATION_SYSTEM_PROMPT = """
+You are the Decision Agent for a financial news system using a Buffett-style lens.
+
+Return only valid json matching this schema:
+{
+  "decision": "BUY",
+  "confidence": "high",
+  "time_horizon": "Long-term",
+  "reasoning": "short reasoning",
+  "key_risks": ["risk 1"],
+  "insufficient_evidence": false,
+  "sources": [],
+  "aggregation": null
+}
+
+Requirements:
+- Use only the supplied evidence. Do not use outside knowledge.
+- This is a news-grounded recommendation, not a full intrinsic-value appraisal.
+- Acknowledge when long-term fundamentals, valuation, moat, or management information are missing.
+- Separate short-term news noise from durable business impairment when possible.
+- Prefer HOLD when evidence is mixed, weak, mostly macro, or insufficiently target-specific.
+- If evidence is insufficient, set insufficient_evidence to true and keep confidence low.
+- Return only BUY, HOLD, or SELL.
+- key_risks must contain at most 3 concise items.
+- Only include sources that were actually relevant to the reasoning.
+""".strip()
+
+
 class RecommendationAgent:
     """Produces a Buffett-lens recommendation from aggregated news signals."""
 
     def __init__(self, llm_client: RecommendationLLMClient | None = None):
-        self.llm_client = llm_client or OpenAIRecommendationClient()
+        self.llm_client = llm_client or DeepSeekRecommendationClient()
 
     def recommend(self, request: RecommendationDecisionRequest) -> RecommendationResponse:
         raw_response = self.llm_client.recommend(request)
@@ -197,16 +259,38 @@ def recommend_target(
     snippet_chars: int = DEFAULT_SNIPPET_CHARS,
     recommendation_agent: RecommendationAgent | None = None,
     reranking_agent: RAGRerankingAgent | None = None,
+    structuring_agent: EventStructuringAgent | None = None,
+    retrieval_intent: RetrievalIntent = DEFAULT_RETRIEVAL_INTENT,
 ) -> RecommendationResponse:
     """Retrieve evidence, aggregate target-specific signals, and recommend."""
     normalized_target = normalize_target(target)
-    search_results = vector_store.search(target, top_k=max(top_k, retrieval_top_k))
-    candidates = build_rerank_candidates(
-        search_results,
-        max_results=max(top_k, retrieval_top_k),
-        snippet_chars=snippet_chars,
-    )
-    if not candidates:
+    retrieval_intent = normalize_retrieval_intent(retrieval_intent)
+    retrieval_result = execute_retrieval_batch(
+        [
+            RetrievalWorkItem(
+                key=normalized_target,
+                query=target,
+                top_k=top_k,
+                retrieval_top_k=retrieval_top_k,
+                excerpt_chars=excerpt_chars,
+                snippet_chars=snippet_chars,
+                retrieval_intent=retrieval_intent,
+            )
+        ],
+        vector_store,
+        reranking_agent=reranking_agent,
+        max_concurrency=1,
+    )[0]
+    if not retrieval_result.succeeded or retrieval_result.bundle is None:
+        return _build_insufficient_recommendation(
+            target=target,
+            reason=(
+                "I could not complete retrieval for this target, so I do not have enough "
+                "news-grounded evidence to make a disciplined recommendation yet."
+            ),
+        )
+    bundle = retrieval_result.bundle
+    if not bundle.evidence:
         return _build_insufficient_recommendation(
             target=target,
             reason=(
@@ -215,20 +299,13 @@ def recommend_target(
             ),
         )
 
-    rerank_metadata = rerank_candidates(
-        target,
-        candidates,
-        reranking_agent=reranking_agent,
+    recommendation_evidence = build_recommendation_evidence(bundle.evidence)
+    aggregation = aggregate_recommendation_signals(
+        normalized_target,
+        recommendation_evidence,
+        storage,
+        structuring_agent=structuring_agent,
     )
-    reranked_results = reorder_search_results(search_results, rerank_metadata)
-    retrieved_evidence = build_retrieved_evidence(
-        reranked_results,
-        max_results=top_k,
-        excerpt_chars=excerpt_chars,
-        snippet_chars=snippet_chars,
-    )
-    recommendation_evidence = build_recommendation_evidence(reranked_results, retrieved_evidence)
-    aggregation = aggregate_recommendation_signals(normalized_target, recommendation_evidence, storage)
 
     if aggregation is None:
         response = _build_insufficient_recommendation(
@@ -238,7 +315,7 @@ def recommend_target(
                 "evidence to support a disciplined recommendation."
             ),
         )
-        response.rerank_metadata = rerank_metadata
+        response.rerank_metadata = bundle.rerank_metadata
         return response
 
     if aggregation.target_specific_event_count == 0 and normalized_target != GENERAL_MARKET_SLUG:
@@ -251,7 +328,7 @@ def recommend_target(
             aggregation=aggregation,
             sources=_build_sources_from_evidence(recommendation_evidence),
         )
-        response.rerank_metadata = rerank_metadata
+        response.rerank_metadata = bundle.rerank_metadata
         return response
 
     agent = recommendation_agent or RecommendationAgent()
@@ -263,36 +340,34 @@ def recommend_target(
         )
     )
     response.aggregation = aggregation
-    response.rerank_metadata = rerank_metadata
+    response.rerank_metadata = bundle.rerank_metadata
     return response
 
 
 def build_recommendation_evidence(
-    reranked_results: list[dict],
-    retrieved_evidence: list[RetrievedEvidence],
+    retrieved_evidence: list[RetrievedArticleEvidence],
 ) -> list[RecommendationEvidence]:
-    """Attach article IDs and published timestamps to retrieved evidence."""
-    evidence = []
-    for result, item in zip(reranked_results[: len(retrieved_evidence)], retrieved_evidence):
-        evidence.append(
-            RecommendationEvidence(
-                article_id=int(result["id"]),
-                source_id=item.id,
-                title=item.title,
-                url=item.url,
-                summary=item.summary,
-                excerpt=item.excerpt,
-                snippet=item.snippet,
-                published_at=result.get("published_at"),
-            )
+    """Convert shared retrieval evidence into recommendation-specific evidence."""
+    return [
+        RecommendationEvidence(
+            article_id=item.article_id,
+            source_id=item.id,
+            title=item.title,
+            url=item.url,
+            summary=item.summary,
+            excerpt=item.excerpt,
+            snippet=item.snippet,
+            published_at=item.published_at,
         )
-    return evidence
+        for item in retrieved_evidence
+    ]
 
 
 def aggregate_recommendation_signals(
     target: str,
     evidence: list[RecommendationEvidence],
     storage: SQLiteNewsStore,
+    structuring_agent: EventStructuringAgent | None = None,
 ) -> AggregatedSignal | None:
     """Aggregate structured events relevant to the target from retrieved evidence."""
     target_events: list[AggregatedTargetEvent] = []
@@ -305,8 +380,17 @@ def aggregate_recommendation_signals(
     }
 
     for source in evidence:
-        events = storage.list_structured_events_for_article(source.article_id)
-        for event in events:
+        outcome = ensure_article_structured(
+            source.article_id,
+            storage,
+            structuring_agent=structuring_agent,
+            on_failure=lambda article_id, exc: logger.exception(
+                "Failed to structure article %s during recommendation run for target %s",
+                article_id,
+                display_target(target),
+            ),
+        )
+        for event in outcome.events:
             match = classify_target_match(target, event.affected_asset)
             if not match:
                 continue

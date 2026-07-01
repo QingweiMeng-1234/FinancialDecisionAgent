@@ -4,25 +4,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import json
 from typing import Any, Protocol
 
+from event_collector.entity_kb import SQLiteEntityStore
 from pydantic import BaseModel, Field, field_validator
 
 from event_collector.openai_client_base import OpenAIStructuredOutputClient
-from event_collector.reranking import (
-    DEFAULT_RERANK_TOP_K,
-    RAGRerankingAgent,
-    RerankCandidate,
+from event_collector.retrieval_execution import RetrievalWorkItem, execute_retrieval_batch
+from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT, RetrievalIntent, normalize_retrieval_intent
+from event_collector.retrieval_orchestration import (
+    DEFAULT_RETRIEVAL_TOP_K,
+    DEFAULT_EXCERPT_CHARS,
+    DEFAULT_SNIPPET_CHARS,
     RerankMetadata,
-    rerank_candidates,
+    RetrievedArticleEvidence,
+    build_retrieved_evidence as build_shared_retrieved_evidence,
 )
+from event_collector.reranking import RAGRerankingAgent
 from event_collector.vector_store import VectorStore
 
 
 DEFAULT_TOP_K = 3
-DEFAULT_RETRIEVAL_TOP_K = DEFAULT_RERANK_TOP_K
-DEFAULT_EXCERPT_CHARS = 700
-DEFAULT_SNIPPET_CHARS = 220
 
 
 class ConfidenceLevel(str, Enum):
@@ -106,7 +109,7 @@ class AnsweringLLMClient(Protocol):
 class OpenAIRAGAnsweringClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for grounded RAG answers."""
 
-    DEFAULT_MODEL = "gpt-5.4"
+    DEFAULT_MODEL = "deepseek-v4-pro"
     MODEL_ENV_VAR = "OPENAI_ANSWER_MODEL"
     MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for grounded RAG answering"
     REFUSAL_ERROR_PREFIX = "OpenAI refused grounded RAG answer request"
@@ -118,6 +121,35 @@ class OpenAIRAGAnsweringClient(OpenAIStructuredOutputClient):
             user_content=_format_request(request),
             response_format=RAGAnswerResponse,
         )
+
+
+class DeepSeekRAGAnsweringClient(OpenAIStructuredOutputClient):
+    """DeepSeek structured-output adapter for grounded RAG answers."""
+
+    API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+    BASE_URL_ENV_VAR = "DEEPSEEK_BASE_URL"
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-pro"
+    MODEL_ENV_VAR = "DEEPSEEK_ANSWER_MODEL"
+    FALLBACK_TO_OPENAI_MODEL = False
+    MISSING_KEY_MESSAGE = "DEEPSEEK_API_KEY is required for grounded RAG answering"
+    REFUSAL_ERROR_PREFIX = "DeepSeek refused grounded RAG answer request"
+    EMPTY_RESPONSE_MESSAGE = "DeepSeek returned no parsed RAG answer"
+
+    def answer_query(self, request: AnswerQueryRequest) -> RAGAnswerResponse:
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": DEEPSEEK_ANSWERING_SYSTEM_PROMPT},
+                {"role": "user", "content": _format_request(request)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        message = completion.choices[0].message
+        content = " ".join((getattr(message, "content", "") or "").split()).strip()
+        if not content:
+            raise RuntimeError(self.EMPTY_RESPONSE_MESSAGE)
+        return RAGAnswerResponse.model_validate(json.loads(content))
 
 
 ANSWERING_SYSTEM_PROMPT = """
@@ -136,11 +168,41 @@ Requirements:
 """.strip()
 
 
+DEEPSEEK_ANSWERING_SYSTEM_PROMPT = """
+You are the Grounded RAG Answering Agent for a financial news system.
+
+Return only valid json matching this schema:
+{
+  "answer": "grounded answer with [1] style citations when needed",
+  "sources": [
+    {"id": 1, "title": "source title", "url": "https://example.com", "snippet": "used snippet"}
+  ],
+  "confidence": "high",
+  "insufficient_evidence": false,
+  "supporting_points": [
+    {"text": "claim text", "citations": [1]}
+  ],
+  "counter_points": [
+    {"text": "counter text", "citations": [2]}
+  ]
+}
+
+Requirements:
+- Do not use outside knowledge.
+- Cite claims with numbered source references like [1] that match the provided source ids.
+- If evidence is conflicting, surface both supporting_points and counter_points.
+- If evidence is insufficient, say so clearly, set insufficient_evidence to true, and use low confidence.
+- confidence must reflect the strength of the retrieved evidence, not your own certainty.
+- Only include sources that were actually used in the answer or cited points.
+- supporting_points and counter_points must each cite at least one source id when present.
+""".strip()
+
+
 class RAGAnsweringAgent:
     """Turns retrieved article evidence into a grounded structured answer."""
 
     def __init__(self, llm_client: AnsweringLLMClient | None = None):
-        self.llm_client = llm_client or OpenAIRAGAnsweringClient()
+        self.llm_client = llm_client or DeepSeekRAGAnsweringClient()
 
     def answer_query(self, request: AnswerQueryRequest) -> RAGAnswerResponse:
         raw_response = self.llm_client.answer_query(request)
@@ -158,18 +220,34 @@ def answer_query(
     snippet_chars: int = DEFAULT_SNIPPET_CHARS,
     answering_agent: RAGAnsweringAgent | None = None,
     reranking_agent: RAGRerankingAgent | None = None,
+    company_kb: SQLiteEntityStore | None = None,
+    retrieval_intent: RetrievalIntent = DEFAULT_RETRIEVAL_INTENT,
 ) -> RAGAnswerResponse:
     """Retrieve evidence and generate a grounded answer."""
-    search_results = vector_store.search(question, top_k=max(top_k, retrieval_top_k))
-    candidates = build_rerank_candidates(
-        search_results,
-        max_results=max(top_k, retrieval_top_k),
-        snippet_chars=snippet_chars,
-    )
-
-    if not candidates:
+    retrieval_intent = normalize_retrieval_intent(retrieval_intent)
+    retrieval_result = execute_retrieval_batch(
+        [
+            RetrievalWorkItem(
+                key=question,
+                query=question,
+                top_k=top_k,
+                retrieval_top_k=retrieval_top_k,
+                excerpt_chars=excerpt_chars,
+                snippet_chars=snippet_chars,
+                retrieval_intent=retrieval_intent,
+            )
+        ],
+        vector_store,
+        reranking_agent=reranking_agent,
+        company_kb_provider=company_kb,
+        max_concurrency=1,
+    )[0]
+    bundle = retrieval_result.bundle if retrieval_result.succeeded else None
+    if bundle is None:
+        if retrieval_result.error_message:
+            raise RuntimeError(retrieval_result.error_message)
         return RAGAnswerResponse(
-            answer="I do not have enough retrieved evidence to answer that question yet.",
+            answer="I could not complete retrieval for that question, so I do not have enough evidence to answer yet.",
             sources=[],
             confidence=ConfidenceLevel.LOW,
             insufficient_evidence=True,
@@ -177,21 +255,7 @@ def answer_query(
             counter_points=[],
             rerank_metadata=None,
         )
-
-    rerank_metadata = rerank_candidates(
-        question,
-        candidates,
-        reranking_agent=reranking_agent,
-    )
-    reranked_results = reorder_search_results(search_results, rerank_metadata)
-    evidence = build_retrieved_evidence(
-        reranked_results,
-        max_results=top_k,
-        excerpt_chars=excerpt_chars,
-        snippet_chars=snippet_chars,
-    )
-
-    if not evidence:
+    if not bundle.evidence:
         return RAGAnswerResponse(
             answer="I do not have enough retrieved evidence to answer that question yet.",
             sources=[],
@@ -199,13 +263,22 @@ def answer_query(
             insufficient_evidence=True,
             supporting_points=[],
             counter_points=[],
-            rerank_metadata=rerank_metadata,
+            rerank_metadata=bundle.rerank_metadata,
         )
 
     agent = answering_agent or RAGAnsweringAgent()
-    response = agent.answer_query(AnswerQueryRequest(question=question, evidence=evidence))
-    response.rerank_metadata = rerank_metadata
+    response = agent.answer_query(
+        AnswerQueryRequest(
+            question=question,
+            evidence=_build_answering_evidence(bundle.evidence),
+        )
+    )
+    response.rerank_metadata = bundle.rerank_metadata
     return response
+
+
+def render_citation_list(citations: list[int]) -> str:
+    return " ".join(f"[{citation}]" for citation in citations)
 
 
 def build_retrieved_evidence(
@@ -214,67 +287,15 @@ def build_retrieved_evidence(
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
     snippet_chars: int = DEFAULT_SNIPPET_CHARS,
 ) -> list[RetrievedEvidence]:
-    """Convert raw vector-store results into compact promptable evidence."""
-    evidence = []
-    for index, result in enumerate(search_results[:max_results], start=1):
-        title = _clean_text(result.get("title", "Untitled"))
-        url = _clean_text(result.get("url", "N/A"))
-        summary = result.get("summary")
-        cleaned_summary = _clean_text(summary) if summary else None
-        content = _clean_text(result.get("content", ""))
-        excerpt = _truncate_text(content, excerpt_chars)
-        snippet_source = cleaned_summary or excerpt or title
-        snippet = _truncate_text(snippet_source, snippet_chars)
-        evidence.append(
-            RetrievedEvidence(
-                id=index,
-                title=title,
-                url=url,
-                summary=cleaned_summary,
-                excerpt=excerpt,
-                snippet=snippet,
-            )
+    """Backward-compatible answering evidence helper built on shared retrieval shaping."""
+    return _build_answering_evidence(
+        build_shared_retrieved_evidence(
+            search_results,
+            max_results=max_results,
+            excerpt_chars=excerpt_chars,
+            snippet_chars=snippet_chars,
         )
-    return evidence
-
-
-def build_rerank_candidates(
-    search_results: list[dict],
-    max_results: int = DEFAULT_RETRIEVAL_TOP_K,
-    snippet_chars: int = DEFAULT_SNIPPET_CHARS,
-) -> list[RerankCandidate]:
-    """Convert raw retrieval output into compact reranking candidates."""
-    candidates = []
-    for index, result in enumerate(search_results[:max_results], start=1):
-        title = _clean_text(result.get("title", "Untitled"))
-        summary = result.get("summary")
-        cleaned_summary = _clean_text(summary) if summary else None
-        content = _clean_text(result.get("content", ""))
-        snippet_source = cleaned_summary or content or title
-        snippet = _truncate_text(snippet_source, snippet_chars)
-        candidates.append(
-            RerankCandidate(
-                candidate_id=str(index),
-                title=title,
-                summary=cleaned_summary,
-                snippet=snippet,
-                original_rank=index,
-            )
-        )
-    return candidates
-
-
-def reorder_search_results(search_results: list[dict], rerank_metadata: RerankMetadata) -> list[dict]:
-    """Reorder raw retrieval results according to validated reranker output."""
-    indexed_results = {
-        str(index): result
-        for index, result in enumerate(search_results[: len(rerank_metadata.ranked_candidates)], start=1)
-    }
-    return [indexed_results[item.candidate_id] for item in rerank_metadata.ranked_candidates]
-
-
-def render_citation_list(citations: list[int]) -> str:
-    return " ".join(f"[{citation}]" for citation in citations)
+    )
 
 
 def _validate_response_citations(response: RAGAnswerResponse) -> None:
@@ -305,12 +326,15 @@ def _format_request(request: AnswerQueryRequest) -> str:
     )
 
 
-def _clean_text(value: str | None) -> str:
-    return " ".join((value or "").split()).strip()
-
-
-def _truncate_text(value: str, limit: int) -> str:
-    if len(value) <= limit:
-        return value
-    trimmed = value[:limit].rstrip()
-    return f"{trimmed}..."
+def _build_answering_evidence(evidence: list[RetrievedArticleEvidence]) -> list[RetrievedEvidence]:
+    return [
+        RetrievedEvidence(
+            id=item.id,
+            title=item.title,
+            url=item.url,
+            summary=item.summary,
+            excerpt=item.excerpt,
+            snippet=item.snippet,
+        )
+        for item in evidence
+    ]

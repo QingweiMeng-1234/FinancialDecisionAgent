@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
+from structure_events import run_structuring
 from event_collector.event_structuring import (
     ArticleForStructuring,
     EventDirection,
@@ -190,6 +191,29 @@ def test_structured_events_persist_with_evidence(storage):
     assert len(stored_events) == 1
     assert stored_events[0].article_id == article_id
     assert stored_events[0].evidence_excerpt == "Apple reported stronger-than-expected earnings."
+    status, _, error = storage.get_article_structuring_state(article_id)
+    assert status == "success"
+    assert error is None
+
+
+def test_zero_event_structuring_is_cached_as_success(storage):
+    article_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="No market impact",
+            description="Lifestyle content",
+            content="This article has enough text length but no investment-relevant signal at all.",
+            url="https://example.com/lifestyle",
+            published_at=datetime.now(),
+        )
+    )
+
+    storage.save_structured_events(article_id, [])
+
+    status, _, error = storage.get_article_structuring_state(article_id)
+    assert status == "success"
+    assert error is None
+    assert storage.list_unstructured_article_records() == []
 
 
 def test_batch_script_skips_existing_events_unless_force(storage):
@@ -255,3 +279,93 @@ def test_batch_script_skips_existing_events_unless_force(storage):
     forced = storage.list_article_records()
     assert unstructured == []
     assert len(forced) == 1
+
+
+def test_batch_script_skips_zero_event_articles_by_default(storage):
+    article_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="No market impact",
+            description="Lifestyle content",
+            content="This article has enough text length but no investment-relevant signal at all.",
+            url="https://example.com/lifestyle",
+            published_at=datetime.now(),
+        )
+    )
+    storage.mark_article_structuring_result(article_id, status="success")
+    summary = run_structuring(storage)
+
+    assert summary["skipped"] == 1
+    assert summary["processed"] == 0
+
+
+def test_batch_script_force_structure_replaces_existing_events(storage):
+    article_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="Force mode article",
+            description="Force mode article",
+            content="The stock market rallied after inflation cooled more than expected.",
+            url="https://example.com/force-mode",
+            published_at=datetime.now(),
+        )
+    )
+    initial_event = EventStructuringAgent(
+        llm_client=FakeStructuringClient(
+            {
+                "events": [
+                    {
+                        "event_type": "Market",
+                        "direction": "Positive",
+                        "importance": "Medium",
+                        "time_horizon": "Short-term",
+                        "affected_asset": "General Market",
+                        "reasoning": "Cooling inflation supported stocks.",
+                        "evidence_excerpt": "The stock market rallied after inflation cooled.",
+                    }
+                ]
+            }
+        )
+    ).structure_article(
+        ArticleForStructuring(
+            article_id=article_id,
+            title="Force mode article",
+            description="Force mode article",
+            content="The stock market rallied after inflation cooled more than expected.",
+            url="https://example.com/force-mode",
+        )
+    )
+    storage.save_structured_events(
+        article_id,
+        initial_event,
+    )
+    first_event_id = storage.list_structured_events_for_article(article_id)[0].event_id
+    force_agent = EventStructuringAgent(
+        llm_client=FakeStructuringClient(
+            {
+                "events": [
+                    {
+                        "event_type": "Market",
+                        "direction": "Negative",
+                        "importance": "High",
+                        "time_horizon": "Short-term",
+                        "affected_asset": "General Market",
+                        "reasoning": "Force rerun replaced the prior signal.",
+                        "evidence_excerpt": "Inflation re-accelerated in the latest reading.",
+                    }
+                ]
+            }
+        )
+    )
+
+    summary = run_structuring(storage, force_structure=True, agent=force_agent)
+    stored_events = storage.list_structured_events_for_article(article_id)
+    status, _, error = storage.get_article_structuring_state(article_id)
+
+    assert summary["processed"] == 1
+    assert summary["events_created"] == 1
+    assert len(stored_events) == 1
+    assert stored_events[0].event_id != first_event_id
+    assert stored_events[0].direction == EventDirection.NEGATIVE
+    assert status == "success"
+    assert error is None

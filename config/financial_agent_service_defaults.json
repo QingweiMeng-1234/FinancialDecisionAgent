@@ -1,0 +1,7 @@
+{
+  "query_top_k": 3,
+  "retrieval_top_k": 5,
+  "recommendation_top_k": 3,
+  "watchlist_top_n": 3,
+  "watchlist_retrieval_top_k": 5
+}

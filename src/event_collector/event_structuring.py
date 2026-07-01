@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import json
 import uuid
 from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
-from event_collector.errors import MissingOpenAIKeyError
 from event_collector.openai_client_base import OpenAIStructuredOutputClient
 
 
@@ -87,7 +87,7 @@ class StructuringLLMClient(Protocol):
 class OpenAIEventStructuringClient(OpenAIStructuredOutputClient):
     """OpenAI structured-output adapter for article event extraction."""
 
-    DEFAULT_MODEL = "gpt-5.4-mini"
+    DEFAULT_MODEL = "deepseek-v4-flash"
     MISSING_KEY_MESSAGE = "OPENAI_API_KEY is required for event structuring"
     REFUSAL_ERROR_PREFIX = "OpenAI refused event structuring request"
     EMPTY_RESPONSE_MESSAGE = "OpenAI returned no parsed structured events"
@@ -98,6 +98,38 @@ class OpenAIEventStructuringClient(OpenAIStructuredOutputClient):
             user_content=_format_article(article),
             response_format=StructuredEventResponse,
         )
+
+
+class DeepSeekEventStructuringClient(OpenAIStructuredOutputClient):
+    """DeepSeek JSON-output adapter for article event extraction."""
+
+    API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+    BASE_URL_ENV_VAR = "DEEPSEEK_BASE_URL"
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-pro"
+    MODEL_ENV_VAR = "DEEPSEEK_STRUCTURING_MODEL"
+    FALLBACK_TO_OPENAI_MODEL = False
+    MISSING_KEY_MESSAGE = "DEEPSEEK_API_KEY is required for event structuring"
+    REFUSAL_ERROR_PREFIX = "DeepSeek refused event structuring request"
+    EMPTY_RESPONSE_MESSAGE = "DeepSeek returned no parsed structured events"
+
+    def extract_events(self, article: ArticleForStructuring) -> StructuredEventResponse:
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": DEEPSEEK_STRUCTURING_SYSTEM_PROMPT},
+                {"role": "user", "content": _format_deepseek_article(article)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        message = completion.choices[0].message
+        content = " ".join((getattr(message, "content", "") or "").split()).strip()
+        if not content:
+            raise RuntimeError(self.EMPTY_RESPONSE_MESSAGE)
+        return StructuredEventResponse.model_validate(json.loads(content))
+
+
+STRUCTURING_PROMPT_VERSION = "event-structuring-v1"
 
 
 STRUCTURING_SYSTEM_PROMPT = """
@@ -116,11 +148,41 @@ Boundaries:
 """.strip()
 
 
+DEEPSEEK_STRUCTURING_SYSTEM_PROMPT = """
+You are the Event Structuring Agent for a financial news system.
+
+Convert article content into zero or more investment-relevant structured events.
+Return only valid json matching this schema:
+{
+  "events": [
+    {
+      "event_type": "Company",
+      "direction": "Positive",
+      "importance": "High",
+      "time_horizon": "Long-term",
+      "affected_asset": "AAPL",
+      "reasoning": "short reason",
+      "evidence_excerpt": "supporting excerpt"
+    }
+  ]
+}
+
+Requirements:
+- Return {"events": []} when the article has no clear market, macro, sector, or company signal.
+- Do not summarize the article.
+- Do not aggregate multiple articles.
+- Do not recommend BUY, HOLD, or SELL.
+- Do not invent facts not supported by the article.
+- Use evidence_excerpt to quote or closely paraphrase the source sentence that supports the label.
+- Use "General Market" when no specific ticker, company, sector, or asset is identified.
+""".strip()
+
+
 class EventStructuringAgent:
     """Turns article content into durable normalized market signals."""
 
     def __init__(self, llm_client: StructuringLLMClient | None = None):
-        self.llm_client = llm_client or OpenAIEventStructuringClient()
+        self.llm_client = llm_client or DeepSeekEventStructuringClient()
 
     def structure_article(self, article: ArticleForStructuring) -> list[StructuredEvent]:
         raw_response = self.llm_client.extract_events(article)
@@ -151,4 +213,11 @@ def _format_article(article: ArticleForStructuring) -> str:
         f"Title: {article.title}\n"
         f"Description: {article.description}\n"
         f"Content:\n{article.content}"
+    )
+
+
+def _format_deepseek_article(article: ArticleForStructuring) -> str:
+    return (
+        "Return structured events as json.\n\n"
+        f"{_format_article(article)}"
     )
