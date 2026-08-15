@@ -1,0 +1,29 @@
+tickers:
+  - ticker: CRWV
+    company_name: CoreWeave
+    aliases:
+      - CoreWeave Inc
+  - ticker: TSLA
+    company_name: Tesla
+    aliases:
+      - Tesla Inc
+  - ticker: MSFT
+    company_name: Microsoft
+    aliases:
+      - Microsoft Corp
+  - ticker: AAPL
+    company_name: Apple
+    aliases:
+      - Apple Inc
+  - ticker: ORCL
+    company_name: Oracle
+    aliases:
+      - Oracle Corp
+  - ticker: BRKB
+    company_name: Berkshire Hathaway
+    aliases:
+      - Berkshire
+  - ticker: GLW
+    company_name: Corning
+    aliases:
+      - Corning Inc
