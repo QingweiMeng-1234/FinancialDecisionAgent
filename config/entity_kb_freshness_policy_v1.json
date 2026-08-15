@@ -1,0 +1,25 @@
+{
+  "policy_type": "freshness",
+  "policy_version": "freshness.v1",
+  "schema_version": "1.0",
+  "effective_from": "2026-08-15T00:00:00Z",
+  "settings": {
+    "review_intervals_days": {
+      "ticker_canonical_identity": 365,
+      "key_executive": 30,
+      "company_alias": 180,
+      "product_ownership": 90,
+      "business_line": 180,
+      "theme_exposure": 90,
+      "supplier_customer_dependency": 90,
+      "competitor_substitute": 90
+    },
+    "contribution_multipliers": {
+      "current": 1.0,
+      "aging": 0.0,
+      "stale": 0.0
+    },
+    "ticker_identity_remains_resolvable_after_interval": true
+  },
+  "content_sha256": "e4815db24d563621488a76af6bbc04332e87d8f59eac0eaa59cc6f17b2cf3eb1"
+}
