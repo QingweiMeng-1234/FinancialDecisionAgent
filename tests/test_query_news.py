@@ -83,6 +83,7 @@ def test_run_question_uses_injected_answer_function():
 
 def test_main_supports_one_shot_question(monkeypatch, capsys):
     cli_path = "event_collector.cli.query_news"
+    constructed_vector_stores = []
 
     class FakeStorage:
         def __init__(self, db_path):
@@ -91,13 +92,18 @@ def test_main_supports_one_shot_question(monkeypatch, capsys):
         def count_articles(self):
             return 2
 
+        def list_retrieval_eligible_article_ids(self):
+            return {1, 2}
+
         def close(self):
             return None
 
     class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name):
+        def __init__(self, persist_dir, collection_name, eligible_article_ids_provider=None):
             self.persist_dir = persist_dir
             self.collection_name = collection_name
+            self.eligible_article_ids_provider = eligible_article_ids_provider
+            constructed_vector_stores.append(self)
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
     monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
@@ -112,6 +118,8 @@ def test_main_supports_one_shot_question(monkeypatch, capsys):
     assert result == 0
     assert "formatted answer" in captured.out
     assert "Database has 2 articles" in captured.out
+    assert len(constructed_vector_stores) == 1
+    assert constructed_vector_stores[0].eligible_article_ids_provider() == {1, 2}
 
 
 def test_main_surfaces_reranker_error(monkeypatch, capsys):
@@ -124,13 +132,17 @@ def test_main_surfaces_reranker_error(monkeypatch, capsys):
         def count_articles(self):
             return 2
 
+        def list_retrieval_eligible_article_ids(self):
+            return {1, 2}
+
         def close(self):
             return None
 
     class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name):
+        def __init__(self, persist_dir, collection_name, eligible_article_ids_provider=None):
             self.persist_dir = persist_dir
             self.collection_name = collection_name
+            self.eligible_article_ids_provider = eligible_article_ids_provider
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
     monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)

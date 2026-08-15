@@ -15,6 +15,7 @@ from event_collector.summarization import (
     summarize_stored_articles,
 )
 from event_collector.vector_store import ChromaVectorStore
+from tests.deterministic_embedder import DeterministicEmbedder
 
 
 class FakeSummarizationClient:
@@ -239,7 +240,10 @@ def test_summarize_stored_articles_stops_on_first_failure(storage):
 
 
 def test_summarize_stored_articles_reindexes_existing_article_cleanly(storage, temp_chroma_dir):
-    vector_store = ChromaVectorStore(persist_dir=temp_chroma_dir)
+    vector_store = ChromaVectorStore(
+        persist_dir=temp_chroma_dir,
+        embedder=DeterministicEmbedder(),
+    )
     published_at = datetime.now()
     article = NewsArticle(
         source="news",
@@ -251,7 +255,8 @@ def test_summarize_stored_articles_reindexes_existing_article_cleanly(storage, t
         summary=None,
     )
     article_id = storage.save_article(article)
-    vector_store.add_article(article_id, article)
+    stored_article = storage.get_article(article_id)
+    vector_store.add_article(article_id, stored_article)
 
     stats = summarize_stored_articles(
         storage=storage,

@@ -14,7 +14,7 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 
 from event_collector.document_pipeline import split_article_document
-from event_collector.news_storage import NewsArticle
+from event_collector.news_storage import NewsArticle, compute_content_sha256
 
 DEFAULT_CHUNK_SIZE = 1000
 DEFAULT_CHUNK_OVERLAP = 200
@@ -53,6 +53,8 @@ class ChromaVectorStore(VectorStore):
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
         max_matched_chunks: int = DEFAULT_MATCHED_CHUNKS,
+        embedder=None,
+        eligible_article_ids_provider=None,
     ):
         self.persist_dir = persist_dir
         self.model_name = model_name
@@ -60,9 +62,10 @@ class ChromaVectorStore(VectorStore):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.max_matched_chunks = max_matched_chunks
+        self.eligible_article_ids_provider = eligible_article_ids_provider
 
         self.client = chromadb.PersistentClient(path=persist_dir)
-        self.embedder = SentenceTransformer(
+        self.embedder = embedder or SentenceTransformer(
             model_name,
             local_files_only=_resolve_local_files_only(),
         )
@@ -75,6 +78,13 @@ class ChromaVectorStore(VectorStore):
         """
         Add or replace one article in the vector store as chunk-level records.
         """
+        if article.source == "news" and article.content_validation_status != "verified":
+            raise ValueError("News article content must be verified before vector indexing")
+        if article.content_status != "ready":
+            raise ValueError("Article content must be ready before vector indexing")
+        active_content_sha256 = article.active_content_sha256 or article.content_sha256
+        if not active_content_sha256 or compute_content_sha256(article.content) != active_content_sha256:
+            raise ValueError("Article active content hash must match before vector indexing")
         self.delete_article(article_id)
 
         chunk_documents = split_article_document(
@@ -134,6 +144,14 @@ class ChromaVectorStore(VectorStore):
             "query_embeddings": [query_embedding],
             "n_results": chunk_limit,
         }
+        provider = getattr(self, "eligible_article_ids_provider", None)
+        if provider is not None:
+            live_eligible_ids = set(provider())
+            allowed_article_ids = (
+                live_eligible_ids
+                if allowed_article_ids is None
+                else set(allowed_article_ids) & live_eligible_ids
+            )
         if allowed_article_ids is not None:
             if not allowed_article_ids:
                 return []
@@ -152,13 +170,17 @@ class ChromaVectorStore(VectorStore):
             metadata = metadatas[index] if metadatas and len(metadatas) > index else {}
             document = documents[index] if documents and len(documents) > index else ""
             distance = distances[index] if distances and len(distances) > index else 0.0
+            if metadata.get("source") == "news" and metadata.get("content_validation_status") != "verified":
+                continue
             article_id = int(metadata.get("article_id") or parse_article_id_from_chunk_id(chunk_id))
+            story_group_id = int(metadata.get("story_group_id") or article_id)
 
             grouped_result = grouped.setdefault(
-                article_id,
+                story_group_id,
                 {
                     "id": str(article_id),
                     "article_id": article_id,
+                    "story_group_id": story_group_id,
                     "title": metadata.get("title", "Untitled"),
                     "url": metadata.get("canonical_url") or metadata.get("original_url") or metadata.get("url") or "N/A",
                     "original_url": metadata.get("original_url"),
@@ -167,10 +189,22 @@ class ChromaVectorStore(VectorStore):
                     "source": metadata.get("source"),
                     "published_at": metadata.get("published_at"),
                     "content_sha256": metadata.get("content_sha256"),
+                    "publisher_source_id": metadata.get("publisher_source_id") or None,
+                    "publisher_source_name": metadata.get("publisher_source_name") or None,
                     "distance": distance,
                     "matched_chunks": [],
+                    "publisher_sources": {},
+                    "duplicate_article_ids": [],
                 },
             )
+            if article_id not in grouped_result["duplicate_article_ids"]:
+                grouped_result["duplicate_article_ids"].append(article_id)
+            grouped_result["publisher_sources"][article_id] = {
+                "article_id": article_id,
+                "source_id": metadata.get("publisher_source_id") or None,
+                "source_name": metadata.get("publisher_source_name") or None,
+                "url": metadata.get("canonical_url") or metadata.get("original_url") or metadata.get("url") or "N/A",
+            }
             grouped_result["distance"] = min(grouped_result["distance"], distance)
             grouped_result["matched_chunks"].append(
                 {
@@ -188,6 +222,7 @@ class ChromaVectorStore(VectorStore):
             article_results.append(
                 {
                     **grouped_result,
+                    "publisher_sources": list(grouped_result["publisher_sources"].values()),
                     "matched_chunks": top_chunks,
                     "content": "\n".join(chunk["content"] for chunk in top_chunks if chunk["content"]).strip(),
                 }

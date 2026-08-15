@@ -24,6 +24,10 @@ def article_to_document(article_id: int, article: NewsArticle) -> Document:
             "published_at": article.published_at.isoformat(),
             "content_sha256": article.content_sha256 or "",
             "summary": article.summary or "",
+            "content_validation_status": article.content_validation_status,
+            "publisher_source_id": article.publisher_source_id or "",
+            "publisher_source_name": article.publisher_source_name or "",
+            "story_group_id": article.story_group_id or article_id,
         },
     )
 

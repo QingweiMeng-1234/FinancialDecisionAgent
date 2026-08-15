@@ -51,6 +51,7 @@ def main(argv=None):
     vector_store = ChromaVectorStore(
         persist_dir=args.persist_dir,
         collection_name=args.collection_name,
+        eligible_article_ids_provider=storage.list_retrieval_eligible_article_ids,
     )
 
     total = storage.count_articles()

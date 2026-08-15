@@ -8,8 +8,9 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from event_collector.document_pipeline import article_to_document, split_article_document
-from event_collector.news_storage import NewsArticle
+from event_collector.news_storage import NewsArticle, compute_content_sha256
 from event_collector.vector_store import ChromaVectorStore, chunk_text, parse_article_id_from_chunk_id
+from tests.deterministic_embedder import DeterministicEmbedder
 
 
 @pytest.fixture
@@ -20,10 +21,23 @@ def temp_chroma_dir():
 
 @pytest.fixture
 def vector_store(temp_chroma_dir):
-    store = ChromaVectorStore(persist_dir=temp_chroma_dir, chunk_size=40, chunk_overlap=10)
+    store = ChromaVectorStore(
+        persist_dir=temp_chroma_dir,
+        chunk_size=40,
+        chunk_overlap=10,
+        embedder=DeterministicEmbedder(),
+    )
     yield store
     if hasattr(store, "client") and store.client:
         store.client = None
+
+
+def _verified(article):
+    article.content_sha256 = compute_content_sha256(article.content)
+    article.active_content_sha256 = article.content_sha256
+    article.content_status = "ready"
+    article.content_validation_status = "verified"
+    return article
 
 
 def test_chunk_text_uses_fixed_windows_with_overlap():
@@ -92,7 +106,7 @@ def test_vector_store_add_article_creates_chunk_records(vector_store):
         content_sha256="sha-1",
     )
 
-    record_ids = vector_store.add_article(1, article)
+    record_ids = vector_store.add_article(1, _verified(article))
 
     assert len(record_ids) > 1
     assert record_ids[0] == "1:0"
@@ -125,7 +139,7 @@ def test_vector_store_search_aggregates_chunks_to_articles(vector_store):
     ]
 
     for index, article in enumerate(articles, start=1):
-        vector_store.add_article(index, article)
+        vector_store.add_article(index, _verified(article))
 
     results = vector_store.search("Bitcoin cryptocurrency", top_k=1)
 
@@ -160,8 +174,8 @@ def test_vector_store_reindex_replaces_existing_chunks(vector_store):
         summary="- Supply concerns pushed crude prices higher.",
     )
 
-    original_ids = vector_store.add_article(9, original)
-    updated_ids = vector_store.add_article(9, updated)
+    original_ids = vector_store.add_article(9, _verified(original))
+    updated_ids = vector_store.add_article(9, _verified(updated))
     results = vector_store.search("inventory expectations", top_k=1)
 
     assert vector_store.collection.count() == len(updated_ids)
@@ -194,8 +208,8 @@ def test_vector_store_search_respects_allowed_article_ids(vector_store):
         content_sha256="google-sha",
     )
 
-    vector_store.add_article(1, first)
-    vector_store.add_article(2, second)
+    vector_store.add_article(1, _verified(first))
+    vector_store.add_article(2, _verified(second))
 
     unrestricted = vector_store.search("consumer service launch", top_k=2)
     filtered = vector_store.search("consumer service launch", top_k=2, allowed_article_ids={2})

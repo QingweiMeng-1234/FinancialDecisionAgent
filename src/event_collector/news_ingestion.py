@@ -5,10 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
-from event_collector.article_content import ArticleContentFetcher
+from event_collector.article_content import (
+    CONTENT_VALIDATOR_VERSION,
+    ArticleContentFetcher,
+    ArticleFetchError,
+    FetchFailureReason,
+    validate_title_content_alignment,
+)
 from event_collector.event_collection import Event, EventSource, EventSourceCollector, ManualCollector, NewsCollector, RawEventInput
-from event_collector.news_storage import ArticleRecord, SQLiteNewsStore
+from event_collector.news_storage import ArticleRecord, SQLiteNewsStore, compute_content_sha256
 from event_collector.summarization import ArticleForSummarization, SummarizationAgent
 from event_collector.vector_store import ChromaVectorStore, VectorStore
 
@@ -42,6 +49,7 @@ class CanonicalArticleOutcome:
     canonical_url: str | None
     final_url: str | None
     failure_reason: str | None = None
+    unchanged: bool = False
 
 
 @dataclass(frozen=True)
@@ -148,6 +156,7 @@ def ingest_raw_inputs(
         summary_status = "pending"
         index_status = "pending"
         stage_failure = None
+        unchanged = False
 
         try:
             if raw_input.source == "news" and raw_input.url:
@@ -155,23 +164,83 @@ def ingest_raw_inputs(
                 canonical_url = fetch_result.canonical_url
                 content = fetch_result.content
                 final_url = fetch_result.original_url
+                validate_title_content_alignment(
+                    _resolve_title(raw_input),
+                    _resolve_description(raw_input),
+                    content,
+                    url=final_url,
+                )
+                article_id, identity_reused = storage.reconcile_article_identity(article_id, canonical_url)
+                if identity_reused:
+                    created = False
+                storage.register_url_alias(
+                    article_id,
+                    final_url,
+                    alias_kind="redirect",
+                    publisher_source_id=raw_input.publisher_source_id,
+                    publisher_source_name=raw_input.publisher_source_name,
+                )
             else:
                 content = raw_input.raw_text
 
+            content_sha256 = compute_content_sha256(content)
+            unchanged = storage.has_verified_content_hash(article_id, content_sha256)
             storage.update_article_content(
                 article_id,
                 content=content,
                 title=_resolve_title(raw_input),
                 description=_resolve_description(raw_input),
-                original_url=final_url,
+                original_url=None if raw_input.source == "news" else final_url,
                 canonical_url=canonical_url,
                 published_at=raw_input.published_at or datetime.now(),
+                validation_status="verified" if raw_input.source == "news" else "not_applicable",
+                validator_version=CONTENT_VALIDATOR_VERSION if raw_input.source == "news" else None,
+                response_status_code=getattr(fetch_result, "status_code", None)
+                if raw_input.source == "news" and raw_input.url
+                else None,
+                response_content_type=getattr(fetch_result, "content_type", None)
+                if raw_input.source == "news" and raw_input.url
+                else None,
+                extractor_version=getattr(fetch_result, "extractor_version", None)
+                if raw_input.source == "news" and raw_input.url
+                else None,
+                final_response_url=final_url if raw_input.source == "news" else None,
             )
+            if raw_input.source == "news":
+                storage.assign_story_group(
+                    article_id,
+                    title=_resolve_title(raw_input),
+                    published_at=raw_input.published_at or datetime.now(),
+                    content_sha256=content_sha256,
+                )
             content_status = "ready"
             article = storage.get_article(article_id)
             assert article is not None
+        except ArticleFetchError as exc:
+            storage.mark_article_content_failure(
+                article_id,
+                reason=exc.reason.value,
+                validator_version=CONTENT_VALIDATOR_VERSION,
+                final_response_url=exc.url,
+                response_status_code=exc.status_code,
+            )
+            record = storage.get_article_record(article_id)
+            items.append(
+                _build_outcome(
+                    input_index,
+                    raw_input,
+                    record,
+                    article_id=article_id,
+                    status="accepted",
+                    created=created,
+                    failure_reason=exc.reason.value,
+                    content_status_override=record.content_status if record else "failed",
+                )
+            )
+            _update_progress(progress, **_build_progress_stats(items))
+            continue
         except Exception:
-            storage.mark_article_processing_status(article_id, content_status="failed")
+            storage.mark_article_content_failure(article_id, reason="content_fetch_failed")
             record = storage.get_article_record(article_id)
             items.append(
                 _build_outcome(
@@ -183,6 +252,25 @@ def ingest_raw_inputs(
                     created=created,
                     failure_reason="content_fetch_failed",
                     content_status_override="failed",
+                )
+            )
+            _update_progress(progress, **_build_progress_stats(items))
+            continue
+
+        if unchanged:
+            record = storage.get_article_record(article_id)
+            items.append(
+                _build_outcome(
+                    input_index,
+                    raw_input,
+                    record,
+                    article_id=article_id,
+                    status="accepted",
+                    created=created,
+                    failure_reason=None,
+                    canonical_url_override=canonical_url,
+                    final_url_override=final_url,
+                    unchanged=True,
                 )
             )
             _update_progress(progress, **_build_progress_stats(items))
@@ -212,7 +300,7 @@ def ingest_raw_inputs(
         if vector_store is not None:
             try:
                 vector_store.add_article(article_id, article)
-                storage.mark_article_processing_status(article_id, index_status="ready")
+                storage.mark_article_index_ready(article_id, content_sha256)
                 index_status = "ready"
             except Exception:
                 storage.mark_article_processing_status(article_id, index_status="failed")
@@ -235,6 +323,7 @@ def ingest_raw_inputs(
                 index_status_override=index_status,
                 canonical_url_override=canonical_url,
                 final_url_override=final_url,
+                unchanged=False,
             )
         )
         _update_progress(progress, **_build_progress_stats(items))
@@ -282,6 +371,10 @@ def validate_raw_input(raw_input: RawEventInput) -> str | None:
     if not raw_text and not raw_input.url:
         return "missing_text"
     if source == "news":
+        if raw_input.url:
+            parsed = urlparse(raw_input.url.strip())
+            if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+                return "invalid_news_url"
         if not raw_input.url and len(raw_text.strip()) < 50:
             return "short_news_text_without_url"
         return None
@@ -301,6 +394,8 @@ def _create_or_reuse_reference(
         description=_resolve_description(raw_input),
         original_url=raw_input.url or _build_internal_url(input_index, raw_input.source),
         published_at=raw_input.published_at or datetime.now(),
+        publisher_source_id=raw_input.publisher_source_id,
+        publisher_source_name=raw_input.publisher_source_name,
     )
 
 
@@ -324,6 +419,8 @@ def _raw_input_from_event(event: Event) -> RawEventInput:
         description=event.description,
         url=event.url,
         published_at=event.timestamp,
+        publisher_source_id=event.publisher_source_id,
+        publisher_source_name=event.publisher_source_name,
     )
 
 
@@ -341,6 +438,7 @@ def _build_outcome(
     index_status_override: str | None = None,
     canonical_url_override: str | None = None,
     final_url_override: str | None = None,
+    unchanged: bool = False,
 ) -> CanonicalArticleOutcome:
     article = record.article if record is not None else None
     return CanonicalArticleOutcome(
@@ -357,6 +455,7 @@ def _build_outcome(
         canonical_url=canonical_url_override or (article.canonical_url if article is not None else None),
         final_url=final_url_override or (article.url if article is not None else None),
         failure_reason=failure_reason,
+        unchanged=unchanged,
     )
 
 

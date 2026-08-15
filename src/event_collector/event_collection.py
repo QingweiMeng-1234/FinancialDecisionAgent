@@ -7,6 +7,7 @@ from enum import Enum
 import os
 import uuid
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from event_collector.errors import InvalidEventSourceError, InvalidEventTextError, MissingAPIKeyError
@@ -28,6 +29,8 @@ class RawEventInput:
     description: str = ""
     url: str = ""
     published_at: Optional[datetime] = None
+    publisher_source_id: str = ""
+    publisher_source_name: str = ""
 
 
 @dataclass
@@ -39,6 +42,8 @@ class Event:
     title: str = ""
     description: str = ""
     url: str = ""
+    publisher_source_id: str = ""
+    publisher_source_name: str = ""
 
 
 @dataclass
@@ -152,9 +157,12 @@ class NewsCollector(EventSourceCollector):
                 "apiKey": api_key,
             },
         )
+        sources = data.get("sources")
+        if not isinstance(sources, list):
+            raise RuntimeError("NewsAPI sources response must contain a sources list")
         return [
             source_id
-            for source in data.get("sources", [])
+            for source in sources
             if isinstance(source, dict)
             for source_id in [source.get("id")]
             if source_id
@@ -164,16 +172,29 @@ class NewsCollector(EventSourceCollector):
         headers = {"X-No-Cache": "true"} if self.no_cache else None
         response = requests.get(url, params=params, headers=headers, timeout=10)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if not isinstance(data, dict):
+            raise RuntimeError("NewsAPI response must be a JSON object")
+        if data.get("status") != "ok":
+            code = data.get("code") or "unknown_error"
+            message = data.get("message") or "NewsAPI returned a non-ok status"
+            raise RuntimeError(f"NewsAPI {code}: {message}")
+        return data
 
     def _build_raw_inputs(self, data: dict) -> list[RawEventInput]:
         raw_inputs = []
-        for article in data.get("articles", []):
-            title = article.get("title", "")
-            description = article.get("description", "")
+        articles = data.get("articles")
+        if not isinstance(articles, list):
+            raise RuntimeError("NewsAPI article response must contain an articles list")
+        for article in articles:
+            if not isinstance(article, dict):
+                raise RuntimeError("NewsAPI articles must be JSON objects")
+            title = article.get("title") or ""
+            description = article.get("description") or ""
             content = f"{title}. {description}".strip()
-            url_value = article.get("url", "")
-            if len(content) >= 10 or url_value:
+            url_value = article.get("url") or ""
+            source = article.get("source") if isinstance(article.get("source"), dict) else {}
+            if _is_valid_newsapi_article(title, url_value):
                 raw_inputs.append(
                     RawEventInput(
                         source="news",
@@ -184,9 +205,19 @@ class NewsCollector(EventSourceCollector):
                         published_at=datetime.fromisoformat(article["publishedAt"].replace("Z", "+00:00"))
                         if article.get("publishedAt")
                         else None,
+                        publisher_source_id=source.get("id") or "",
+                        publisher_source_name=source.get("name") or "",
                     )
                 )
         return raw_inputs
+
+
+def _is_valid_newsapi_article(title: str, url: str) -> bool:
+    normalized_title = " ".join((title or "").split()).strip()
+    if not normalized_title or normalized_title.lower() == "[removed]":
+        return False
+    parsed = urlparse((url or "").strip())
+    return parsed.scheme.lower() in {"http", "https"} and bool(parsed.netloc)
 
 
 class ApiCollector(EventSourceCollector):
@@ -248,6 +279,8 @@ def create_event(raw_input: RawEventInput) -> Event:
         title=raw_input.title,
         description=raw_input.description,
         url=raw_input.url,
+        publisher_source_id=raw_input.publisher_source_id,
+        publisher_source_name=raw_input.publisher_source_name,
     )
 
 

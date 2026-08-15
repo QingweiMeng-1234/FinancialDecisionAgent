@@ -162,9 +162,9 @@ def test_news_collector():
             {
                 "status": "ok",
                 "articles": [
-                    {"title": "News headline one", "description": "Description of news one that is definitely long enough."},
-                    {"title": "News headline two", "description": "Description of news two that is definitely long enough."},
-                    {"title": "News headline three", "description": "Description of news three that is definitely long enough."},
+                    {"title": "News headline one", "description": "Description of news one that is definitely long enough.", "url": "https://example.com/one"},
+                    {"title": "News headline two", "description": "Description of news two that is definitely long enough.", "url": "https://example.com/two"},
+                    {"title": "News headline three", "description": "Description of news three that is definitely long enough.", "url": "https://example.com/three"},
                 ],
             }
         )

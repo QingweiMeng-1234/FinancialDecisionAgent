@@ -76,9 +76,9 @@ def test_ingest_raw_inputs_fetches_exact_content_and_indexes_chunks(temp_storage
         [
             RawEventInput(
                 source="news",
-                raw_text="Headline. Short description.",
-                title="Headline",
-                description="Short description",
+                raw_text="Exact publisher article. Exact article content.",
+                title="Exact publisher article",
+                description="Exact article content",
                 url="https://example.com/article",
                 published_at=datetime.now(),
             )
@@ -131,9 +131,9 @@ def test_ingest_raw_inputs_reuses_article_id_and_rebuilds_chunks(temp_storage_di
         [
             RawEventInput(
                 source="news",
-                raw_text="Headline A",
-                title="Headline",
-                description="Description",
+                raw_text="Exact content version A",
+                title="Exact content version",
+                description="First publisher version",
                 url="https://example.com/article?utm_source=a",
                 published_at=datetime.now(),
             )
@@ -150,9 +150,9 @@ def test_ingest_raw_inputs_reuses_article_id_and_rebuilds_chunks(temp_storage_di
         [
             RawEventInput(
                 source="news",
-                raw_text="Headline B",
-                title="Headline",
-                description="Description",
+                raw_text="Exact content version B",
+                title="Exact content version",
+                description="Updated publisher version",
                 url="https://example.com/article?utm_source=b",
                 published_at=datetime.now(),
             )
@@ -259,9 +259,9 @@ def test_ingest_raw_inputs_marks_summary_failure_and_keeps_canonical_content(tem
         [
             RawEventInput(
                 source="news",
-                raw_text="Headline",
-                title="Headline",
-                description="Description",
+                raw_text="Exact publisher article",
+                title="Exact publisher article",
+                description="Exact article content",
                 url="https://example.com/article",
                 published_at=datetime.now(),
             )

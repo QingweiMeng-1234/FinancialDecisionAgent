@@ -1,9 +1,10 @@
 import json
 
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from event_collector.entity_kb import CompanyProfile, SQLiteEntityStore
-from event_collector.news_storage import NewsArticle, SQLiteNewsStore
+from event_collector.news_storage import NewsArticle, SQLiteNewsStore, compute_content_sha256
 from event_collector.retrieval_eval import (
     AnnotationFile,
     AnnotationRecord,
@@ -220,8 +221,12 @@ def test_build_annotation_file_enriches_excerpt_from_sqlite_content(tmp_path):
     annotation_file = build_annotation_file(comparison, storage=storage, annotation_target=1)
 
     assert annotation_file.annotations[0].excerpt.startswith("Microsoft announced a large AI contract with clear business impact.")
-    assert annotation_file.annotations[0].content_path.endswith("1.txt")
-    assert "data" in annotation_file.annotations[0].content_path
+    content_path = Path(annotation_file.annotations[0].content_path)
+    assert content_path.parent.name == str(article_id)
+    assert content_path.name == (
+        f"{compute_content_sha256('Microsoft announced a large AI contract with clear business impact.')}.txt"
+    )
+    assert "data" in content_path.parts
     assert annotation_file.annotations[0].dedupe_key == "microsoft-wins-contract"
     assert annotation_file.annotations[0].url == "https://example.com/1"
     storage.close()
