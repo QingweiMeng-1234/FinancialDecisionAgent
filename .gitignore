@@ -25,3 +25,4 @@ pdf_text.txt
 
 # Local agent/plugin development copies
 .agents/
+chats/*.jsonl
