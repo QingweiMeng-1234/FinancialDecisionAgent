@@ -20,14 +20,7 @@ from event_collector.retrieval_execution import (
 from event_collector.retrieval_intent import normalize_retrieval_intent
 from event_collector.structuring_runtime import StructuringAttemptOutcome, ensure_article_structured
 from event_collector.vector_store import VectorStore
-from event_collector.watchlist_progress import (
-    WatchlistProgressEvent,
-    WatchlistProgressSink,
-    utc_now,
-)
-from event_collector.watchlist_triage import (
-    DEFAULT_EXCERPT_CHARS,
-    DEFAULT_SNIPPET_CHARS,
+from event_collector.watchlist_domain import (
     REVIEWER_PROMPT_VERSION,
     TRIAGE_PROMPT_VERSION,
     RetrievedTickerEvidence,
@@ -51,6 +44,12 @@ from event_collector.watchlist_triage import (
     normalize_tickers,
     rank_watchlist_items,
 )
+from event_collector.watchlist_progress import (
+    WatchlistProgressEvent,
+    WatchlistProgressSink,
+    utc_now,
+)
+from event_collector.retrieval_orchestration import DEFAULT_EXCERPT_CHARS, DEFAULT_SNIPPET_CHARS
 
 
 @dataclass(frozen=True)

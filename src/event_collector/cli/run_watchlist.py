@@ -11,7 +11,8 @@ from event_collector.news_storage import SQLiteNewsStore
 from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT
 from event_collector.service_defaults import load_service_defaults
 from event_collector.vector_store import ChromaVectorStore
-from event_collector.watchlist_triage import WatchlistRunRequest, normalize_tickers, render_watchlist_summary, run_watchlist, write_watchlist_report
+from event_collector.watchlist_triage import WatchlistRunRequest, normalize_tickers, render_watchlist_summary
+from event_collector.watchlist_workflow import run_watchlist_triage_workflow
 
 
 def parse_args(argv=None):
@@ -58,11 +59,29 @@ def main(argv=None):
         return 0
     print()
     try:
-        result = run_watchlist(WatchlistRunRequest(tickers=tickers, top_n=args.top_n, retrieval_top_k=args.retrieval_top_k, retrieval_intent=args.retrieval_intent, force_structure=args.force_structure, db_path=args.db_path, persist_dir=args.persist_dir, collection_name=args.collection_name), vector_store, storage)
-        report_path = write_watchlist_report(result, output_dir=args.output_dir, debug_review=args.debug_review, debug_rerank=args.debug_rerank)
-        print(render_watchlist_summary(result, debug_review=args.debug_review, debug_rerank=args.debug_rerank))
+        workflow = run_watchlist_triage_workflow(
+            WatchlistRunRequest(
+                tickers=tickers,
+                top_n=args.top_n,
+                retrieval_top_k=args.retrieval_top_k,
+                retrieval_intent=args.retrieval_intent,
+                force_structure=args.force_structure,
+                db_path=args.db_path,
+                persist_dir=args.persist_dir,
+                collection_name=args.collection_name,
+            ),
+            storage,
+            vector_store,
+            output_dir=args.output_dir,
+            persist_timeline=True,
+            debug_review=args.debug_review,
+            debug_rerank=args.debug_rerank,
+        )
+        print(render_watchlist_summary(workflow.result, debug_review=args.debug_review, debug_rerank=args.debug_rerank))
         print()
-        print(f"Report saved to: {report_path}")
+        print(f"Report saved to: {workflow.report_path}")
+        if workflow.timeline_path:
+            print(f"Timeline saved to: {workflow.timeline_path}")
         storage.close()
         return 0
     except Exception as exc:

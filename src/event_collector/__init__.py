@@ -63,7 +63,16 @@ from event_collector.financial_agent_mcp import (
     create_financial_agent_server,
 )
 from event_collector.news_storage import ArticleRecord, NewsArticle, SQLiteNewsStore
-from event_collector.news_ingestion import NewsIngestionRequest, NewsIngestionResult, run_news_ingestion
+from event_collector.news_ingestion import (
+    CanonicalArticleOutcome,
+    NewsIngestionRequest,
+    NewsIngestionResult,
+    collect_raw_inputs_from_sources,
+    ingest_event_batch,
+    ingest_raw_inputs,
+    run_news_ingestion,
+    validate_raw_input,
+)
 from event_collector.openai_client_base import OpenAIStructuredOutputClient
 from event_collector.query_workflow import render_rag_answer, run_question
 from event_collector.rag_answering import (
@@ -142,6 +151,26 @@ from event_collector.summarization import (
     SummarizationLLMClient,
     SummaryResponse,
     summarize_stored_articles,
+)
+from event_collector.theme_research import (
+    RESEARCH_ROOT as THEME_RESEARCH_ROOT,
+    SearchProvider,
+    SearchResult,
+    SerperSearchProvider,
+    SufficiencyStatus,
+    ThemeEvidence,
+    ThemeMetadata,
+    ThemeResearchRequest,
+    ThemeResearchResult,
+    build_theme_search_intents,
+    classify_source_kind,
+    compute_sufficiency,
+    extract_related_companies,
+    normalize_theme_research_request,
+    normalize_ticker_hints,
+    run_theme_research,
+    slugify_theme,
+    write_theme_research_assets,
 )
 from event_collector.vector_store import ChromaVectorStore, VectorStore
 from event_collector.watchlist_triage import (

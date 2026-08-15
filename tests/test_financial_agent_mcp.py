@@ -119,8 +119,8 @@ def test_research_tools_return_structured_results_and_optional_report_paths(tmp_
         lambda target, response, output_dir, debug_rerank=False, debug_aggregation=False: os.path.join(output_dir, "recommendation.md"),
     )
     monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.run_watchlist_research",
-        lambda request, storage, vector_store_provider, config=None, progress_sink=None: SimpleNamespace(
+        "event_collector.financial_agent_mcp.run_watchlist_triage_workflow",
+        lambda request, storage, vector_store_provider, output_dir=None, **kwargs: SimpleNamespace(
             result=SimpleNamespace(
                 run_id="watch-1",
                 ranked_items=[
@@ -136,11 +136,11 @@ def test_research_tools_return_structured_results_and_optional_report_paths(tmp_
                 top_n=request.top_n,
             ),
             batching={"enabled": False, "batch_count": 1, "batch_size": len(request.tickers), "input_ticker_count": len(request.tickers), "report_supported": True},
+            report_path=os.path.join(output_dir, "watchlist.md"),
+            timeline_path=None,
+            timing_summary={"workflow_stages": [], "ticker_stages": {}, "total_duration_ms": 0, "slowest_workflow_stage": None},
+            timing_text="Timing Summary:\nTotal tracked workflow time: 0ms",
         ),
-    )
-    monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.write_watchlist_report",
-        lambda result, output_dir, debug_review=False, debug_rerank=False: os.path.join(output_dir, "watchlist.md"),
     )
 
     research = server.call_tool("query_news_research", question="What changed for MSFT?")
@@ -390,15 +390,34 @@ def test_watchlist_workflow_refreshes_then_runs_triage(tmp_path, monkeypatch):
     )
     call_order: list[str] = []
 
+    def fake_run_refresh_then_watchlist_workflow(
+        request,
+        storage,
+        vector_store_provider,
+        refresh_request,
+        output_dir=None,
+        timeline_recorder=None,
+        **kwargs,
+    ):
+        call_order.extend(["refresh", "triage"])
+        return SimpleNamespace(
+            result=SimpleNamespace(
+                run_id="watch-3",
+                ranked_items=[],
+                retrieval_failures=[],
+                top_n=request.top_n,
+            ),
+            batching={"enabled": False, "batch_count": 1, "batch_size": 2, "input_ticker_count": 2, "report_supported": True},
+            report_path=os.path.join(output_dir, "watch-3.md"),
+            timeline_path=None,
+            timing_summary={"workflow_stages": [], "ticker_stages": {}, "total_duration_ms": 5, "slowest_workflow_stage": None},
+            timing_text="Timing Summary:\nWorkflow stages:",
+            refresh={"status": "refreshed", "refresh_date": "2026-06-03"},
+        )
+
     monkeypatch.setattr(
-        server,
-        "refresh_news",
-        lambda **kwargs: call_order.append("refresh") or {"status": "refreshed", "refresh_date": "2026-06-03"},
-    )
-    monkeypatch.setattr(
-        server,
-        "run_watchlist_triage",
-        lambda **kwargs: call_order.append("triage") or {"run_id": "watch-3", "ranked_items": [], "report_path": None},
+        "event_collector.financial_agent_mcp.run_refresh_then_watchlist_workflow",
+        fake_run_refresh_then_watchlist_workflow,
     )
 
     payload = server.call_tool("run_watchlist_workflow", tickers=["MSFT", "NVDA"], include_report=True)
@@ -418,34 +437,37 @@ def test_watchlist_workflow_prints_progress_and_writes_timeline_artifact(tmp_pat
         )
     )
 
-    def fake_refresh_news(**kwargs):
-        progress_sink = kwargs.get("progress_sink")
-        started_at = utc_now()
-        if progress_sink is not None:
-            progress_sink(
+    def fake_run_refresh_then_watchlist_workflow(
+        request,
+        storage,
+        vector_store_provider,
+        refresh_request,
+        output_dir=None,
+        timeline_recorder=None,
+        **kwargs,
+    ):
+        refresh_started = utc_now()
+        ticker_started = utc_now()
+        if timeline_recorder is not None:
+            timeline_recorder.emit(
                 WatchlistProgressEvent(
                     scope="workflow",
                     stage="refresh_news",
                     status="started",
-                    started_at=started_at,
+                    started_at=refresh_started,
                 )
             )
-            progress_sink(
+            timeline_recorder.emit(
                 WatchlistProgressEvent(
                     scope="workflow",
                     stage="refresh_news",
                     status="finished",
-                    started_at=started_at,
+                    started_at=refresh_started,
                     finished_at=utc_now(),
                     duration_ms=5,
                 )
             )
-        return {"status": "refreshed", "refresh_date": "2026-06-03"}
-
-    def fake_run_watchlist_research(request, storage, vector_store_provider, config=None, progress_sink=None):
-        if progress_sink is not None:
-            ticker_started = utc_now()
-            progress_sink(
+            timeline_recorder.emit(
                 WatchlistProgressEvent(
                     scope="ticker",
                     stage="triage",
@@ -454,7 +476,7 @@ def test_watchlist_workflow_prints_progress_and_writes_timeline_artifact(tmp_pat
                     started_at=ticker_started,
                 )
             )
-            progress_sink(
+            timeline_recorder.emit(
                 WatchlistProgressEvent(
                     scope="ticker",
                     stage="triage",
@@ -465,6 +487,8 @@ def test_watchlist_workflow_prints_progress_and_writes_timeline_artifact(tmp_pat
                     duration_ms=12,
                 )
             )
+        timeline_path = os.path.join(output_dir, "watch-progress.timeline.jsonl")
+        timeline_recorder.write_jsonl(timeline_path)
         return SimpleNamespace(
             result=SimpleNamespace(
                 run_id="watch-progress",
@@ -473,13 +497,16 @@ def test_watchlist_workflow_prints_progress_and_writes_timeline_artifact(tmp_pat
                 top_n=request.top_n,
             ),
             batching={"enabled": False, "batch_count": 1, "batch_size": 1, "input_ticker_count": 1, "report_supported": True},
+            report_path=os.path.join(output_dir, "watch-progress.md"),
+            timeline_path=timeline_path,
+            timing_summary={"workflow_stages": [], "ticker_stages": {"MSFT": []}, "total_duration_ms": 17, "slowest_workflow_stage": None},
+            timing_text="Timing Summary:\nTicker stages:",
+            refresh={"status": "refreshed", "refresh_date": "2026-06-03"},
         )
 
-    monkeypatch.setattr(server, "refresh_news", fake_refresh_news)
-    monkeypatch.setattr("event_collector.financial_agent_mcp.run_watchlist_research", fake_run_watchlist_research)
     monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.write_watchlist_report",
-        lambda result, output_dir, debug_review=False, debug_rerank=False: os.path.join(output_dir, "watch-progress.md"),
+        "event_collector.financial_agent_mcp.run_refresh_then_watchlist_workflow",
+        fake_run_refresh_then_watchlist_workflow,
     )
 
     payload = server.call_tool("run_watchlist_workflow", tickers=["MSFT"])
@@ -503,8 +530,8 @@ def test_watchlist_triage_always_writes_report_even_without_include_report(tmp_p
         )
     )
     monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.run_watchlist_research",
-        lambda request, storage, vector_store_provider, config=None, progress_sink=None: SimpleNamespace(
+        "event_collector.financial_agent_mcp.run_watchlist_triage_workflow",
+        lambda request, storage, vector_store_provider, output_dir=None, **kwargs: SimpleNamespace(
             result=SimpleNamespace(
                 run_id="watch-auto",
                 ranked_items=[],
@@ -512,11 +539,11 @@ def test_watchlist_triage_always_writes_report_even_without_include_report(tmp_p
                 top_n=request.top_n,
             ),
             batching={"enabled": False, "batch_count": 1, "batch_size": 1, "input_ticker_count": 1, "report_supported": True},
+            report_path=os.path.join(output_dir, "watch-auto.md"),
+            timeline_path=None,
+            timing_summary={"workflow_stages": [], "ticker_stages": {}, "total_duration_ms": 0, "slowest_workflow_stage": None},
+            timing_text="Timing Summary:\nTotal tracked workflow time: 0ms",
         ),
-    )
-    monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.write_watchlist_report",
-        lambda result, output_dir, debug_review=False, debug_rerank=False: os.path.join(output_dir, "watch-auto.md"),
     )
 
     payload = server.call_tool("run_watchlist_triage", tickers=["MSFT"], include_report=False)
@@ -736,7 +763,7 @@ def test_small_parameter_surface_uses_shared_defaults(tmp_path, monkeypatch):
             rerank_metadata=None,
         )
 
-    def fake_run_watchlist_research(request, storage, vector_store_provider, config=None, progress_sink=None):
+    def fake_run_watchlist_triage_workflow(request, storage, vector_store_provider, config=None, output_dir=None, **kwargs):
         captured["watchlist"] = (request.top_n, request.retrieval_top_k, config.max_concurrency)
         return SimpleNamespace(
             result=SimpleNamespace(
@@ -746,15 +773,15 @@ def test_small_parameter_surface_uses_shared_defaults(tmp_path, monkeypatch):
                 top_n=request.top_n,
             ),
             batching={"enabled": False, "batch_count": 1, "batch_size": len(request.tickers), "input_ticker_count": len(request.tickers), "report_supported": True},
+            report_path=os.path.join(output_dir, "watchlist.md"),
+            timeline_path=None,
+            timing_summary={"workflow_stages": [], "ticker_stages": {}, "total_duration_ms": 0, "slowest_workflow_stage": None},
+            timing_text="Timing Summary:\nTotal tracked workflow time: 0ms",
         )
 
     monkeypatch.setattr("event_collector.financial_agent_mcp.answer_query", fake_answer_query)
     monkeypatch.setattr("event_collector.financial_agent_mcp.recommend_target", fake_recommend_target)
-    monkeypatch.setattr("event_collector.financial_agent_mcp.run_watchlist_research", fake_run_watchlist_research)
-    monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.write_watchlist_report",
-        lambda result, output_dir, debug_review=False, debug_rerank=False: os.path.join(output_dir, "watchlist.md"),
-    )
+    monkeypatch.setattr("event_collector.financial_agent_mcp.run_watchlist_triage_workflow", fake_run_watchlist_triage_workflow)
 
     server.call_tool("query_news_research", question="MSFT?")
     server.call_tool("recommend_stock", target="MSFT")
@@ -777,8 +804,8 @@ def test_watchlist_triage_delegates_batching_policy_to_watchlist_research(tmp_pa
     )
 
     monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.run_watchlist_research",
-        lambda request, storage, vector_store_provider, config=None, progress_sink=None: SimpleNamespace(
+        "event_collector.financial_agent_mcp.run_watchlist_triage_workflow",
+        lambda request, storage, vector_store_provider, config=None, output_dir=None, **kwargs: SimpleNamespace(
             result=SimpleNamespace(
                 run_id="watch-2",
                 ranked_items=[],
@@ -793,11 +820,11 @@ def test_watchlist_triage_delegates_batching_policy_to_watchlist_research(tmp_pa
                 "report_supported": True,
                 "max_concurrency": config.max_concurrency,
             },
+            report_path=os.path.join(output_dir, "watchlist.md"),
+            timeline_path=None,
+            timing_summary={"workflow_stages": [], "ticker_stages": {}, "total_duration_ms": 0, "slowest_workflow_stage": None},
+            timing_text="Timing Summary:\nTotal tracked workflow time: 0ms",
         ),
-    )
-    monkeypatch.setattr(
-        "event_collector.financial_agent_mcp.write_watchlist_report",
-        lambda result, output_dir, debug_review=False, debug_rerank=False: os.path.join(output_dir, "watchlist.md"),
     )
 
     payload = server.call_tool("run_watchlist_triage", tickers=["MSFT", "NVDA", "AAPL", "TSLA"])

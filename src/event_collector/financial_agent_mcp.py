@@ -21,18 +21,25 @@ from event_collector.service_defaults import (
     load_service_defaults,
 )
 from event_collector.vector_store import ChromaVectorStore
+from event_collector.watchlist_domain import WatchlistRunRequest
 from event_collector.watchlist_progress import (
     WatchlistProgressEvent,
     WatchlistProgressSink,
     WatchlistTimelineRecorder,
-    build_watchlist_timing_summary,
-    load_watchlist_timeline,
     render_watchlist_progress_line,
-    render_watchlist_timing_text,
-    utc_now,
 )
-from event_collector.watchlist_research import WatchlistResearchConfig, run_watchlist_research
-from event_collector.watchlist_triage import WatchlistRunRequest, write_watchlist_report
+from event_collector.watchlist_research import WatchlistResearchConfig
+from event_collector.watchlist_workflow import (
+    DEFAULT_REPORTS_DIR as DEFAULT_WATCHLIST_REPORTS_DIR,
+    DEFAULT_TIMELINE_SUFFIX,
+    RefreshNewsRequest,
+    WatchlistWorkflowResult,
+    read_watchlist_report_artifact,
+    read_watchlist_timeline_artifact,
+    refresh_news_corpus,
+    run_refresh_then_watchlist_workflow,
+    run_watchlist_triage_workflow,
+)
 
 try:  # pragma: no cover - exercised only when FastMCP is installed locally
     from mcp.server.fastmcp import FastMCP as _FastMCP
@@ -153,27 +160,6 @@ class OpenClawRoutePolicy:
             "quant_validation": self.quant_validation_servers,
         }
         return list(mapping.get(task_name, self.stock_research_servers))
-
-
-@dataclass
-class RefreshRunState:
-    last_refresh_date: str | None = None
-
-    @classmethod
-    def load(cls, path: str) -> "RefreshRunState":
-        state_path = Path(path)
-        if not state_path.exists():
-            return cls()
-        payload = json.loads(state_path.read_text(encoding="utf-8"))
-        return cls(last_refresh_date=payload.get("last_refresh_date"))
-
-    def save(self, path: str) -> None:
-        state_path = Path(path)
-        state_path.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(
-            json.dumps({"last_refresh_date": self.last_refresh_date}, indent=2),
-            encoding="utf-8",
-        )
 
 
 class _FallbackMCPServer:
@@ -345,46 +331,15 @@ class FinancialAgentMCPServer:
         show_progress: bool = False,
         progress_sink: WatchlistProgressSink | None = None,
     ) -> dict[str, Any]:
-        started_at = utc_now()
-        self._emit_progress(
-            progress_sink,
-            WatchlistProgressEvent(
-                scope="workflow",
-                stage="refresh_news",
-                status="started",
-                started_at=started_at,
-            ),
-        )
-        refresh_date = today or date.today().isoformat()
-        state = RefreshRunState.load(self.runtime_config.refresh_state_path)
-        if state.last_refresh_date == refresh_date:
-            payload = {
-                "status": "skipped",
-                "refresh_date": refresh_date,
-                "message": f"refresh_news already ran on {refresh_date}",
-            }
-            finished_at = utc_now()
-            self._emit_progress(
-                progress_sink,
-                WatchlistProgressEvent(
-                    scope="workflow",
-                    stage="refresh_news",
-                    status="finished",
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    duration_ms=max(0, int(round((finished_at - started_at).total_seconds() * 1000))),
-                    message=payload["message"],
-                    metrics={"refresh_status": payload["status"]},
-                ),
-            )
-            return payload
-
-        try:
-            request = build_news_pipeline_request(
+        return refresh_news_corpus(
+            RefreshNewsRequest(
+                refresh_state_path=self.runtime_config.refresh_state_path,
+                service_defaults_path=self.runtime_config.service_defaults_path,
                 db_path=self.runtime_config.db_path,
                 persist_dir=self.runtime_config.persist_dir,
                 collection_name=self.runtime_config.collection_name,
-                top_k=top_k or self._service_defaults().query_top_k,
+                today=today,
+                top_k=top_k,
                 question=question,
                 debug_rerank=debug_rerank,
                 include_manual=include_manual,
@@ -394,51 +349,10 @@ class FinancialAgentMCPServer:
                 news_sort_by=news_sort_by,
                 news_page_size=news_page_size,
                 show_progress=show_progress,
-            )
-            result = run_news_pipeline(request)
-            state.last_refresh_date = refresh_date
-            state.save(self.runtime_config.refresh_state_path)
-            payload = {
-                "status": "refreshed",
-                "refresh_date": refresh_date,
-                "collected_events": result.collected_events,
-                "stats": dict(result.stats),
-                "total_articles": result.total_articles,
-                "answer_text": result.answer_text,
-            }
-            finished_at = utc_now()
-            self._emit_progress(
-                progress_sink,
-                WatchlistProgressEvent(
-                    scope="workflow",
-                    stage="refresh_news",
-                    status="finished",
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    duration_ms=max(0, int(round((finished_at - started_at).total_seconds() * 1000))),
-                    metrics={
-                        "refresh_status": payload["status"],
-                        "collected_events": result.collected_events,
-                        "total_articles": result.total_articles,
-                    },
-                ),
-            )
-            return payload
-        except Exception as exc:
-            finished_at = utc_now()
-            self._emit_progress(
-                progress_sink,
-                WatchlistProgressEvent(
-                    scope="workflow",
-                    stage="refresh_news",
-                    status="failed",
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    duration_ms=max(0, int(round((finished_at - started_at).total_seconds() * 1000))),
-                    message=str(exc),
-                ),
-            )
-            raise
+            ),
+            progress_sink=progress_sink,
+            run_news_pipeline_fn=run_news_pipeline,
+        )
 
     def refresh_news_tool(
         self,
@@ -561,43 +475,15 @@ class FinancialAgentMCPServer:
         progress_sink: WatchlistProgressSink | None = None,
         timeline_recorder: WatchlistTimelineRecorder | None = None,
     ) -> dict[str, Any]:
-        recorder = timeline_recorder or WatchlistTimelineRecorder(sink=progress_sink)
-        effective_progress_sink = recorder.emit
-        defaults = self._service_defaults()
-        storage = SQLiteNewsStore(db_path=self.runtime_config.db_path)
-        try:
-            request = WatchlistRunRequest(
-                tickers=tickers,
-                top_n=top_n or defaults.watchlist_top_n,
-                retrieval_top_k=retrieval_top_k or defaults.watchlist_retrieval_top_k,
-                retrieval_intent=retrieval_intent,
-                db_path=self.runtime_config.db_path,
-                persist_dir=self.runtime_config.persist_dir,
-                collection_name=self.runtime_config.collection_name,
-            )
-            watchlist_run = run_watchlist_research(
-                request,
-                storage,
-                self._make_vector_store,
-                config=WatchlistResearchConfig(
-                    auto_batch_threshold=self.runtime_config.watchlist_auto_batch_threshold,
-                    auto_batch_size=self.runtime_config.watchlist_auto_batch_size,
-                    max_concurrency=self.runtime_config.watchlist_retrieval_max_concurrency,
-                ),
-                progress_sink=effective_progress_sink,
-            )
-        finally:
-            storage.close()
-        result = watchlist_run.result
-        batching = watchlist_run.batching
-
-        report_path = self._write_and_persist_watchlist_report(result, progress_sink=effective_progress_sink)
-        timeline_path = None
-        if timeline_recorder is not None:
-            timeline_path = self._write_watchlist_timeline(result.run_id, recorder)
-        timing_summary = build_watchlist_timing_summary(recorder.events)
-        timing_text = render_watchlist_timing_text(timing_summary)
-
+        workflow = self._run_watchlist_triage_workflow(
+            tickers=tickers,
+            top_n=top_n,
+            retrieval_top_k=retrieval_top_k,
+            retrieval_intent=retrieval_intent,
+            progress_sink=progress_sink,
+            timeline_recorder=timeline_recorder,
+        )
+        result = workflow.result
         return {
             "run_id": result.run_id,
             "top_n": result.top_n,
@@ -611,11 +497,11 @@ class FinancialAgentMCPServer:
                 }
                 for item in result.ranked_items
             ],
-            "report_path": report_path,
-            "timeline_path": timeline_path,
-            "timing_summary": timing_summary,
-            "timing_text": timing_text,
-            "batching": batching,
+            "report_path": workflow.report_path,
+            "timeline_path": workflow.timeline_path,
+            "timing_summary": workflow.timing_summary,
+            "timing_text": workflow.timing_text,
+            "batching": workflow.batching,
             "retrieval_failures": [
                 {
                     "ticker": failure.ticker,
@@ -656,88 +542,70 @@ class FinancialAgentMCPServer:
         news_sort_by: str = "publishedAt",
         news_page_size: int = 100,
     ) -> dict[str, Any]:
-        timeline_recorder = WatchlistTimelineRecorder(sink=self._watchlist_progress_printer)
-        refresh = self.refresh_news(
+        workflow = self._run_refresh_then_watchlist_workflow(
+            tickers=tickers,
+            top_n=top_n,
+            retrieval_top_k=retrieval_top_k,
+            retrieval_intent=retrieval_intent,
             today=today,
             news_endpoint=news_endpoint,
             news_days_back=news_days_back,
             news_page=news_page,
             news_sort_by=news_sort_by,
             news_page_size=news_page_size,
-            progress_sink=timeline_recorder.emit,
         )
-        triage = self.run_watchlist_triage(
-            tickers=tickers,
-            top_n=top_n,
-            retrieval_top_k=retrieval_top_k,
-            retrieval_intent=retrieval_intent,
-            include_report=include_report,
-            timeline_recorder=timeline_recorder,
-        )
-        timing_summary = build_watchlist_timing_summary(timeline_recorder.events)
-        timing_text = render_watchlist_timing_text(timing_summary)
         return {
             "workflow": "watchlist_refresh_then_triage",
-            "refresh": refresh,
-            "triage": triage,
-            "timeline_path": triage.get("timeline_path"),
-            "timing_summary": timing_summary,
-            "timing_text": timing_text,
+            "refresh": workflow.refresh,
+            "triage": {
+                "run_id": workflow.result.run_id,
+                "top_n": workflow.result.top_n,
+                "ranked_items": [
+                    {
+                        "ticker": item.ticker,
+                        "priority": item.priority.value,
+                        "confidence": item.confidence.value,
+                        "rank": item.rank,
+                        "should_flag_human_review": item.should_flag_human_review,
+                    }
+                    for item in workflow.result.ranked_items
+                ],
+                "report_path": workflow.report_path,
+                "timeline_path": workflow.timeline_path,
+                "timing_summary": workflow.timing_summary,
+                "timing_text": workflow.timing_text,
+                "batching": workflow.batching,
+                "retrieval_failures": [
+                    {
+                        "ticker": failure.ticker,
+                        "status": failure.status,
+                        "error_message": failure.error_message,
+                    }
+                    for failure in (workflow.result.retrieval_failures or [])
+                ],
+            },
+            "timeline_path": workflow.timeline_path,
+            "timing_summary": workflow.timing_summary,
+            "timing_text": workflow.timing_text,
         }
 
     def read_watchlist_report(self, run_id: str) -> dict[str, Any]:
-        report_payload = self._empty_watchlist_report_payload(run_id)
         storage = self._make_news_store()
         try:
-            report_path = storage.fetch_watchlist_report_path(run_id)
+            return read_watchlist_report_artifact(
+                run_id,
+                storage=storage,
+                reports_dir=self._watchlist_reports_dir(),
+            )
         finally:
             storage.close()
 
-        if not report_path:
-            report_payload["error_code"] = "report_not_found"
-            report_payload["error_message"] = f"No watchlist report path was found for run_id={run_id}"
-            return report_payload
-
-        resolved_report_path = self._resolve_watchlist_report_path(report_path)
-        allowed_reports_root = Path(self._watchlist_reports_dir()).resolve()
-        if not self._is_path_within_root(resolved_report_path, allowed_reports_root):
-            report_payload["error_code"] = "report_not_found"
-            report_payload["error_message"] = f"Stored report path is outside the watchlist reports directory for run_id={run_id}"
-            return report_payload
-
-        report_payload["report_path"] = report_path
-        if not resolved_report_path.exists():
-            report_payload["error_code"] = "report_file_missing"
-            report_payload["error_message"] = f"Saved watchlist report file is missing for run_id={run_id}"
-            return report_payload
-
-        report_payload["found"] = True
-        report_payload["content"] = resolved_report_path.read_text(encoding="utf-8")
-        return report_payload
-
     def read_watchlist_timeline(self, run_id: str) -> dict[str, Any]:
-        timeline_payload = self._empty_watchlist_timeline_payload(run_id)
-        resolved_timeline_path = self._resolve_watchlist_timeline_path(run_id)
-        allowed_reports_root = Path(self._watchlist_reports_dir()).resolve()
-
-        if not self._is_path_within_root(resolved_timeline_path, allowed_reports_root):
-            timeline_payload["error_code"] = "timeline_not_found"
-            timeline_payload["error_message"] = f"Timeline path is outside the watchlist reports directory for run_id={run_id}"
-            return timeline_payload
-
-        if not resolved_timeline_path.exists():
-            timeline_payload["error_code"] = "timeline_not_found"
-            timeline_payload["error_message"] = f"No watchlist timeline file was found for run_id={run_id}"
-            return timeline_payload
-
-        events = load_watchlist_timeline(str(resolved_timeline_path))
-        timing_summary = build_watchlist_timing_summary(events)
-        timeline_payload["found"] = True
-        timeline_payload["timeline_path"] = str(resolved_timeline_path)
-        timeline_payload["events"] = [event.to_dict() for event in events]
-        timeline_payload["timing_summary"] = timing_summary
-        timeline_payload["timing_text"] = render_watchlist_timing_text(timing_summary)
-        return timeline_payload
+        return read_watchlist_timeline_artifact(
+            run_id,
+            reports_dir=self._watchlist_reports_dir(),
+            timeline_suffix=self.runtime_config.watchlist_timeline_suffix,
+        )
 
     def get_company_profile(self, ticker: str) -> dict[str, Any]:
         store = SQLiteEntityStore(db_path=self.runtime_config.entity_db_path)
@@ -831,54 +699,99 @@ class FinancialAgentMCPServer:
     def _service_defaults(self) -> ServiceDefaults:
         return load_service_defaults(self.runtime_config.service_defaults_path)
 
-    def _write_and_persist_watchlist_report(
+    def _run_watchlist_triage_workflow(
         self,
-        result: Any,
         *,
+        tickers: list[str],
+        top_n: int | None = None,
+        retrieval_top_k: int | None = None,
+        retrieval_intent: str = DEFAULT_RETRIEVAL_INTENT,
         progress_sink: WatchlistProgressSink | None = None,
-    ) -> str:
-        started_at = utc_now()
-        self._emit_progress(
-            progress_sink,
-            WatchlistProgressEvent(
-                scope="workflow",
-                stage="persist_report",
-                status="started",
-                started_at=started_at,
-                message="write_watchlist_report",
-            ),
-        )
-        report_path = write_watchlist_report(
-            result,
-            output_dir=self._watchlist_reports_dir(),
-        )
-        storage = self._make_news_store()
+        timeline_recorder: WatchlistTimelineRecorder | None = None,
+    ) -> WatchlistWorkflowResult:
+        defaults = self._service_defaults()
+        storage = SQLiteNewsStore(db_path=self.runtime_config.db_path)
         try:
-            storage.save_watchlist_report_path(result.run_id, report_path)
+            return run_watchlist_triage_workflow(
+                WatchlistRunRequest(
+                    tickers=tickers,
+                    top_n=top_n or defaults.watchlist_top_n,
+                    retrieval_top_k=retrieval_top_k or defaults.watchlist_retrieval_top_k,
+                    retrieval_intent=retrieval_intent,
+                    db_path=self.runtime_config.db_path,
+                    persist_dir=self.runtime_config.persist_dir,
+                    collection_name=self.runtime_config.collection_name,
+                ),
+                storage,
+                self._make_vector_store,
+                output_dir=self._watchlist_reports_dir(),
+                timeline_suffix=self.runtime_config.watchlist_timeline_suffix,
+                config=WatchlistResearchConfig(
+                    auto_batch_threshold=self.runtime_config.watchlist_auto_batch_threshold,
+                    auto_batch_size=self.runtime_config.watchlist_auto_batch_size,
+                    max_concurrency=self.runtime_config.watchlist_retrieval_max_concurrency,
+                ),
+                progress_sink=progress_sink,
+                timeline_recorder=timeline_recorder,
+                persist_timeline=timeline_recorder is not None,
+            )
         finally:
             storage.close()
-        finished_at = utc_now()
-        self._emit_progress(
-            progress_sink,
-            WatchlistProgressEvent(
-                scope="workflow",
-                stage="persist_report",
-                status="finished",
-                started_at=started_at,
-                finished_at=finished_at,
-                duration_ms=max(0, int(round((finished_at - started_at).total_seconds() * 1000))),
-                message="write_watchlist_report",
-                metrics={"report_path": report_path},
-            ),
-        )
-        return report_path
 
-    def _write_watchlist_timeline(self, run_id: str, recorder: WatchlistTimelineRecorder) -> str:
-        timeline_path = os.path.join(
-            self._watchlist_reports_dir(),
-            f"{run_id}{self.runtime_config.watchlist_timeline_suffix}",
-        )
-        return recorder.write_jsonl(timeline_path)
+    def _run_refresh_then_watchlist_workflow(
+        self,
+        *,
+        tickers: list[str],
+        top_n: int | None = None,
+        retrieval_top_k: int | None = None,
+        retrieval_intent: str = DEFAULT_RETRIEVAL_INTENT,
+        today: str | None = None,
+        news_endpoint: str = "everything",
+        news_days_back: int = 7,
+        news_page: int = 1,
+        news_sort_by: str = "publishedAt",
+        news_page_size: int = 100,
+    ) -> WatchlistWorkflowResult:
+        timeline_recorder = WatchlistTimelineRecorder(sink=self._watchlist_progress_printer)
+        defaults = self._service_defaults()
+        storage = SQLiteNewsStore(db_path=self.runtime_config.db_path)
+        try:
+            return run_refresh_then_watchlist_workflow(
+                WatchlistRunRequest(
+                    tickers=tickers,
+                    top_n=top_n or defaults.watchlist_top_n,
+                    retrieval_top_k=retrieval_top_k or defaults.watchlist_retrieval_top_k,
+                    retrieval_intent=retrieval_intent,
+                    db_path=self.runtime_config.db_path,
+                    persist_dir=self.runtime_config.persist_dir,
+                    collection_name=self.runtime_config.collection_name,
+                ),
+                storage,
+                self._make_vector_store,
+                refresh_request=RefreshNewsRequest(
+                    refresh_state_path=self.runtime_config.refresh_state_path,
+                    service_defaults_path=self.runtime_config.service_defaults_path,
+                    db_path=self.runtime_config.db_path,
+                    persist_dir=self.runtime_config.persist_dir,
+                    collection_name=self.runtime_config.collection_name,
+                    today=today,
+                    news_endpoint=news_endpoint,
+                    news_days_back=news_days_back,
+                    news_page=news_page,
+                    news_sort_by=news_sort_by,
+                    news_page_size=news_page_size,
+                ),
+                output_dir=self._watchlist_reports_dir(),
+                timeline_suffix=self.runtime_config.watchlist_timeline_suffix,
+                config=WatchlistResearchConfig(
+                    auto_batch_threshold=self.runtime_config.watchlist_auto_batch_threshold,
+                    auto_batch_size=self.runtime_config.watchlist_auto_batch_size,
+                    max_concurrency=self.runtime_config.watchlist_retrieval_max_concurrency,
+                ),
+                timeline_recorder=timeline_recorder,
+            )
+        finally:
+            storage.close()
 
     def _empty_watchlist_report_payload(self, run_id: str) -> dict[str, Any]:
         return {

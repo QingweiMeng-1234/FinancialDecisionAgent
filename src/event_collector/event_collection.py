@@ -9,16 +9,8 @@ import uuid
 from typing import Optional
 
 import requests
-
-try:
-    from tqdm import tqdm
-except Exception:  # pragma: no cover - fallback when tqdm is unavailable
-    tqdm = None
-
-from event_collector.article_content import ArticleContentFetcher
 from event_collector.errors import InvalidEventSourceError, InvalidEventTextError, MissingAPIKeyError
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
-from event_collector.summarization import ArticleForSummarization, SummarizationAgent
 from event_collector.vector_store import VectorStore
 
 
@@ -236,15 +228,16 @@ class ApiCollector(EventSourceCollector):
 
 
 def create_event(raw_input: RawEventInput) -> Event:
-    if raw_input.source not in ["manual", "news", "api"]:
-        raise InvalidEventSourceError(f"Invalid source: {raw_input.source}")
+    from event_collector.news_ingestion import validate_raw_input
 
-    if not raw_input.raw_text and not raw_input.url:
+    failure_reason = validate_raw_input(raw_input)
+    if failure_reason == "invalid_source":
+        raise InvalidEventSourceError(f"Invalid source: {raw_input.source}")
+    if failure_reason == "missing_text":
         raise InvalidEventTextError("raw_text or url is required")
-    if raw_input.source == "news":
-        if not raw_input.url and len((raw_input.raw_text or "").strip()) < 50:
-            raise InvalidEventTextError("news raw_text must be at least 50 characters when no article url is present")
-    elif not raw_input.raw_text or len(raw_input.raw_text) < 50:
+    if failure_reason == "short_news_text_without_url":
+        raise InvalidEventTextError("news raw_text must be at least 50 characters when no article url is present")
+    if failure_reason == "short_text":
         raise InvalidEventTextError("raw_text must be at least 50 characters")
 
     return Event(
@@ -277,10 +270,14 @@ def collect_events_batch(raw_inputs: list[RawEventInput]) -> EventBatch:
 
 
 def collect_from_all_sources(collectors: list[EventSourceCollector]) -> EventBatch:
+    return collect_events_batch(collect_raw_inputs_from_sources(collectors))
+
+
+def collect_raw_inputs_from_sources(collectors: list[EventSourceCollector]) -> list[RawEventInput]:
     all_raw_inputs = []
     for collector in collectors:
         all_raw_inputs.extend(collector.collect())
-    return collect_events_batch(all_raw_inputs)
+    return all_raw_inputs
 
 
 def raw_event_input_to_news_article(raw_input: RawEventInput, url: str = "") -> NewsArticle:
@@ -302,136 +299,17 @@ def ingest_events_to_storage(
     batch: EventBatch,
     storage: SQLiteNewsStore,
     vector_store: Optional[VectorStore] = None,
-    summarizer: Optional[SummarizationAgent] = None,
-    content_fetcher: Optional[ArticleContentFetcher] = None,
+    summarizer=None,
+    content_fetcher=None,
     show_progress: bool = False,
 ) -> dict:
-    saved_count = 0
-    updated_count = 0
-    summarized_count = 0
-    indexed_count = 0
-    skipped_count = 0
-    summary_agent = summarizer
-    fetcher = content_fetcher or ArticleContentFetcher()
-    content_failed_count = 0
-    summary_failed_count = 0
-    index_failed_count = 0
+    from event_collector.news_ingestion import ingest_event_batch
 
-    progress = _build_progress(
+    return ingest_event_batch(
         batch.events,
-        enabled=show_progress,
-        desc="Ingesting articles",
-        unit="article",
-    )
-
-    for event in progress:
-        original_url = event.url or f"internal://{event.source.value}/{event.id}"
-        article_id, created = storage.create_or_get_article_reference(
-            source=event.source.value,
-            title=event.title or event.raw_text[:100] or "Untitled",
-            description=event.description or event.raw_text[:200],
-            original_url=original_url,
-            published_at=event.timestamp,
-        )
-        if created:
-            saved_count += 1
-        else:
-            updated_count += 1
-        try:
-            if event.source == EventSource.NEWS and event.url:
-                fetch_result = fetcher.fetch(event.url)
-                canonical_url = fetch_result.canonical_url
-                content = fetch_result.content
-                content_url = fetch_result.original_url
-            else:
-                canonical_url = None
-                content = event.raw_text
-                content_url = original_url
-
-            storage.update_article_content(
-                article_id,
-                content=content,
-                title=event.title or event.raw_text[:100] or "Untitled",
-                description=event.description or event.raw_text[:200],
-                original_url=content_url,
-                canonical_url=canonical_url,
-                published_at=event.timestamp,
-            )
-            article = storage.get_article(article_id)
-        except Exception:
-            if created:
-                storage.mark_article_processing_status(article_id, content_status="failed")
-            content_failed_count += 1
-            continue
-
-        if summary_agent is None:
-            summary_agent = SummarizationAgent()
-
-        try:
-            summary = summary_agent.summarize_article(
-                ArticleForSummarization(
-                    article_id=article_id,
-                    title=article.title,
-                    description=article.description,
-                    content=article.content,
-                    url=article.url,
-                )
-            )
-            storage.update_article_summary(article_id, summary)
-            article.summary = summary
-            summarized_count += 1
-        except Exception:
-            storage.mark_article_processing_status(article_id, summary_status="failed")
-            summary_failed_count += 1
-
-        if vector_store:
-            try:
-                vector_store.add_article(article_id, article)
-                storage.mark_article_processing_status(article_id, index_status="ready")
-                indexed_count += 1
-            except Exception:
-                storage.mark_article_processing_status(article_id, index_status="failed")
-                index_failed_count += 1
-
-        _update_progress(
-            progress,
-            saved=saved_count,
-            updated=updated_count,
-            fetch_fail=content_failed_count,
-            summary_fail=summary_failed_count,
-            index_fail=index_failed_count,
-        )
-
-    _close_progress(progress)
-
-    return {
-        "total_events": len(batch.events),
-        "saved": saved_count,
-        "updated": updated_count,
-        "summarized": summarized_count,
-        "indexed": indexed_count,
-        "skipped": skipped_count,
-        "content_failed": content_failed_count,
-        "summary_failed": summary_failed_count,
-        "index_failed": index_failed_count,
-    }
-
-
-def _build_progress(items, *, enabled: bool, desc: str, unit: str):
-    if not enabled or tqdm is None:
-        return items
-    return tqdm(items, total=len(items), desc=desc, unit=unit)
-
-
-def _update_progress(progress, **postfix: int) -> None:
-    if tqdm is None:
-        return
-    if hasattr(progress, "set_postfix"):
-        progress.set_postfix(postfix)
-
-
-def _close_progress(progress) -> None:
-    if tqdm is None:
-        return
-    if hasattr(progress, "close"):
-        progress.close()
+        storage,
+        vector_store,
+        summarizer=summarizer,
+        content_fetcher=content_fetcher,
+        show_progress=show_progress,
+    ).stats
