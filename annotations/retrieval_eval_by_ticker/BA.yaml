@@ -1,0 +1,527 @@
+ticker: BA
+annotations:
+- article_id: 177
+  title: OpenAI Launches Daybreak for AI-Powered Vulnerability Detection and
+  url: https://thehackernews.com/2026/05/openai-launches-daybreak-for-ai-powered.html
+  excerpt: OpenAI Launches Daybreak for AI-Powered Vulnerability Detection and Patch
+    Validation - The Hacker News. OpenAI launched Daybreak with GPT-5.5-Cyber tools
+    as AI accelerates vulnerability discovery and exploit timelines.
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\177.txt
+  dedupe_key: openai-launches-daybreak-for-ai-powered-vulnerability-detection
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 181
+  title: Nvidia's Earnings Are Hours Away. Here Are 3 Things to Watch. - Yahoo Finance
+  url: https://www.fool.com/investing/2026/05/20/nvidias-earnings-are-hours-away-here-are-3-things
+  excerpt: Nvidia (NVDA +1.22%) reports its fiscal first-quarter results after the
+    market closes Wednesday (today), and the release will give investors the clearest
+    read yet on whether the artificial intelligence (AI) build-out that has consumed
+    the AI chipmaker's order book is still gaining steam. The stock has quietly climbed
+    i...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\181.txt
+  dedupe_key: nvidia-s-earnings-are-hours-away-here-are
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 182
+  title: "S&P 500 futures fall as traders await Nvidia\u2019s earnings: Live updates\
+    \ - CNBC"
+  url: https://www.cnbc.com/2026/05/19/stock-market-today-live-updates.html
+  excerpt: Stocks jumped on Wednesday as oil prices and U.S. Treasury yields slid
+    amid growing optimism that the conflict in the Middle East could soon be resolved.
+    Traders also looked ahead to the release of Nvidia's first-quarter earnings report.
+    The Dow Jones Industrial Average advanced 645.47 points, or 1.31%, closing at
+    50,0...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\182.txt
+  dedupe_key: s-p-500-futures-fall-as-traders-await
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 183
+  title: Target is set to report first-quarter earnings, offer read on consumer -
+    CNBC
+  url: https://www.cnbc.com/2026/05/20/target-tgt-q1-2026-earnings.html
+  excerpt: Target on Wednesday posted earnings and revenue that beat Wall Street expectations,
+    and reported that net sales grew more than 6% year over year as the retailer tries
+    to win back customers amid slumping sales. Target's same-store sales jumped 5.6%,
+    its first positive same-store sales number in five quarters. Even so, T...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\183.txt
+  dedupe_key: target-is-set-to-report-first-quarter-earnings
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 185
+  title: "Mercedes\u2019 electric AMG GT 4-door coupe can go 0-60 in 2 seconds - The\
+    \ Verge"
+  url: https://www.theverge.com/news/934037/mercedes-amg-gt-four-door-coupe-ev-specs
+  excerpt: "The era of ultra-high performance Mercedes EVs is here. The German automaker\
+    \ finally revealed its new super sedan, the AMG GT 4-door coupe, with technology\
+    \ borrowed from the automaker\u2019s XX concept that last year made history by\
+    \ driving 24,901 miles in under 8 days at Nard\xF2 Ring in southern Italy. Mercedes\u2019\
+    \ electric AMG..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\185.txt
+  dedupe_key: mercedes-electric-amg-gt-4-door-coupe-can
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 186
+  title: Meta begins cutting thousands of jobs in sweeping layoffs. Here's how much
+    it's paying in severance.
+  url: https://www.businessinsider.com/layoff-meta-severance-details-cobra-jobs-2026-5
+  excerpt: '- On Wednesday, Meta sent layoff emails to roughly 10% of its workforce.
+    - The cuts are expected to eliminate around 8,000 roles, including managerial
+    positions. - Meta is also shifting more than 7,000 employees to AI initiatives.
+    The chapter that Meta employees have dreaded for a month is here. On Wednesday,
+    emails we...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\186.txt
+  dedupe_key: meta-begins-cutting-thousands-of-jobs-in-sweeping
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 192
+  title: Trump discloses thousands of stock trades, some in companies directly influenced
+    by his policies - AP News
+  url: https://apnews.com/article/stock-trading-trump-nvidia-apple-defense-1bd6e661929430892ae8f1eced3e0df8
+  excerpt: "Trump discloses thousands of stock trades, some in companies directly\
+    \ influenced by his policies Trump discloses thousands of stock trades, some in\
+    \ companies directly influenced by his policies NEW YORK (AP) \u2014 Call him\
+    \ the Trader in Chief. Recent presidents have stayed away from trading stocks\
+    \ in companies whose fortun..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\192.txt
+  dedupe_key: trump-discloses-thousands-of-stock-trades-some-in
+  relevance: relevant
+  impact_label: positive
+  relevance_type: indirect
+  notes: ''
+- article_id: 194
+  title: "Volvo\u2019s new EV costs the same to lease as a Tesla Model Y Premium,\
+    \ but here\u2019s the catch - Electrek"
+  url: https://electrek.co/2026/05/19/volvos-new-ev-costs-same-to-lease-as-tesla-model-y-premium
+  excerpt: "Volvo\u2019s new \u201Cgame-changing\u201D midsize electric SUV, the 2027\
+    \ EX60, is now on sale, but is it worth it to lease? 2027 Volvo EX60 lease offers\
+    \ Volvo said it\u2019s lowering the threshold for a premium electric SUV after\
+    \ opening orders for the all-new EX60 on Monday. The 2027 Volvo EX60 starts at\
+    \ $58,400, which is nearly $23,000..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\194.txt
+  dedupe_key: volvo-s-new-ev-costs-the-same-to
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 197
+  title: Wall St ends lower as inflation worries push up yields - Yahoo Finance
+  url: https://finance.yahoo.com/markets/stocks/articles/wall-st-eyes-lower-open-130156440.html
+  excerpt: "By Sin\xE9ad Carew and Ragini Mathur May 19 (Reuters) - Wall Street's\
+    \ main indexes closed lower on Tuesday with the Nasdaq leading declines, after\
+    \ the benchmark 10-year Treasury yield climbed to its highest level in more than\
+    \ a year on mounting inflation concerns as oil prices stayed elevated and investors\
+    \ were anxious ab..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\197.txt
+  dedupe_key: wall-st-ends-lower-as-inflation-worries-push
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 198
+  title: "Elon Musk said Sam Altman \"stole\" a non-profit \u2014 but the trial showed\
+    \ he had similar aims - TechCrunch"
+  url: https://techcrunch.com/2026/05/19/elon-musk-said-sam-altman-stole-a-non-profit-but-the-trial-showed-he-had-similar-aims
+  excerpt: "The jury\u2019s speedy decision to reject Elon Musk\u2019s lawsuit against\
+    \ the other founders of OpenAI and Microsoft confirmed what we saw in the courtroom:\
+    \ Musk\u2019s case was a weak one, in part because he waited so long to file it.\
+    \ Watching the closing arguments last week, OpenAI\u2019s attorneys detailed point\
+    \ by point how the law w..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\198.txt
+  dedupe_key: elon-musk-said-sam-altman-stole-a-non
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 199
+  title: "Four of the World\u2019s Largest Container Manufacturing Companies and Seven\
+    \ of Their Executives Indicted for a Global Conspiracy Affecting Billions of Dollars\
+    \ of Commerce - Department of Justice (.gov)"
+  url: https://www.justice.gov/opa/pr/four-worlds-largest-container-manufacturing-companies-and-seven-their-executives-indicted
+  excerpt: "Press Release Four of the World\u2019s Largest Container Manufacturing\
+    \ Companies and Seven of Their Executives Indicted for a Global Conspiracy Affecting\
+    \ Billions of Dollars of Commerce For Immediate Release Office of Public Affairs\
+    \ Seven Chinese executives and four of the world\u2019s largest shipping container\
+    \ manufacturing co..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\199.txt
+  dedupe_key: four-of-the-world-s-largest-container-manufacturing
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 201
+  title: Graduates are booing pep talks on AI at college commencements - AP News
+  url: https://apnews.com/article/ai-college-commencement-anxiety-boo-35aec9bac660eaeb05c5b8d392db2cac
+  excerpt: "Graduates are booing pep talks on AI at college commencements Graduates\
+    \ are booing pep talks on AI at college commencements As artificial intelligence\
+    \ casts a shadow over career prospects, it is becoming an unwelcome subject at\
+    \ this season\u2019s college commencements. At several campuses, graduates have\
+    \ interrupted speaker..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\201.txt
+  dedupe_key: graduates-are-booing-pep-talks-on-ai-at
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 204
+  title: Amazon is selling a $100 Craftsman hand vac for $59 ahead of Memorial Day
+    (plus 10 more fab deals) - Yahoo
+  url: https://shopping.yahoo.com/deals/article/amazon-is-selling-a-100-craftsman-hand-vac-for-59-ahead-of-memorial-day-plus-10-more-fab-deals-210000874.html
+  excerpt: 'Early birds get worms, but early shoppers? They get something a bit more
+    appealing: Deals! This week, that means Memorial Day deals, to be precise, since
+    sales are already popping up at the biggest retailers across the web. Of course,
+    weeding through all of the markdowns can be overwhelming and time-consuming, which
+    is...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\204.txt
+  dedupe_key: amazon-is-selling-a-100-craftsman-hand-vac
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 205
+  title: PJM gets emergency approval to curtail data centers, large loads during hot
+    weather - Utility Dive
+  url: https://www.utilitydive.com/news/pjm-doe-emergency-order-curtail-data-centers/820571
+  excerpt: 'Dive Brief: - The PJM Interconnection can curtail data centers and other
+    large loads that have backup generation under an emergency order issued Monday
+    by the U.S. Department of Energy. - PJM on Sunday asked to be able to direct transmission
+    owners and electric utilities in its Mid-Atlantic and Midwest footprint for pe...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\205.txt
+  dedupe_key: pjm-gets-emergency-approval-to-curtail-data-centers
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 207
+  title: 'SpaceX Starship Flight 12 launch updates: 1st Starship V3 will now launch
+    on May 21 - Space'
+  url: https://www.space.com/news/live/spacex-starship-flight-12-launch-updates-may-20-2026
+  excerpt: 'SpaceX Starship Flight 12 launch updates: 1st Starship V3 completes fueling
+    test ahead of May 21 liftoff SpaceX is now targeting a Thursday, May 21, launch
+    for its newest Starship design, the Starship V3 megarocket. See our latest updates
+    here. SpaceX''s newest version of its massive Starship, the world''s largest and
+    mo...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\207.txt
+  dedupe_key: spacex-starship-flight-12-launch-updates-1st-starship
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 208
+  title: "Everlane customers shocked after \u2018radical transparency\u2019 retailer\
+    \ is acquired by Shein - The San Francisco Standard"
+  url: https://sfstandard.com/2026/05/19/everlane-shein-sale-sf
+  excerpt: "Everlane, a clothing retailer known for minimalist staples, sustainability,\
+    \ and \u201Cradical transparency,\u201D has been folded into a company on the\
+    \ opposite end of the branding spectrum. Shein, one of China\u2019s most prominent\
+    \ ultra-fast-fashion platforms, is acquiring the San Francisco-founded direct-to-consumer\
+    \ brand. The dea..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\208.txt
+  dedupe_key: everlane-customers-shocked-after-radical-transparency-retailer-is
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 209
+  title: '''Point of no return'': A research firm says the oil market is headed for
+    a dire turning point by early June - Business Insider'
+  url: https://www.businessinsider.com/oil-prices-market-supply-shortage-outlook-iran-war-crude-inventories-2026-5
+  excerpt: '- The oil market could reach a grim turning point in the next few weeks,
+    HFI Research says. - The firm sees "real panic" hitting crude markets as oil inventories
+    run out. - Previously, it speculated that panic buying and hoarding could send
+    crude prices past $150 a barrel. Market watchers have puzzled over the reasons...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\209.txt
+  dedupe_key: point-of-no-return-a-research-firm-says
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 211
+  title: 'Brawls, Pepper Spray, and Store Closures: Inside the Madness of Royal Pop
+    Release Day - GQ'
+  url: https://www.gq.com/story/inside-swatch-audemars-piguet-royal-pop-launch
+  excerpt: "At around 10:20 a.m. on Saturday, at Westfield Topanga mall in Greater\
+    \ Los Angeles, the manager of the Swatch store stepped out to address the crowd\
+    \ of hundreds that had gathered outside the door. The much-hyped Swatch x Audemars\
+    \ Piguet Royal Pop, he announced through a megaphone, had officially sold out.\
+    \ \u201CSo everybody..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\211.txt
+  dedupe_key: brawls-pepper-spray-and-store-closures-inside-the
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 212
+  title: The Home Depot Announces First Quarter Fiscal 2026 Results; Reaffirms Fiscal
+    2026 Guidance - The Home Depot
+  url: https://ir.homedepot.com/news-releases/2026/05-19-2026-110111934
+  excerpt: "ATLANTA, May 19, 2026 /PRNewswire/ -- The Home Depot\xAE, the world's\
+    \ largest home improvement retailer, today reported sales of $41.8 billion for\
+    \ the first quarter of fiscal 2026, an increase of $1.9 billion, or 4.8% from\
+    \ the first quarter of fiscal 2025. Comparable sales for the first quarter of\
+    \ fiscal 2026 increased 0...."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\212.txt
+  dedupe_key: the-home-depot-announces-first-quarter-fiscal-2026
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 213
+  title: You Can Get Some of Your Nudes Removed From the Internet Under a New Law
+    - WIRED
+  url: https://www.wired.com/story/how-to-remove-nudes-take-it-down-act
+  excerpt: Starting on May 19, tech platforms have to provide a way for people to
+    report nonconsensual intimate images and videos, or NCII, uploaded to their platforms.
+    The new requirement is thanks to the Take It Down Act, a US law backed by First
+    Lady Melania Trump that passed last year with bipartisan support. The Take It
+    Down...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\213.txt
+  dedupe_key: you-can-get-some-of-your-nudes-removed
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 214
+  title: "Theo Baker spent four years investigating Stanford. Before he leaves, here\u2019\
+    s what he found. - TechCrunch"
+  url: https://techcrunch.com/2026/05/18/theo-baker-spent-four-years-investigating-stanford-before-he-leaves-heres-what-he-found
+  excerpt: "Most members of Stanford\u2019s class of 2026 are smart, ambitious, and\
+    \ poised for remarkable careers. Theo Baker already has one. In his first semester\
+    \ of college, Baker broke the story that forced Stanford president Marc Tessier-Lavigne\
+    \ to resign \u2014 work that earned him a George Polk Award, one of journalism\u2019\
+    s highest hono..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\214.txt
+  dedupe_key: theo-baker-spent-four-years-investigating-stanford-before
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 215
+  title: Downtown Las Vegas eatery closes after 15 years - Las Vegas Review-Journal
+  url: https://neon.reviewjournal.com/dining-out/heart-attack-grill-closes-in-downtown-las-vegas-after-15-years-3335452
+  excerpt: Downtown Las Vegas eatery closes after 15 years An eatery known for clogging
+    arteries in downtown Las Vegas has closed its doors after 15 years. Heart Attack
+    Grill, infamous for its Quadruple Bypass Burgers, large outdoor scale (those 350
+    pounds or heavier ate free), and hospital theme, closed at 9 a.m. Monday, as conf...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\215.txt
+  dedupe_key: downtown-las-vegas-eatery-closes-after-15-years
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 217
+  title: U.S. prosecutors drop fraud charges against billionaire Indian businessman
+    Gautam Adani - PBS
+  url: https://www.pbs.org/newshour/world/u-s-prosecutors-drop-fraud-charges-against-billionaire-indian-businessman-gautam-adani
+  excerpt: "By \u2014 Michael R. Sisak, Associated Press Michael R. Sisak, Associated\
+    \ Press By \u2014 Larry Neumeister, Associated Press Larry Neumeister, Associated\
+    \ Press Leave your feedback Share Copy URL https://www.pbs.org/newshour/world/u-s-prosecutors-drop-fraud-charges-against-billionaire-indian-businessman-gautam-adani\
+    \ Email Faceboo..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\217.txt
+  dedupe_key: u-s-prosecutors-drop-fraud-charges-against-billionaire
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 218
+  title: "NextEra's $67 billion Dominion takeover creates world's largest utility\u2014\
+    just in time to win the AI data center power surge - Fortune"
+  url: https://fortune.com/2026/05/18/nextera-dominion-67-billion-acquisition-ai-data-centers-largest-utility
+  excerpt: "NextEra Energy\u2019s massive $67 billion deal to acquire Virginia-based\
+    \ Dominion, announced on May 18, will effectively build the world\u2019s largest\
+    \ utility in a bid to dominate the AI data center boom. It\u2019s a goal big enough\
+    \ that NextEra was willing to pay a hefty premium\u2014and risk overpaying\u2014\
+    to make it happen. On a call with..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\218.txt
+  dedupe_key: nextera-s-67-billion-dominion-takeover-creates-world
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 219
+  title: "How Metropolis built a $5 billion AI infrastructure company out of America\u2019\
+    s parking problem"
+  url: https://fortune.com/2026/05/20/metropolis-5-billion-ai-infrastructure-jp-morgan-parking-biometrics
+  excerpt: Alex Israel knows where autonomous vehicles go to sleep at night. Israel
+    is the CEO of Metropolis, an AI computer vision infrastructure company that processes
+    $5 billion in annual payments volume, controls more than 4,200 locations across
+    the country, and employs 23,000 people. The parking payment (now AI recognition
+    s...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\219.txt
+  dedupe_key: how-metropolis-built-a-5-billion-ai-infrastructure
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 220
+  title: "Milken-Harris Poll: 80% of Americans want AI workforce programs now \u2014\
+    \ and Washington hasn\u2019t delivered"
+  url: https://fortune.com/2026/05/20/ai-workforce-transition-gap-milken-harris-poll
+  excerpt: "President Donald Trump is reportedly considering a government review of\
+    \ artificial intelligence models before they are released, reversing his administration\u2019\
+    s hands-off approach. Florida Governor Ron DeSantis, from a famously laissez-faire\
+    \ state, has announced his support for legislation moving through Florida\u2019\
+    s legis..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\220.txt
+  dedupe_key: milken-harris-poll-80-of-americans-want-ai
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 221
+  title: The bond market is firing a warning shot in the direction of Washington,
+    D.C.
+  url: https://fortune.com/2026/05/20/fortune-digest-bond-market-yield-warning-inflation-iran
+  excerpt: "Good morning. On Fortune\u2019s radar today: - The bond market is pushing\
+    \ for action - Inside the quest for world models - Iran warns of \u2018surprises\u2019\
+    \ amid escalating tensions - A bet on downtown resurgence - Having a pet is a\
+    \ lifestyle luxury THE MARKETS - S&P 500 futures are up 0.24%. - In Europe, the\
+    \ Stoxx 600 is up 0.21%..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\221.txt
+  dedupe_key: the-bond-market-is-firing-a-warning-shot
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 222
+  title: Versant is the cable TV company Comcast didn't want to own. Here's what CEO
+    Mike Lazarus wants to do with it.
+  url: https://www.businessinsider.com/versant-mike-lazarus-cable-tv-msnbc-msnow-interview-vox-kafka-2026-5
+  excerpt: '- The cable TV industry is in decline. But cable TV networks still generate
+    a lot of cash. - So the plan for Versant Media, the cable TV company spun out
+    of Comcast, is to use that cash to pivot out of cable TV. - CEO Mark Lazarus explains
+    the strategy, which includes new spending on sports rights. Big Media companies...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\222.txt
+  dedupe_key: versant-is-the-cable-tv-company-comcast-didn
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 223
+  title: The best portable power stations in 2026
+  url: https://www.businessinsider.com/guides/home/best-portable-power-stations
+  excerpt: The best portable power stations keep you online and charged up when you
+    need it most. Pack one along for a weekend at the campground, use one to keep
+    the refrigerator running during a power outage, or carry one into the backyard
+    for an outdoor movie night. They can also serve as a cleaner and quieter generator
+    alterna...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\223.txt
+  dedupe_key: the-best-portable-power-stations-in-2026
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 224
+  title: 'Exclusive: Advocacy groups file complaint against Roblox, alleging its manipulative
+    design puts kids at risk'
+  url: https://fortune.com/2026/05/20/exclusive-advocacy-groups-file-complaint-roblox-manipulative-design
+  excerpt: Child advocacy organizations Fairplay and the National Center on Sexual
+    Exploitation (NCOSE) are filing a complaint against Roblox at the Federal Trade
+    Commission, asking the agency to investigate the gaming giant for practices they
+    say exploit children through manipulative monetization, addictive design features
+    and c...
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\224.txt
+  dedupe_key: exclusive-advocacy-groups-file-complaint-against-roblox-alleging
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 225
+  title: "Grab bets on new delivery robots to fix Singapore\u2019s \u2018supply-constrained\
+    \ markets\u2019 and solve the last-mile problem"
+  url: https://fortune.com/2026/05/20/grab-delivery-robots-cto-suthen-paradatheth-singapore-labor-shortage
+  excerpt: "Grab sees autonomous vehicles as a solution to worker shortages markets\
+    \ like Singapore, where scarce and costly labor makes it difficult to expand delivery\
+    \ networks across the dense city-state. The Southeast Asian tech company will\
+    \ launch a pilot of its first delivery robot in Singapore\u2019s Punggol district\
+    \ in late 2026,..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\225.txt
+  dedupe_key: grab-bets-on-new-delivery-robots-to-fix
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 226
+  title: The bond market's 2007 moment is here to throw a wrench into everyone's plans
+  url: https://www.businessinsider.com/bond-market-selloff-highest-treasury-yield-2007-disruption-war-inflation-2026-5
+  excerpt: '- The 30-year Treasury yield just hit its highest level since 2007. -
+    Pressure is likely to be felt everywhere from mortgage rates to car loans. - The
+    situation is disrupting best-laid plans for stock bulls, as well as President
+    Trump''s affordability push. When comparisons to the Great Financial Crisis era
+    start poppin...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\226.txt
+  dedupe_key: the-bond-market-s-2007-moment-is-here
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 227
+  title: An entrepreneur who made Oprah's 'Favorite Things' explains how to create
+    a product that people are obsessed with
+  url: https://www.businessinsider.com/how-to-create-viral-product-oprahs-favorite-things-list-popsmith-2026-5
+  excerpt: '- Tal Moore''s Popsmith popper made Oprah''s coveted "Favorite Things"
+    list in 2024. - The entrepreneur said the product hit because of three things:
+    aesthetics, experience, and flavor. - His advice to other entrepreneurs is to
+    start by creating one really good product, then expand. Popsmith cofounder Tal
+    Moore beat the...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\227.txt
+  dedupe_key: an-entrepreneur-who-made-oprah-s-favorite-things
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 228
+  title: Bank of America says an under-the-radar sell signal is flashing in markets
+  url: https://www.businessinsider.com/stock-market-outlook-sell-signal-cash-levels-bofa-equity-allocation-2026-5
+  excerpt: '- Bank of America says a subtle sell signal has begun flashing in markets:
+    dwindling cash levels. - Cash reserves fell below a key threshold, which can suggest
+    investors are overly bullish on stocks. - Early June could be a "ripe" time for
+    investors looking to take profits, strategists said. A subtle contrarian sell
+    si...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\228.txt
+  dedupe_key: bank-of-america-says-an-under-the-radar
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 229
+  title: I'm the CEO of a mocktail company. I embrace the art of puttering and balance
+    the 'yucky' part of business with creativity.
+  url: https://www.businessinsider.com/day-in-the-life-mingle-mocktails-founder-laura-taylor-2026-5
+  excerpt: "This as-told-to essay is based on a conversation with Laura Taylor, the\
+    \ 54-year-old founder and CEO of Mingle Mocktails, based in Berwyn, Pennsylvania.\
+    \ The following has been edited for length and clarity. My goal was always to\
+    \ be a working woman \u2014 to wear power suits, have a corner office, and be\
+    \ financially independe..."
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\229.txt
+  dedupe_key: i-m-the-ceo-of-a-mocktail-company
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
+- article_id: 230
+  title: Nvidia earnings face a high bar, as investors watch for updates on AI competition,
+    China, and more
+  url: https://www.businessinsider.com/nvidia-earnings-nvda-stock-price-ai-chips-jensen-huang-china-2026-5
+  excerpt: '- Nvidia earnings will be a critical update in the market''s AI narrative.
+    - Wall Street expects a beat and raise on all fronts from the AI chipmaker. -
+    Goldman flags expectations are high, while Citi eyes competition and BofA watches
+    for buybacks. Investors are bracing for a key update in the stock market''s hottest
+    tra...'
+  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\230.txt
+  dedupe_key: nvidia-earnings-face-a-high-bar-as-investors
+  relevance: irrelevant
+  impact_label: null
+  relevance_type: null
+  notes: ''
