@@ -2,3 +2,26 @@
 .venv/
 __pycache__/
 *.pyc
+
+# Local caches and test/runtime artifacts
+.tmp/
+.pytest_cache/
+logs/
+*.log
+*.pid
+
+# Local databases and vector-store state
+*.db
+*.sqlite3
+chroma_data/
+data/runtime/
+data/articles/
+
+# Generated reports and scratch exports
+reports/
+backfill_report.csv
+pdf_text.txt
+*.pdf
+
+# Local agent/plugin development copies
+.agents/
