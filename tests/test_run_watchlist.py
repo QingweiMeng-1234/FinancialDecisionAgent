@@ -40,7 +40,7 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
 
     result = type("Result", (), {"run_id": "run-123", "ranked_items": [], "top_n": 3})()
 
-    def fake_run_watchlist(request, vector_store, storage):
+    def fake_run_workflow(request, storage, vector_store, output_dir, persist_timeline, debug_review, debug_rerank):
         calls["run"] = (
             request.tickers,
             request.top_n,
@@ -48,19 +48,23 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
             vector_store.persist_dir,
             storage.db_path,
         )
-        return result
+        calls["workflow"] = (output_dir, persist_timeline, debug_review, debug_rerank)
+        return type(
+            "Workflow",
+            (),
+            {
+                "result": result,
+                "report_path": os.path.join(output_dir, "watchlist.md"),
+                "timeline_path": os.path.join(output_dir, "watchlist.timeline.jsonl"),
+            },
+        )()
 
     def fake_render_summary(result_obj, debug_review=False, debug_rerank=False):
         calls["summary"] = (result_obj.run_id, debug_review, debug_rerank)
         return "Watchlist Triage:\n1. MSFT - High / High"
 
-    def fake_write_report(result_obj, output_dir, debug_review=False, debug_rerank=False):
-        calls["report"] = (result_obj.run_id, output_dir, debug_review, debug_rerank)
-        return os.path.join(output_dir, "watchlist.md")
-
-    monkeypatch.setattr(f"{cli_path}.run_watchlist", fake_run_watchlist)
+    monkeypatch.setattr(f"{cli_path}.run_watchlist_triage_workflow", fake_run_workflow)
     monkeypatch.setattr(f"{cli_path}.render_watchlist_summary", fake_render_summary)
-    monkeypatch.setattr(f"{cli_path}.write_watchlist_report", fake_write_report)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         exit_code = run_watchlist.main(
@@ -82,9 +86,10 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
         assert calls["run"][0] == ["MSFT", "AAPL"]
         assert calls["run"][1] == 1
         assert calls["run"][2] is True
-        assert calls["report"][2:] == (True, True)
+        assert calls["workflow"] == (tmpdir, True, True, True)
         assert calls["summary"] == ("run-123", True, True)
         assert "Report saved to:" in captured.out
+        assert "Timeline saved to:" in captured.out
         assert "Watchlist Triage:" in captured.out
 
 
