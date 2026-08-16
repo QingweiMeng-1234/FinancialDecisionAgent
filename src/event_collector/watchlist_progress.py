@@ -11,6 +11,10 @@ from typing import Any, Callable
 WatchlistProgressSink = Callable[["WatchlistProgressEvent"], None]
 
 
+class TimelineProvenanceError(ValueError):
+    """A timeline declares provenance that is missing or structurally invalid."""
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -79,9 +83,12 @@ class WatchlistTimelineRecorder:
         if self._sink is not None:
             self._sink(event)
 
-    def write_jsonl(self, path: str) -> str:
+    def write_jsonl(self, path: str, *, header: dict[str, Any] | None = None) -> str:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
+            if header is not None:
+                handle.write(json.dumps(dict(header), ensure_ascii=True))
+                handle.write("\n")
             for event in self.events:
                 handle.write(json.dumps(event.to_dict(), ensure_ascii=True))
                 handle.write("\n")
@@ -104,14 +111,39 @@ def render_watchlist_progress_line(event: WatchlistProgressEvent) -> str:
     return " ".join(parts)
 
 
-def load_watchlist_timeline(path: str) -> list[WatchlistProgressEvent]:
+def load_watchlist_timeline_document(
+    path: str,
+) -> tuple[dict[str, str] | None, list[WatchlistProgressEvent]]:
+    """Load optional provenance plus events, retaining event-only legacy compatibility."""
+    from event_collector.publication_provenance import require_publication_provenance
+
+    provenance: dict[str, str] | None = None
     events: list[WatchlistProgressEvent] = []
+    saw_record = False
     with open(path, encoding="utf-8") as handle:
         for line in handle:
             stripped = line.strip()
             if not stripped:
                 continue
-            events.append(WatchlistProgressEvent.from_dict(json.loads(stripped)))
+            payload = json.loads(stripped)
+            if payload.get("record_type") == "retrieval_provenance":
+                if saw_record or provenance is not None:
+                    raise TimelineProvenanceError(
+                        "retrieval provenance must be the first and only timeline header"
+                    )
+                try:
+                    provenance = require_publication_provenance(payload)
+                except ValueError as exc:
+                    raise TimelineProvenanceError(str(exc)) from exc
+                saw_record = True
+                continue
+            saw_record = True
+            events.append(WatchlistProgressEvent.from_dict(payload))
+    return provenance, events
+
+
+def load_watchlist_timeline(path: str) -> list[WatchlistProgressEvent]:
+    _, events = load_watchlist_timeline_document(path)
     return events
 
 

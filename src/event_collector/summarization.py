@@ -165,6 +165,7 @@ def summarize_stored_articles(
     agent = summarizer or SummarizationAgent() if records else None
 
     for record in records:
+        processing_hash = record.article.active_content_sha256 or record.article.content_sha256
         article = ArticleForSummarization(
             article_id=record.id,
             title=record.article.title,
@@ -175,20 +176,25 @@ def summarize_stored_articles(
 
         try:
             summary = agent.summarize_article(article)
-            storage.update_article_summary(record.id, summary)
+            if not processing_hash or not storage.update_article_summary(
+                record.id, summary, content_sha256=processing_hash
+            ):
+                raise RuntimeError("active content changed before summary commit")
             record.article.summary = summary
             processed += 1
 
             if vector_store:
                 try:
                     vector_store.add_article(record.id, record.article)
-                    storage.mark_article_processing_status(record.id, index_status="ready")
+                    if not storage.mark_article_index_ready(record.id, processing_hash):
+                        raise RuntimeError("active content changed before index commit")
                     indexed += 1
                 except Exception:
-                    storage.mark_article_processing_status(record.id, index_status="failed")
+                    storage.mark_article_index_failure(record.id, processing_hash)
                     raise
         except Exception as exc:
-            storage.mark_article_processing_status(record.id, summary_status="failed")
+            if processing_hash:
+                storage.mark_article_summary_failure(record.id, processing_hash)
             raise ArticleSummarizationError(record.id, str(exc)) from exc
 
     return {

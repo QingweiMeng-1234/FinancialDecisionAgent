@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import json
+import re
 from typing import Any, Protocol
 
 from event_collector.entity_kb import SQLiteEntityStore
@@ -207,7 +208,7 @@ class RAGAnsweringAgent:
     def answer_query(self, request: AnswerQueryRequest) -> RAGAnswerResponse:
         raw_response = self.llm_client.answer_query(request)
         response = RAGAnswerResponse.model_validate(raw_response)
-        _validate_response_citations(response)
+        _validate_response_citations(response, request)
         return response
 
 
@@ -298,9 +299,50 @@ def build_retrieved_evidence(
     )
 
 
-def _validate_response_citations(response: RAGAnswerResponse) -> None:
+def _validate_response_citations(
+    response: RAGAnswerResponse,
+    request: AnswerQueryRequest,
+) -> None:
+    """Bind every model-returned source and citation to the retrieved evidence."""
+    evidence_by_id = {evidence.id: evidence for evidence in request.evidence}
+    if len(evidence_by_id) != len(request.evidence):
+        raise ValueError("Input evidence contains duplicate source ids")
+
+    invalid_source_ids = {source.id for source in response.sources} - set(evidence_by_id)
+    if invalid_source_ids:
+        raise ValueError(
+            "Response source ids not present in input evidence: "
+            f"{sorted(invalid_source_ids)}"
+        )
+
+    for source in response.sources:
+        evidence = evidence_by_id[source.id]
+        for field in ("title", "url", "snippet"):
+            if getattr(source, field) != getattr(evidence, field):
+                raise ValueError(f"Response source {field} does not match input evidence")
+
+    valid_evidence_ids = set(evidence_by_id)
+    answer_citations = {int(citation) for citation in re.findall(r"\[(\d+)\]", response.answer)}
+    if not response.insufficient_evidence and not answer_citations:
+        raise ValueError("Material answers require at least one inline citation")
+    unknown_answer_citations = answer_citations - valid_evidence_ids
+    if unknown_answer_citations:
+        raise ValueError(
+            "Answer citations reference unknown input evidence ids: "
+            f"{sorted(unknown_answer_citations)}"
+        )
+
     valid_source_ids = {source.id for source in response.sources}
+    omitted_answer_citations = answer_citations - valid_source_ids
+    if omitted_answer_citations:
+        raise ValueError(
+            "Answer citations reference omitted response source ids: "
+            f"{sorted(omitted_answer_citations)}"
+        )
     for point in response.supporting_points + response.counter_points:
+        unknown_evidence_ids = set(point.citations) - valid_evidence_ids
+        if unknown_evidence_ids:
+            raise ValueError(f"Point citations reference unknown source ids: {sorted(unknown_evidence_ids)}")
         missing = set(point.citations) - valid_source_ids
         if missing:
             raise ValueError(f"Point citations reference unknown source ids: {sorted(missing)}")

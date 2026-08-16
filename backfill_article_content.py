@@ -135,6 +135,7 @@ def rebuild_summary_and_index(
     article = storage.get_article(record.id)
     if article is None:
         return False, False, "article disappeared before rebuild"
+    processing_hash = article.active_content_sha256 or article.content_sha256
 
     agent = summarizer or SummarizationAgent()
     try:
@@ -147,20 +148,26 @@ def rebuild_summary_and_index(
                 url=article.canonical_url or article.original_url or article.url,
             )
         )
-        storage.update_article_summary(record.id, summary)
+        if not processing_hash or not storage.update_article_summary(
+            record.id, summary, content_sha256=processing_hash
+        ):
+            raise RuntimeError("active content changed before summary commit")
         article.summary = summary
         summary_rebuilt = True
     except Exception as exc:
-        storage.mark_article_processing_status(record.id, summary_status="failed")
+        if processing_hash:
+            storage.mark_article_summary_failure(record.id, processing_hash)
         notes.append(f"summary_failed: {exc}")
 
     if vector_store is not None:
         try:
             vector_store.add_article(record.id, article)
-            storage.mark_article_processing_status(record.id, index_status="ready")
+            if not processing_hash or not storage.mark_article_index_ready(record.id, processing_hash):
+                raise RuntimeError("active content changed before index commit")
             index_rebuilt = True
         except Exception as exc:
-            storage.mark_article_processing_status(record.id, index_status="failed")
+            if processing_hash:
+                storage.mark_article_index_failure(record.id, processing_hash)
             notes.append(f"index_failed: {exc}")
 
     return summary_rebuilt, index_rebuilt, "; ".join(notes)
@@ -205,7 +212,12 @@ def process_record(
             published_at=article.published_at,
         )
     except ArticleFetchError as exc:
-        storage.mark_article_processing_status(record.id, content_status="failed")
+        storage.mark_article_content_failure(
+            record.id,
+            reason=exc.reason.value,
+            final_response_url=exc.url,
+            response_status_code=exc.status_code,
+        )
         return ContentBackfillReportRow(
             article_id=record.id,
             current_url=current_url,
@@ -219,7 +231,11 @@ def process_record(
             notes=str(exc),
         )
     except sqlite3.IntegrityError as exc:
-        storage.mark_article_processing_status(record.id, content_status="failed")
+        storage.mark_article_content_failure(
+            record.id,
+            reason=FetchFailureReason.DUPLICATE_URL_CONFLICT.value,
+            final_response_url=current_url,
+        )
         return ContentBackfillReportRow(
             article_id=record.id,
             current_url=current_url,

@@ -1,7 +1,9 @@
 import os
 import tempfile
+from types import SimpleNamespace
 
 import run_watchlist
+from event_collector.serving_generation_factory import CorpusUnavailableError
 
 
 class FakeStorage:
@@ -26,6 +28,20 @@ class FakeVectorStore:
         self.collection_name = collection_name
 
 
+def _pinned(reader=None):
+    reader = reader or FakeVectorStore("active-root", "active-collection")
+    return SimpleNamespace(
+        reader=reader,
+        active_generation=SimpleNamespace(
+            generation_id="gen-active",
+            collection_name="active-collection",
+            corpus_snapshot_id="snapshot-active",
+            index_config_fingerprint="fingerprint-active",
+        ),
+        eligibility=SimpleNamespace(articles=(), exclusions=()),
+    )
+
+
 def test_parse_requested_tickers_supports_csv_and_repeat_flags():
     args = run_watchlist.parse_args(["--tickers", "nvda, msft", "--ticker", "tsla", "--ticker", "msft"])
     assert run_watchlist.parse_requested_tickers(args) == ["NVDA", "MSFT", "TSLA"]
@@ -36,11 +52,11 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
     cli_path = "event_collector.cli.run_watchlist"
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_active_generation_reader", lambda config: _pinned())
 
     result = type("Result", (), {"run_id": "run-123", "ranked_items": [], "top_n": 3})()
 
-    def fake_run_workflow(request, storage, vector_store, output_dir, persist_timeline, debug_review, debug_rerank):
+    def fake_run_workflow(request, storage, vector_store, output_dir, persist_timeline, debug_review, debug_rerank, retrieval_provenance):
         calls["run"] = (
             request.tickers,
             request.top_n,
@@ -49,6 +65,7 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
             storage.db_path,
         )
         calls["workflow"] = (output_dir, persist_timeline, debug_review, debug_rerank)
+        calls["provenance"] = retrieval_provenance
         return type(
             "Workflow",
             (),
@@ -87,6 +104,7 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
         assert calls["run"][1] == 1
         assert calls["run"][2] is True
         assert calls["workflow"] == (tmpdir, True, True, True)
+        assert calls["provenance"]["generation_id"] == "gen-active"
         assert calls["summary"] == ("run-123", True, True)
         assert "Report saved to:" in captured.out
         assert "Timeline saved to:" in captured.out
@@ -96,10 +114,35 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
 def test_main_handles_empty_database(monkeypatch, capsys):
     cli_path = "event_collector.cli.run_watchlist"
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", EmptyStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_active_generation_reader", lambda config: _pinned())
 
     exit_code = run_watchlist.main(["--tickers", "MSFT"])
     captured = capsys.readouterr()
 
     assert exit_code == 0
     assert "No articles in database. Run main.py first." in captured.out
+
+
+def test_watchlist_cli_fails_closed_before_opening_legacy_storage_or_chroma(
+    monkeypatch, capsys
+):
+    """SELECT INVARIANT: watchlist serving requires an active generation."""
+    cli_path = "event_collector.cli.run_watchlist"
+    monkeypatch.setattr(
+        f"{cli_path}.create_active_generation_reader",
+        lambda config: (_ for _ in ()).throw(
+            CorpusUnavailableError(
+                stage="active_generation",
+                reason_code="missing_pointer",
+                message="no active generation",
+            )
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        f"{cli_path}.SQLiteNewsStore",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("storage opened")),
+    )
+
+    assert run_watchlist.main(["--tickers", "MSFT"]) == 1
+    assert "CORPUS_UNAVAILABLE:missing_pointer" in capsys.readouterr().out

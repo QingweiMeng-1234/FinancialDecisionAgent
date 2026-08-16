@@ -8,8 +8,9 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from event_collector.document_pipeline import article_to_document, split_article_document
-from event_collector.news_storage import NewsArticle
+from event_collector.news_storage import NewsArticle, compute_content_sha256
 from event_collector.vector_store import ChromaVectorStore, chunk_text, parse_article_id_from_chunk_id
+from tests.deterministic_embedder import DeterministicEmbedder
 
 
 @pytest.fixture
@@ -20,10 +21,37 @@ def temp_chroma_dir():
 
 @pytest.fixture
 def vector_store(temp_chroma_dir):
-    store = ChromaVectorStore(persist_dir=temp_chroma_dir, chunk_size=40, chunk_overlap=10)
+    store = ChromaVectorStore(
+        persist_dir=temp_chroma_dir,
+        chunk_size=40,
+        chunk_overlap=10,
+        embedder=DeterministicEmbedder(),
+    )
     yield store
     if hasattr(store, "client") and store.client:
         store.client = None
+
+
+def test_vector_store_uses_injected_embedder_without_loading_model(temp_chroma_dir, monkeypatch):
+    injected_embedder = object()
+
+    def fail_if_loaded(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("SentenceTransformer should not be loaded")
+
+    monkeypatch.setattr("event_collector.vector_store.SentenceTransformer", fail_if_loaded)
+
+    store = ChromaVectorStore(persist_dir=temp_chroma_dir, embedder=injected_embedder)
+
+    assert store.embedder is injected_embedder
+
+
+def verified_news_article(**kwargs):
+    article = NewsArticle(**kwargs)
+    article.content_status = "ready"
+    article.content_validation_status = "verified"
+    article.content_sha256 = compute_content_sha256(article.content)
+    return article
 
 
 def test_chunk_text_uses_fixed_windows_with_overlap():
@@ -35,7 +63,7 @@ def test_chunk_text_uses_fixed_windows_with_overlap():
 
 
 def test_article_to_document_standardizes_content_and_metadata():
-    article = NewsArticle(
+    article = verified_news_article(
         source="news",
         title="Bitcoin Rises",
         description="Bitcoin price increase",
@@ -57,7 +85,7 @@ def test_article_to_document_standardizes_content_and_metadata():
 
 
 def test_split_article_document_preserves_article_metadata_and_chunk_indexes():
-    article = NewsArticle(
+    article = verified_news_article(
         source="news",
         title="Bitcoin Rises",
         description="Bitcoin price increase",
@@ -80,7 +108,7 @@ def test_split_article_document_preserves_article_metadata_and_chunk_indexes():
 
 
 def test_vector_store_add_article_creates_chunk_records(vector_store):
-    article = NewsArticle(
+    article = verified_news_article(
         source="news",
         title="Bitcoin Rises",
         description="Bitcoin price increase",
@@ -100,7 +128,7 @@ def test_vector_store_add_article_creates_chunk_records(vector_store):
 
 def test_vector_store_search_aggregates_chunks_to_articles(vector_store):
     articles = [
-        NewsArticle(
+        verified_news_article(
             source="news",
             title="Bitcoin Market Analysis",
             description="BTC analysis",
@@ -111,7 +139,7 @@ def test_vector_store_search_aggregates_chunks_to_articles(vector_store):
             published_at=datetime.now(),
             content_sha256="btc-sha",
         ),
-        NewsArticle(
+        verified_news_article(
             source="news",
             title="Stock Market Update",
             description="Stock update",
@@ -136,7 +164,7 @@ def test_vector_store_search_aggregates_chunks_to_articles(vector_store):
 
 
 def test_vector_store_reindex_replaces_existing_chunks(vector_store):
-    original = NewsArticle(
+    original = verified_news_article(
         source="news",
         title="Oil Rises",
         description="Energy markets move",
@@ -147,7 +175,7 @@ def test_vector_store_reindex_replaces_existing_chunks(vector_store):
         published_at=datetime.now(),
         content_sha256="sha-1",
     )
-    updated = NewsArticle(
+    updated = verified_news_article(
         source="news",
         title="Oil Rises",
         description="Energy markets move",
@@ -170,8 +198,54 @@ def test_vector_store_reindex_replaces_existing_chunks(vector_store):
     assert results[0]["summary"] == updated.summary
 
 
+def test_legacy_reindex_embedding_failure_does_not_delete_existing_chunks(temp_chroma_dir):
+    """SELECT INVARIANT: prepare embeddings before the destructive legacy replacement step."""
+    class FailingEmbedder:
+        def encode(self, values):
+            raise RuntimeError("embedding unavailable")
+
+    class RecordingCollection:
+        def __init__(self):
+            self.delete_calls = []
+
+        def delete(self, **kwargs):
+            self.delete_calls.append(kwargs)
+
+        def get(self, include=None):
+            return {"ids": ["9:0"], "metadatas": [{"article_id": 9}]}
+
+    class FakeClient:
+        def __init__(self):
+            self.collection = RecordingCollection()
+
+        def get_or_create_collection(self, **kwargs):
+            return self.collection
+
+    client = FakeClient()
+    store = ChromaVectorStore(
+        persist_dir=temp_chroma_dir,
+        embedder=FailingEmbedder(),
+        client=client,
+    )
+    article = verified_news_article(
+        source="news",
+        title="Embedding fails",
+        description="Existing article",
+        content="Canonical content remains available. " * 4,
+        url="https://example.com/failure",
+        original_url="https://example.com/failure",
+        canonical_url="https://example.com/failure",
+        published_at=datetime.now(),
+    )
+
+    with pytest.raises(RuntimeError, match="embedding unavailable"):
+        store.add_article(9, article)
+
+    assert client.collection.delete_calls == []
+
+
 def test_vector_store_search_respects_allowed_article_ids(vector_store):
-    first = NewsArticle(
+    first = verified_news_article(
         source="news",
         title="Apple launches service",
         description="Apple services launch",
@@ -182,7 +256,7 @@ def test_vector_store_search_respects_allowed_article_ids(vector_store):
         published_at=datetime.now(),
         content_sha256="apple-sha",
     )
-    second = NewsArticle(
+    second = verified_news_article(
         source="news",
         title="Google launches service",
         description="Google services launch",
@@ -223,7 +297,12 @@ def test_delete_article_sweeps_legacy_chunk_ids(temp_chroma_dir):
                 "metadatas": [{}, {"article_id": 104}],
             }
 
-    store = ChromaVectorStore(persist_dir=temp_chroma_dir, chunk_size=40, chunk_overlap=10)
+    store = ChromaVectorStore(
+        persist_dir=temp_chroma_dir,
+        chunk_size=40,
+        chunk_overlap=10,
+        embedder=DeterministicEmbedder(),
+    )
     store.collection = FakeCollection()
 
     store.delete_article(103)

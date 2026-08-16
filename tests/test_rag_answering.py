@@ -1,4 +1,5 @@
 from pydantic import ValidationError
+import pytest
 
 from event_collector.rag_answering import (
     AnswerQueryRequest,
@@ -226,6 +227,182 @@ def test_answering_agent_rejects_unknown_source_citation():
         assert "unknown source ids" in str(exc)
 
 
+@pytest.mark.parametrize(
+    ("field", "forged_value"),
+    [
+        ("title", "Forged headline"),
+        ("url", "https://attacker.example/forged"),
+        ("snippet", "Forged snippet"),
+    ],
+)
+def test_answering_agent_rejects_source_metadata_not_bound_to_input_evidence(field, forged_value):
+    request = AnswerQueryRequest(
+        question="What happened?",
+        evidence=[
+            RetrievedEvidence(
+                id=1,
+                title="Canonical headline",
+                url="https://example.com/canonical",
+                summary=None,
+                excerpt="Canonical excerpt.",
+                snippet="Canonical snippet.",
+            )
+        ],
+    )
+    source = {
+        "id": 1,
+        "title": "Canonical headline",
+        "url": "https://example.com/canonical",
+        "snippet": "Canonical snippet.",
+    }
+    source[field] = forged_value
+    client = FakeAnsweringClient(
+        {
+            "answer": "Canonical evidence supports this [1].",
+            "sources": [source],
+            "confidence": "low",
+            "insufficient_evidence": False,
+            "supporting_points": [{"text": "A grounded point.", "citations": [1]}],
+            "counter_points": [],
+        }
+    )
+
+    with pytest.raises(ValueError, match=f"source {field} does not match input evidence"):
+        RAGAnsweringAgent(llm_client=client).answer_query(request)
+
+
+def test_answering_agent_rejects_forged_source_id_even_when_model_cites_it_everywhere():
+    request = AnswerQueryRequest(
+        question="What happened?",
+        evidence=[
+            RetrievedEvidence(
+                id=1,
+                title="Canonical headline",
+                url="https://example.com/canonical",
+                summary=None,
+                excerpt="Canonical excerpt.",
+                snippet="Canonical snippet.",
+            )
+        ],
+    )
+    client = FakeAnsweringClient(
+        {
+            "answer": "Forged evidence supports this [99].",
+            "sources": [
+                {
+                    "id": 99,
+                    "title": "Forged headline",
+                    "url": "https://attacker.example/forged",
+                    "snippet": "Forged snippet.",
+                }
+            ],
+            "confidence": "low",
+            "insufficient_evidence": False,
+            "supporting_points": [{"text": "Forged support.", "citations": [99]}],
+            "counter_points": [{"text": "Forged counterpoint.", "citations": [99]}],
+        }
+    )
+
+    with pytest.raises(ValueError, match="source ids not present in input evidence: \\[99\\]"):
+        RAGAnsweringAgent(llm_client=client).answer_query(request)
+
+
+def test_answering_agent_rejects_unknown_citation_in_answer_text():
+    request = AnswerQueryRequest(
+        question="What happened?",
+        evidence=[
+            RetrievedEvidence(
+                id=1,
+                title="Canonical headline",
+                url="https://example.com/canonical",
+                summary=None,
+                excerpt="Canonical excerpt.",
+                snippet="Canonical snippet.",
+            )
+        ],
+    )
+    client = FakeAnsweringClient(
+        {
+            "answer": "The evidence cites a non-existent article [99].",
+            "sources": [
+                {
+                    "id": 1,
+                    "title": "Canonical headline",
+                    "url": "https://example.com/canonical",
+                    "snippet": "Canonical snippet.",
+                }
+            ],
+            "confidence": "low",
+            "insufficient_evidence": False,
+            "supporting_points": [],
+            "counter_points": [],
+        }
+    )
+
+    with pytest.raises(ValueError, match="(?i)answer citations reference unknown input evidence ids: \\[99\\]"):
+        RAGAnsweringAgent(llm_client=client).answer_query(request)
+
+
+def test_answering_agent_rejects_answer_citation_omitted_from_response_sources():
+    """SELECT INVARIANT: inline citations must resolve through the returned source list."""
+    request = AnswerQueryRequest(
+        question="What happened?",
+        evidence=[
+            RetrievedEvidence(
+                id=1,
+                title="Canonical headline",
+                url="https://example.com/canonical",
+                summary=None,
+                excerpt="Canonical excerpt.",
+                snippet="Canonical snippet.",
+            )
+        ],
+    )
+    client = FakeAnsweringClient(
+        {
+            "answer": "The answer cites retrieved evidence [1].",
+            "sources": [],
+            "confidence": "low",
+            "insufficient_evidence": False,
+            "supporting_points": [],
+            "counter_points": [],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Answer citations reference omitted response source ids"):
+        RAGAnsweringAgent(llm_client=client).answer_query(request)
+
+
+def test_answering_agent_rejects_material_answer_without_any_inline_citation():
+    """SELECT INVARIANT: a material answer cannot be accepted without grounded citations."""
+    request = AnswerQueryRequest(
+        question="What will revenue do?",
+        evidence=[
+            RetrievedEvidence(
+                id=1,
+                title="Revenue outlook",
+                url="https://example.com/revenue",
+                summary=None,
+                excerpt="Management guided to mid-single-digit growth.",
+                snippet="Management guided to mid-single-digit growth.",
+            )
+        ],
+    )
+    client = FakeAnsweringClient(
+        {
+            "answer": "Revenue will definitely double.",
+            "sources": [],
+            "confidence": "high",
+            "insufficient_evidence": False,
+            "supporting_points": [],
+            "counter_points": [],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Material answers require at least one inline citation"):
+        RAGAnsweringAgent(llm_client=client).answer_query(request)
+
+
 def test_answer_query_reranks_top_five_then_answers_from_best_three():
     vector_store = FakeVectorStore(
         [
@@ -276,7 +453,7 @@ def test_answer_query_reranks_top_five_then_answers_from_best_three():
         {
             "answer": "Here is a grounded synthesis [1] [2].",
             "sources": [
-                {"id": 1, "title": "Article four", "url": "https://example.com/4", "snippet": "- Summary four"},
+                {"id": 1, "title": "Article four", "url": "https://example.com/4", "snippet": "Fourth article content."},
                 {"id": 2, "title": "Article two", "url": "https://example.com/2", "snippet": "Second article content with enough length to create an excerpt."},
             ],
             "confidence": "medium",
