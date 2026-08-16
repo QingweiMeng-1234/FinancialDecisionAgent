@@ -1066,7 +1066,11 @@ def test_due_collection_batch_retries_only_that_news_batch_and_reuses_scope_proo
             )
         ],
     )
-    request = RefreshNewsRequest(today="2026-08-15", refresh_state_path=str(state_path))
+    request = RefreshNewsRequest(
+        today="2026-08-15",
+        refresh_state_path=str(state_path),
+        db_path=str(tmp_path / "news.db"),
+    )
     first = refresh_news_corpus(
         request,
         run_news_pipeline_fn=lambda request: _pipeline_result(

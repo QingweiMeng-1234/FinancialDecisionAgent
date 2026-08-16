@@ -366,3 +366,95 @@ def test_relative_corpus_remains_readable_after_directory_relocation(tmp_path):
         assert article.content_path.startswith(str(relocated_root.resolve()))
     finally:
         relocated.close()
+
+
+def test_identity_merge_receipt_uses_portable_path_and_cleans_after_relocation(tmp_path):
+    """SELECT INVARIANT: merge cleanup receipts retain a root-relative immutable version."""
+    original_root = tmp_path / "original"
+    original_root.mkdir()
+    original = SQLiteNewsStore(str(original_root / "news_articles.db"))
+    original.init_db()
+    try:
+        survivor_id, survivor_created = original.create_or_get_article_reference(
+            source="news",
+            title="Survivor",
+            description="Lower provisional identity",
+            original_url="https://example.test/survivor",
+            published_at=datetime(2026, 8, 15, 12, 0, 0),
+        )
+        retired_id, retired_created = original.create_or_get_article_reference(
+            source="news",
+            title="Retired",
+            description="Higher completed identity",
+            original_url="https://example.test/retired",
+            published_at=datetime(2026, 8, 15, 12, 0, 0),
+        )
+        assert (survivor_id, survivor_created, retired_id, retired_created) == (1, True, 2, True)
+
+        content = "portable retired canonical body"
+        canonical_url = "https://publisher.example/portable-merge"
+        assert original.update_article_content(
+            retired_id, content=content, canonical_url=canonical_url
+        )
+        digest = compute_content_sha256(content)
+        assert original.update_article_summary(retired_id, "ready summary", content_sha256=digest)
+        assert original.mark_article_index_ready(retired_id, digest)
+
+        resolved_id, reused, retired_article_id, receipt_path = original.reconcile_article_identity(
+            survivor_id, canonical_url
+        )
+        receipt = original.conn.execute(
+            "SELECT retired_content_path FROM article_identity_merges WHERE retired_article_id = ?",
+            (retired_id,),
+        ).fetchone()
+        assert (resolved_id, reused, retired_article_id) == (survivor_id, False, retired_id)
+        assert receipt_path == receipt["retired_content_path"] == f"{retired_id}/{digest}.txt"
+        assert not os.path.isabs(receipt["retired_content_path"])
+    finally:
+        original.close()
+
+    relocated_root = tmp_path / "relocated"
+    shutil.copytree(original_root, relocated_root)
+    relocated = SQLiteNewsStore(str(relocated_root / "news_articles.db"))
+    relocated.init_db()
+    try:
+        retired_file = relocated_root / "data" / "articles" / str(retired_id) / f"{digest}.txt"
+        assert retired_file.is_file()
+        assert relocated.complete_identity_merge_cleanup(
+            retired_id, vector_cleanup_status="deleted"
+        )
+        receipt = relocated.conn.execute(
+            "SELECT content_cleanup_status FROM article_identity_merges WHERE retired_article_id = ?",
+            (retired_id,),
+        ).fetchone()
+        assert receipt["content_cleanup_status"] == "deleted"
+        assert not retired_file.exists()
+    finally:
+        relocated.close()
+
+
+def test_identity_merge_cleanup_never_opens_external_legacy_absolute_receipt(store, tmp_path):
+    """SELECT INVARIANT: a migrated receipt cannot turn an external absolute path into cleanup authority."""
+    survivor_id = _save_ready(store, suffix="legacy-receipt")
+    digest = compute_content_sha256("canonical article body")
+    assert store.update_article_summary(survivor_id, "ready summary", content_sha256=digest)
+    assert store.mark_article_index_ready(survivor_id, digest)
+    external = tmp_path / "external-retired.txt"
+    external.write_text("must remain outside canonical cleanup", encoding="utf-8")
+    store.conn.execute(
+        """
+        INSERT INTO article_identity_merges (
+            retired_article_id, survivor_article_id, canonical_url,
+            retired_content_path, created_at
+        ) VALUES (?, ?, ?, ?, ?)
+        """,
+        (99, survivor_id, "https://publisher.example/legacy-receipt", str(external), datetime.now().isoformat()),
+    )
+    store.conn.commit()
+
+    assert store.complete_identity_merge_cleanup(99, vector_cleanup_status="deleted")
+    receipt = store.conn.execute(
+        "SELECT content_cleanup_status FROM article_identity_merges WHERE retired_article_id = 99"
+    ).fetchone()
+    assert receipt["content_cleanup_status"] == "not_present"
+    assert external.read_text(encoding="utf-8") == "must remain outside canonical cleanup"

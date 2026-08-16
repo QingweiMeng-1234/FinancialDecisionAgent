@@ -279,6 +279,7 @@ def run_theme_research(
     search_provider: SearchProvider | None = None,
     content_fetcher: ArticleContentFetcher | None = None,
     summarizer: SummaryGenerator | None = None,
+    publish_assets: bool = True,
 ) -> ThemeResearchResult:
     normalized = normalize_theme_research_request(request)
     metadata = ThemeMetadata(
@@ -330,16 +331,18 @@ def run_theme_research(
             related_companies,
             candidate_segments,
         )
-        artifact_paths = write_theme_research_assets(
-            metadata,
-            normalized,
-            consolidated,
-            sufficiency,
-            theme_summary,
-            related_companies,
-            candidate_segments,
-            retrieval_provenance=retrieval_provenance,
-        )
+        artifact_paths = {}
+        if publish_assets:
+            artifact_paths = write_theme_research_assets(
+                metadata,
+                normalized,
+                consolidated,
+                sufficiency,
+                theme_summary,
+                related_companies,
+                candidate_segments,
+                retrieval_provenance=retrieval_provenance,
+            )
         provenance = build_evidence_provenance_summary(consolidated)
         provenance["acquisition"] = acquisition.provenance()
         if retrieval_provenance is not None:
@@ -609,6 +612,7 @@ def write_theme_research_assets(
     candidate_segments: list[str],
     *,
     retrieval_provenance: dict[str, Any] | None = None,
+    generation_handoff_provenance: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     theme_dir = os.path.join(request.research_root, metadata.theme_slug)
     os.makedirs(theme_dir, exist_ok=True)
@@ -625,6 +629,21 @@ def write_theme_research_assets(
             "- Index config fingerprint: "
             f"{retrieval_provenance.get('index_config_fingerprint', 'unknown')}",
         ]
+    handoff_lines: list[str] = []
+    if generation_handoff_provenance is not None:
+        receipt = generation_handoff_provenance.get("activation_receipt", {})
+        handoff_lines = [
+            "- Successor handoff run ID: "
+            f"{generation_handoff_provenance.get('handoff_run_id', 'unknown')}",
+            "- Successor generation ID: "
+            f"{generation_handoff_provenance.get('generation_id', 'unknown')}",
+            "- Successor corpus snapshot ID: "
+            f"{generation_handoff_provenance.get('corpus_snapshot_id', 'unknown')}",
+            "- Successor index config fingerprint: "
+            f"{generation_handoff_provenance.get('index_config_fingerprint', 'unknown')}",
+            "- Activation receipt: "
+            f"{receipt.get('status', 'unknown')} at {receipt.get('activated_at', 'unknown')}",
+        ]
 
     theme_card = "\n".join(
         [
@@ -639,6 +658,7 @@ def write_theme_research_assets(
             f"- Related companies: {', '.join(related_companies) if related_companies else 'None'}",
             f"- Candidate segments: {', '.join(candidate_segments) if candidate_segments else metadata.theme}",
             *retrieval_lines,
+            *handoff_lines,
         ]
     )
     supply_chain_map = "\n".join(
@@ -664,6 +684,7 @@ def write_theme_research_assets(
             f"- Analysis goal: {metadata.analysis_goal}",
             f"- Search intents: {', '.join(metadata.search_intents)}",
             *retrieval_lines,
+            *handoff_lines,
             *[
                 f"- [{item.source_kind}/{item.acquisition_channel}] {item.title} ({item.url})"
                 for item in evidence[:12]

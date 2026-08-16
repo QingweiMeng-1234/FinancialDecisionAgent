@@ -674,7 +674,7 @@ class SQLiteNewsStore:
             ).fetchone()
             if duplicate is None:
                 raise sqlite3.IntegrityError("canonical duplicate disappeared during reconciliation")
-            retired_content_path = self.resolve_content_path(
+            retired_content_path = self._portable_content_path(
                 duplicate["content_path"], article_id=existing_id
             )
             copied_columns = (
@@ -809,16 +809,15 @@ class SQLiteNewsStore:
             return False
         if vector_cleanup_status == "deleted" and row["index_status"] != "ready":
             return False
-        retired_path = row["retired_content_path"]
+        retired_path = self.resolve_content_path(
+            row["retired_content_path"], article_id=retired_article_id
+        )
         survivor_path = self.resolve_content_path(
             row["survivor_content_path"], article_id=row["survivor_article_id"]
         )
         content_status = "not_present"
         if retired_path and os.path.isfile(retired_path):
             resolved = os.path.realpath(retired_path)
-            root = os.path.realpath(self.content_dir)
-            if os.path.commonpath((root, resolved)) != root:
-                raise ValueError("retired content path escapes canonical content root")
             if survivor_path and os.path.realpath(survivor_path) == resolved:
                 with open(resolved, "r", encoding="utf-8") as handle:
                     content = handle.read()
@@ -1399,6 +1398,18 @@ class SQLiteNewsStore:
             return candidate
         legacy_candidate = os.path.realpath(os.path.join(content_root, f"{article_id}.txt"))
         return legacy_candidate if _path_is_within(legacy_candidate, content_root) and os.path.isfile(legacy_candidate) else candidate
+
+    def _portable_content_path(
+        self,
+        content_path: Optional[str],
+        *,
+        article_id: int,
+    ) -> Optional[str]:
+        """Return a canonical-root-relative receipt path for content that can be resolved safely."""
+        resolved = self.resolve_content_path(content_path, article_id=article_id)
+        if resolved is None:
+            return None
+        return os.path.relpath(resolved, os.path.realpath(self.content_dir)).replace("\\", "/")
 
     def write_article_content_file_placeholder(self, content: str) -> str:
         del content

@@ -9,12 +9,15 @@ from event_collector.article_content import ArticleFetchError, FetchFailureReaso
 from event_collector.theme_research import (
     SearchResult,
     ThemeEvidence,
+    ThemeMetadata,
     ThemeResearchRequest,
+    SufficiencyStatus,
     classify_source_kind,
     compute_sufficiency,
     normalize_theme_research_request,
     run_theme_research,
     slugify_theme,
+    write_theme_research_assets,
 )
 
 
@@ -540,6 +543,53 @@ def test_asset_updates_rewrite_state_files_and_append_history_files():
         assert "legacy trigger" in monitoring_log
         assert "Fresh monitoring sufficient" in monitoring_log
         storage.close()
+
+
+def test_published_theme_assets_persist_successor_handoff_and_activation_receipt():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        metadata = ThemeMetadata(
+            theme="AI infrastructure",
+            theme_slug="ai-infrastructure",
+            analysis_goal="monitor constraints",
+            seed_query=None,
+            tickers=[],
+            search_intents=["AI infrastructure monitor constraints"],
+            generated_at=datetime(2026, 8, 16, 1, 2, 3),
+        )
+        paths = write_theme_research_assets(
+            metadata,
+            ThemeResearchRequest(
+                theme=metadata.theme,
+                analysis_goal=metadata.analysis_goal,
+                research_root=os.path.join(tmpdir, "research"),
+            ),
+            [],
+            SufficiencyStatus(False, False, {"primary": 0, "company": 0, "secondary": 0, "commentary": 0}, 0, 0),
+            "AI infrastructure research",
+            [],
+            [],
+            generation_handoff_provenance={
+                "handoff_run_id": "theme-handoff-1",
+                "generation_id": "gen-successor",
+                "corpus_snapshot_id": "snapshot-successor",
+                "index_config_fingerprint": "config-successor",
+                "activation_receipt": {
+                    "status": "active",
+                    "activated_at": "2026-08-16T01:02:03+00:00",
+                },
+            },
+        )
+
+        with open(paths["theme_card"], "r", encoding="utf-8") as handle:
+            theme_card = handle.read()
+        with open(paths["evidence_log"], "r", encoding="utf-8") as handle:
+            evidence_log = handle.read()
+
+        for content in (theme_card, evidence_log):
+            assert "Successor handoff run ID: theme-handoff-1" in content
+            assert "Successor generation ID: gen-successor" in content
+            assert "Successor corpus snapshot ID: snapshot-successor" in content
+            assert "Activation receipt: active at 2026-08-16T01:02:03+00:00" in content
 
 
 def test_local_corpus_support_and_result_payload_include_related_companies_and_segments():
