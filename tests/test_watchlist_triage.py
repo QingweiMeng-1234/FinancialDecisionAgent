@@ -232,8 +232,18 @@ def test_run_watchlist_persists_ranked_results_and_report_fields():
         ).fetchall()
         assert [row["generated_in_run"] for row in generated_flags] == [0, 0]
 
-        report = render_watchlist_report(result, debug_review=True)
+        report = render_watchlist_report(
+            result,
+            debug_review=True,
+            retrieval_provenance={
+                "generation_id": "generation-test-1",
+                "corpus_snapshot_id": "snapshot-test-1",
+                "index_config_fingerprint": "b" * 64,
+            },
+        )
         assert "## Top Summary" in report
+        assert "## Retrieval Provenance" in report
+        assert "generation-test-1" in report
         assert "| 1 | MSFT | High | High | no |" in report
         assert "## 2. AAPL" in report
         assert "### Reviewer" in report

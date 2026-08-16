@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$PythonExe = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+$RepoPythonExe = Join-Path $RepoRoot ".venv\Scripts\python.exe"
 $EntryPoint = Join-Path $RepoRoot "financial_agent_mcp.py"
 $DefaultsPath = Join-Path $RepoRoot "config\financial_agent_service_defaults.json"
 $EnvFile = Join-Path $RepoRoot ".env"
@@ -20,6 +20,30 @@ function Assert-PathExists([string]$PathValue, [string]$Label) {
     if (-not (Test-Path $PathValue)) {
         throw "$Label not found: $PathValue"
     }
+}
+
+function Test-PythonRuntime([string]$Candidate) {
+    if ([string]::IsNullOrWhiteSpace($Candidate) -or -not (Test-Path $Candidate)) {
+        return $false
+    }
+    try {
+        & $Candidate -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" *> $null
+        return $LASTEXITCODE -eq 0
+    }
+    catch {
+        return $false
+    }
+}
+
+function Resolve-PythonRuntime() {
+    if (Test-PythonRuntime $RepoPythonExe) {
+        return $RepoPythonExe
+    }
+    $systemPython = Get-Command python.exe -ErrorAction SilentlyContinue
+    if ($null -ne $systemPython -and (Test-PythonRuntime $systemPython.Source)) {
+        return $systemPython.Source
+    }
+    throw "No working Python 3.10+ runtime found. The repo virtualenv may point to a Python installation from another machine."
 }
 
 function Quote-Arg([string]$Value) {
@@ -92,9 +116,19 @@ function Stop-ProcessIfRunning([int]$ProcessId, [string]$Reason) {
     return $true
 }
 
-Assert-PathExists $PythonExe "Repo virtualenv Python"
 Assert-PathExists $EntryPoint "financial-agent MCP entrypoint"
 Assert-PathExists $DefaultsPath "Shared service defaults config"
+$PythonExe = Resolve-PythonRuntime
+$sitePackages = Join-Path $RepoRoot ".venv\Lib\site-packages"
+$pythonPathEntries = @((Join-Path $RepoRoot "src"))
+if (Test-Path $sitePackages) {
+    $pythonPathEntries += $sitePackages
+}
+$env:PYTHONPATH = $pythonPathEntries -join [IO.Path]::PathSeparator
+& $PythonExe -c "import chromadb, mcp, event_collector" *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "Selected Python runtime cannot import the financial-agent MCP dependencies."
+}
 Import-DotEnv $EnvFile
 
 $portOwnerPid = Get-PortOwnerProcessId -BindHost $HostBind -BindPort $Port

@@ -1,10 +1,25 @@
 import json
 from datetime import datetime, timedelta
+from types import SimpleNamespace
+
+import yaml
 
 from event_collector.entity_kb import CompanyProfile, SQLiteEntityStore
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 import run_retrieval_eval
 from event_collector.reranking import RAGRerankingAgent as RealRerankingAgent
+from event_collector.financial_agent_mcp import FinancialAgentRuntimeConfig
+
+
+def test_retrieval_eval_defaults_match_stable_runtime_generation_paths():
+    args = run_retrieval_eval.parse_args(["generate-annotations"])
+    runtime = FinancialAgentRuntimeConfig()
+
+    assert args.index_control_db_path == runtime.index_control_db_path
+    assert args.db_path == runtime.canonical_db_path
+    assert args.canonical_content_root == runtime.canonical_content_root
+    assert args.persist_dir == runtime.chroma_persist_dir
+    assert args.index_corpus_id == runtime.index_corpus_id
 
 
 class FakeVectorStore:
@@ -68,6 +83,55 @@ def _patch_rerankers(monkeypatch, *, include_deepseek: bool = False):
     monkeypatch.setattr(run_retrieval_eval, "_build_reranking_agents", lambda provider: (primary, deepseek, chain_name))
 
 
+def _test_hash(article_id: int) -> str:
+    return f"{article_id:064x}"
+
+
+def _patch_generation_corpus(monkeypatch, vector_store_type, *, eligible_article_ids=None):
+    eligible_article_ids = set(eligible_article_ids or range(1, 1001))
+    articles = tuple(
+        SimpleNamespace(article_id=article_id, indexed_content_sha256=_test_hash(article_id))
+        for article_id in sorted(eligible_article_ids)
+    )
+    generation = SimpleNamespace(
+        generation_id="test-generation",
+        corpus_snapshot_id="test-snapshot",
+        index_config_fingerprint="test-config",
+    )
+    eligibility = SimpleNamespace(
+        articles=articles,
+        eligible_article_ids=frozenset(eligible_article_ids),
+    )
+
+    def open_pinned_corpus(config):
+        return SimpleNamespace(
+            reader=vector_store_type(str(config.chroma_persist_dir), "generation_collection"),
+            generation=generation,
+            eligibility=eligibility,
+        )
+
+    monkeypatch.setattr(run_retrieval_eval, "open_evaluation_corpus", open_pinned_corpus)
+
+
+def _bind_annotation_file(path):
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload.update(
+        {
+            "generation_id": "test-generation",
+            "corpus_snapshot_id": "test-snapshot",
+            "index_config_fingerprint": "test-config",
+        }
+    )
+    for annotation in payload["annotations"]:
+        article_id = annotation["article_id"]
+        content_hash = _test_hash(article_id)
+        annotation["indexed_content_sha256"] = content_hash
+        annotation["content_path"] = (
+            f"generation://test-generation/articles/{article_id}/{content_hash}"
+        )
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
 def test_run_retrieval_eval_generates_annotations_and_evaluates(tmp_path, monkeypatch):
     ticker_list = tmp_path / "tickers.yaml"
     ticker_list.write_text("tickers:\n  - MSFT\n", encoding="utf-8")
@@ -84,7 +148,7 @@ def test_run_retrieval_eval_generates_annotations_and_evaluates(tmp_path, monkey
         ),
     )
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FakeVectorStore)
+    _patch_generation_corpus(monkeypatch, FakeVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -231,7 +295,7 @@ def test_run_retrieval_eval_relevant_count_mode_expands_candidate_pool(tmp_path,
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", MultiResultVectorStore)
+    _patch_generation_corpus(monkeypatch, MultiResultVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -284,6 +348,7 @@ def test_run_retrieval_eval_relevant_count_mode_expands_candidate_pool(tmp_path,
         ),
         encoding="utf-8",
     )
+    _bind_annotation_file(annotation_dir / "MSFT.yaml")
 
     report_dir = tmp_path / "reports"
     exit_code = run_retrieval_eval.main(
@@ -372,7 +437,7 @@ def test_run_retrieval_eval_generate_annotations_uses_fresh_ingest_only(tmp_path
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FreshFilterVectorStore)
+    _patch_generation_corpus(monkeypatch, FreshFilterVectorStore, eligible_article_ids={1})
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -417,8 +482,6 @@ def test_run_retrieval_eval_generate_annotations_uses_fresh_ingest_only(tmp_path
             str(entity_db_path),
             "--annotation-output-dir",
             str(annotation_dir),
-            "--fresh-window-hours",
-            "24",
         ]
     )
 
@@ -484,7 +547,7 @@ def test_run_retrieval_eval_evaluate_both_adds_deepseek_chain_to_report(tmp_path
         ),
     )
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FakeVectorStore)
+    _patch_generation_corpus(monkeypatch, FakeVectorStore)
     _patch_rerankers(monkeypatch, include_deepseek=True)
 
     db_path = tmp_path / "news.db"
@@ -520,6 +583,7 @@ def test_run_retrieval_eval_evaluate_both_adds_deepseek_chain_to_report(tmp_path
         ),
         encoding="utf-8",
     )
+    _bind_annotation_file(annotation_dir / "MSFT.yaml")
 
     report_dir = tmp_path / "reports"
     exit_code = run_retrieval_eval.main(
@@ -595,7 +659,7 @@ def test_run_retrieval_eval_evaluate_filters_tickers_by_min_relevant(tmp_path, m
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FilterVectorStore)
+    _patch_generation_corpus(monkeypatch, FilterVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -673,6 +737,8 @@ def test_run_retrieval_eval_evaluate_filters_tickers_by_min_relevant(tmp_path, m
         ),
         encoding="utf-8",
     )
+    _bind_annotation_file(annotation_dir / "MSFT.yaml")
+    _bind_annotation_file(annotation_dir / "AAPL.yaml")
 
     report_dir = tmp_path / "reports"
     exit_code = run_retrieval_eval.main(
@@ -749,7 +815,7 @@ def test_run_retrieval_eval_evaluate_filters_company_only(tmp_path, monkeypatch)
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", CompanyOnlyVectorStore)
+    _patch_generation_corpus(monkeypatch, CompanyOnlyVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -811,6 +877,8 @@ def test_run_retrieval_eval_evaluate_filters_company_only(tmp_path, monkeypatch)
         ),
         encoding="utf-8",
     )
+    _bind_annotation_file(annotation_dir / "MSFT.yaml")
+    _bind_annotation_file(annotation_dir / "QQQ.yaml")
 
     report_dir = tmp_path / "reports"
     exit_code = run_retrieval_eval.main(
@@ -894,7 +962,7 @@ def test_run_retrieval_eval_evaluate_filters_by_max_article_id(tmp_path, monkeyp
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", MaxIdVectorStore)
+    _patch_generation_corpus(monkeypatch, MaxIdVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -944,6 +1012,7 @@ def test_run_retrieval_eval_evaluate_filters_by_max_article_id(tmp_path, monkeyp
         ),
         encoding="utf-8",
     )
+    _bind_annotation_file(annotation_dir / "MSFT.yaml")
 
     report_dir = tmp_path / "reports"
     exit_code = run_retrieval_eval.main(

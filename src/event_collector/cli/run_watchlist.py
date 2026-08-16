@@ -9,8 +9,12 @@ import os
 
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT
-from event_collector.service_defaults import load_service_defaults
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.service_defaults import load_service_defaults, resolve_query_time_window
+from event_collector.serving_generation_factory import (
+    CorpusUnavailableError,
+    ServingCorpusConfig,
+    create_active_generation_reader,
+)
 from event_collector.watchlist_triage import WatchlistRunRequest, normalize_tickers, render_watchlist_summary
 from event_collector.watchlist_workflow import run_watchlist_triage_workflow
 
@@ -23,9 +27,15 @@ def parse_args(argv=None):
     parser.add_argument("--top-n", type=int, default=defaults.watchlist_top_n, help="How many ranked names to emphasize in output")
     parser.add_argument("--retrieval-top-k", type=int, default=defaults.watchlist_retrieval_top_k, help="How many retrieved items to rerank per ticker")
     parser.add_argument("--retrieval-intent", choices=("direct", "indirect"), default=DEFAULT_RETRIEVAL_INTENT, help="Whether retrieval should prefer direct company attribution or indirect theme exposure")
-    parser.add_argument("--db-path", default="news_articles.db", help="SQLite article database path")
-    parser.add_argument("--persist-dir", default="./chroma_data", help="Chroma persistence directory")
-    parser.add_argument("--collection-name", default="news_articles", help="Chroma collection name")
+    parser.add_argument("--start-at", default=None, help="Inclusive UTC ISO-8601 start timestamp")
+    parser.add_argument("--end-at", default=None, help="Inclusive UTC ISO-8601 end timestamp")
+    parser.add_argument("--latest-at", default=None, help="UTC ISO-8601 end anchor for --lookback-days")
+    parser.add_argument("--lookback-days", type=int, default=None, help="Positive rolling UTC lookback in days")
+    parser.add_argument("--index-control-db-path", default="data/runtime/index_generation_control.db")
+    parser.add_argument("--index-corpus-id", default="news")
+    parser.add_argument("--canonical-db-path", default="data/rag_corpus_v2_20260815/news_articles.db")
+    parser.add_argument("--canonical-content-root", default="data/rag_corpus_v2_20260815/data/articles")
+    parser.add_argument("--chroma-persist-dir", default="data/rag_index_v2_20260815")
     parser.add_argument("--output-dir", default=os.path.join("reports", "watchlist_triage"), help="Directory to store generated watchlist reports")
     parser.add_argument("--debug-rerank", action="store_true", help="Include rerank details in the markdown report")
     parser.add_argument("--debug-review", action="store_true", help="Include reviewer flags in the markdown report")
@@ -41,6 +51,7 @@ def parse_requested_tickers(args) -> list[str]:
 
 def main(argv=None):
     args = parse_args(argv)
+    defaults = load_service_defaults()
     tickers = parse_requested_tickers(args)
     print("Financial Agent - Watchlist Triage")
     print("=" * 50)
@@ -49,8 +60,36 @@ def main(argv=None):
     if not tickers:
         print("No tickers provided. Use --tickers or --ticker.")
         return 1
-    storage = SQLiteNewsStore(db_path=args.db_path)
-    vector_store = ChromaVectorStore(persist_dir=args.persist_dir, collection_name=args.collection_name)
+    try:
+        pinned = create_active_generation_reader(
+            ServingCorpusConfig(
+                index_control_db_path=args.index_control_db_path,
+                index_corpus_id=args.index_corpus_id,
+                canonical_db_path=args.canonical_db_path,
+                canonical_content_root=args.canonical_content_root,
+                chroma_persist_dir=args.chroma_persist_dir,
+            )
+        )
+    except CorpusUnavailableError as exc:
+        print(f"{exc.code}:{exc.reason_code} ({exc.stage}): {exc}")
+        return 1
+
+    try:
+        vector_store = pinned.reader.with_time_window(
+            **resolve_query_time_window(
+                defaults,
+                start_at=args.start_at,
+                end_at=args.end_at,
+                latest_at=args.latest_at,
+                lookback_days=args.lookback_days,
+            )
+        )
+    except ValueError as exc:
+        print(f"Invalid time window: {exc}")
+        return 1
+
+    storage = SQLiteNewsStore(db_path=args.canonical_db_path)
+    print(f"Active generation: {pinned.active_generation.generation_id}")
     total = storage.count_articles()
     print(f"Database has {total} articles")
     if total == 0:
@@ -66,9 +105,9 @@ def main(argv=None):
                 retrieval_top_k=args.retrieval_top_k,
                 retrieval_intent=args.retrieval_intent,
                 force_structure=args.force_structure,
-                db_path=args.db_path,
-                persist_dir=args.persist_dir,
-                collection_name=args.collection_name,
+                db_path=args.canonical_db_path,
+                persist_dir=args.chroma_persist_dir,
+                collection_name=pinned.active_generation.collection_name,
             ),
             storage,
             vector_store,
@@ -76,6 +115,11 @@ def main(argv=None):
             persist_timeline=True,
             debug_review=args.debug_review,
             debug_rerank=args.debug_rerank,
+            retrieval_provenance={
+                "generation_id": pinned.active_generation.generation_id,
+                "corpus_snapshot_id": pinned.active_generation.corpus_snapshot_id,
+                "index_config_fingerprint": pinned.active_generation.index_config_fingerprint,
+            },
         )
         print(render_watchlist_summary(workflow.result, debug_review=args.debug_review, debug_rerank=args.debug_rerank))
         print()

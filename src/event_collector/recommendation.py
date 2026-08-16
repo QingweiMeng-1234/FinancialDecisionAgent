@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -538,8 +538,12 @@ def write_recommendation_report(
     generated_at: datetime | None = None,
     debug_rerank: bool = False,
     debug_aggregation: bool = False,
+    retrieval_provenance: Mapping[str, object] | None = None,
 ) -> str:
     """Persist one Markdown recommendation report and return its path."""
+    from event_collector.publication_provenance import require_publication_provenance
+
+    proof = require_publication_provenance(retrieval_provenance)
     timestamp = generated_at or datetime.now()
     filename = build_report_filename(target, timestamp)
     os.makedirs(output_dir, exist_ok=True)
@@ -552,6 +556,7 @@ def write_recommendation_report(
                 generated_at=timestamp,
                 debug_rerank=debug_rerank,
                 debug_aggregation=debug_aggregation,
+                retrieval_provenance=proof,
             )
         )
     return path
@@ -569,6 +574,7 @@ def render_recommendation_report(
     generated_at: datetime | None = None,
     debug_rerank: bool = False,
     debug_aggregation: bool = False,
+    retrieval_provenance: Mapping[str, object] | None = None,
 ) -> str:
     """Render a Markdown recommendation report."""
     created_at = generated_at or datetime.now()
@@ -585,6 +591,11 @@ def render_recommendation_report(
         "## Reasoning",
         response.reasoning,
     ]
+
+    if retrieval_provenance is not None:
+        from event_collector.publication_provenance import render_publication_provenance_markdown
+
+        lines.extend(["", *render_publication_provenance_markdown(retrieval_provenance)])
 
     if response.aggregation is not None:
         lines.extend(

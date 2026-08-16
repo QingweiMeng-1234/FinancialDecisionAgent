@@ -1,7 +1,7 @@
 import pytest
 import event_collector
 from datetime import datetime
-from event_collector import create_event, create_event_batch, collect_events_batch, collect_from_all_sources, RawEventInput, Event, EventSource, EventBatch, InvalidEventSourceError, InvalidEventTextError, MissingAPIKeyError, ManualCollector, NewsCollector, ApiCollector, EventSourceCollector
+from event_collector import create_event, create_event_batch, collect_events_batch, collect_from_all_sources, RawEventInput, Event, EventSource, EventBatch, InvalidEventSourceError, InvalidEventTextError, MissingAPIKeyError, ManualCollector, NewsCollector, ApiCollector, EventSourceCollector, raw_event_input_to_news_article
 
 
 def test_create_event_from_valid_raw_input():
@@ -19,6 +19,38 @@ def test_create_event_from_valid_raw_input():
     assert event.source == EventSource.MANUAL
     assert event.raw_text == raw_input.raw_text
     assert isinstance(event.timestamp, datetime)
+
+
+def test_missing_provider_date_is_preserved_as_unknown_across_event_and_news_article():
+    raw_input = RawEventInput(
+        source="news",
+        raw_text="This news item has no provider timestamp but still contains enough text to pass validation safely.",
+    )
+
+    event = create_event(raw_input)
+    article = raw_event_input_to_news_article(raw_input)
+
+    assert isinstance(event.timestamp, datetime)
+    assert event.source_published_at is None
+    assert event.published_at_provenance == "unknown"
+    assert article.source_published_at is None
+    assert article.published_at_provenance == "unknown"
+
+
+def test_only_non_manual_parsed_provider_date_is_marked_source_metadata():
+    provider_date = datetime(2026, 8, 15, 9, 0)
+
+    news_article = raw_event_input_to_news_article(
+        RawEventInput(source="news", raw_text="A sufficiently long provider-dated news item for provenance testing.", published_at=provider_date)
+    )
+    manual_article = raw_event_input_to_news_article(
+        RawEventInput(source="manual", raw_text="A sufficiently long manual item must not claim provider publication provenance.", published_at=provider_date)
+    )
+
+    assert news_article.source_published_at == provider_date
+    assert news_article.published_at_provenance == "source_metadata"
+    assert manual_article.source_published_at is None
+    assert manual_article.published_at_provenance == "unknown"
 
 
 def test_create_event_with_invalid_source():
@@ -136,7 +168,6 @@ def test_news_collector():
     original_key = os.environ.get("NEWSAPI_API_KEY")
     os.environ["NEWSAPI_API_KEY"] = "dummy_key"
 
-    original_get = event_collector.requests.get
     calls = []
 
     class DummyResponse:
@@ -162,23 +193,25 @@ def test_news_collector():
             {
                 "status": "ok",
                 "articles": [
-                    {"title": "News headline one", "description": "Description of news one that is definitely long enough."},
-                    {"title": "News headline two", "description": "Description of news two that is definitely long enough."},
-                    {"title": "News headline three", "description": "Description of news three that is definitely long enough."},
+                    {"source": {"id": "source-one", "name": "Source One"}, "title": "News headline one", "description": "Description of news one that is definitely long enough.", "url": "https://example.com/one"},
+                    {"source": {"id": "source-two", "name": "Source Two"}, "title": "News headline two", "description": "Description of news two that is definitely long enough.", "url": "https://example.com/two"},
+                    {"source": {"id": "source-three", "name": "Source Three"}, "title": "News headline three", "description": "Description of news three that is definitely long enough.", "url": "https://example.com/three"},
                 ],
             }
         )
 
-    event_collector.requests.get = fake_get
-
     try:
-        collector = NewsCollector()
+        # Legacy fixture intentionally asserts the explicit single-page seam;
+        # normal collection now owns a reusable Session and follows pages.
+        collector = NewsCollector(http_get=fake_get, max_pages=1)
         raw_inputs = collector.collect()
 
         assert isinstance(raw_inputs, list)
         assert len(raw_inputs) == 3
         assert all(ri.source == "news" for ri in raw_inputs)
         assert all(len(ri.raw_text) >= 50 for ri in raw_inputs)
+        assert raw_inputs[0].publisher_source_id == "source-one"
+        assert raw_inputs[0].publisher_source_name == "Source One"
         assert calls[0][0].endswith("/top-headlines/sources")
         assert calls[1][0].endswith("/everything")
     finally:
@@ -186,7 +219,6 @@ def test_news_collector():
             os.environ.pop("NEWSAPI_API_KEY", None)
         else:
             os.environ["NEWSAPI_API_KEY"] = original_key
-        event_collector.requests.get = original_get
 
 
 def test_news_collector_missing_api_key():

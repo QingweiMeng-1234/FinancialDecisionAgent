@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,21 +10,35 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from event_collector.news_storage import NewsArticle
 
 
-def article_to_document(article_id: int, article: NewsArticle) -> Document:
+def article_to_document(
+    article_id: int,
+    article: NewsArticle,
+    *,
+    generation_metadata: Mapping[str, Any] | None = None,
+) -> Document:
     """Build one standardized LangChain document from a stored article."""
+    metadata: dict[str, Any] = {
+        "article_id": article_id,
+        "title": article.title,
+        "url": article.canonical_url or article.original_url or article.url,
+        "original_url": article.original_url or article.url,
+        "canonical_url": article.canonical_url or "",
+        "source": article.source,
+        "published_at": article.published_at.isoformat(),
+        "content_sha256": article.active_content_sha256 or article.content_sha256 or "",
+        "summary": article.summary or "",
+        "story_group_id": article.story_group_id or article_id,
+        "publisher_source_id": article.publisher_source_id or "",
+        "publisher_source_name": article.publisher_source_name or "",
+        "content_validation_status": article.content_validation_status,
+    }
+    if generation_metadata:
+        # The vector adapter supplies immutable build identity here.  Keep this
+        # generic so document construction remains usable without Chroma.
+        metadata.update(dict(generation_metadata))
     return Document(
         page_content=" ".join((article.content or "").split()).strip(),
-        metadata={
-            "article_id": article_id,
-            "title": article.title,
-            "url": article.canonical_url or article.original_url or article.url,
-            "original_url": article.original_url or article.url,
-            "canonical_url": article.canonical_url or "",
-            "source": article.source,
-            "published_at": article.published_at.isoformat(),
-            "content_sha256": article.content_sha256 or "",
-            "summary": article.summary or "",
-        },
+        metadata=metadata,
     )
 
 
@@ -44,9 +58,14 @@ def split_article_document(
     *,
     chunk_size: int,
     chunk_overlap: int,
+    generation_metadata: Mapping[str, Any] | None = None,
 ) -> list[Document]:
     """Split one article into chunk documents while preserving metadata."""
-    document = article_to_document(article_id, article)
+    document = article_to_document(
+        article_id,
+        article,
+        generation_metadata=generation_metadata,
+    )
     if not document.page_content:
         return []
 

@@ -8,13 +8,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import os
 import re
-from typing import Dict, List
+from typing import Any, Callable, Dict, List
 
 import chromadb
 from sentence_transformers import SentenceTransformer
 
 from event_collector.document_pipeline import split_article_document
-from event_collector.news_storage import NewsArticle
+from event_collector.news_storage import NewsArticle, compute_content_sha256
 
 DEFAULT_CHUNK_SIZE = 1000
 DEFAULT_CHUNK_OVERLAP = 200
@@ -53,44 +53,116 @@ class ChromaVectorStore(VectorStore):
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
         max_matched_chunks: int = DEFAULT_MATCHED_CHUNKS,
+        eligible_article_ids_provider: Callable[[], set[int]] | None = None,
+        embedder: Any | None = None,
+        client: Any | None = None,
+        client_factory: Callable[[str], Any] | None = None,
+        generation_id: str | None = None,
+        corpus_snapshot_id: str | None = None,
+        index_config_fingerprint: str | None = None,
     ):
+        generation_values = (generation_id, corpus_snapshot_id, index_config_fingerprint)
+        if any(value is not None for value in generation_values) and not all(
+            isinstance(value, str) and value.strip() for value in generation_values
+        ):
+            raise ValueError(
+                "generation_id, corpus_snapshot_id, and index_config_fingerprint are required together"
+            )
+        if generation_id and collection_name == "news_articles":
+            raise ValueError("generation mode requires an explicit new collection name")
+        if client is not None and client_factory is not None:
+            raise ValueError("provide either client or client_factory, not both")
+
         self.persist_dir = persist_dir
         self.model_name = model_name
         self.collection_name = collection_name
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.max_matched_chunks = max_matched_chunks
+        self.eligible_article_ids_provider = eligible_article_ids_provider
+        self.generation_id = generation_id
+        self.corpus_snapshot_id = corpus_snapshot_id
+        self.index_config_fingerprint = index_config_fingerprint
 
-        self.client = chromadb.PersistentClient(path=persist_dir)
-        self.embedder = SentenceTransformer(
+        self.client = client if client is not None else (
+            client_factory(persist_dir) if client_factory is not None else chromadb.PersistentClient(path=persist_dir)
+        )
+        self.embedder = embedder or SentenceTransformer(
             model_name,
             local_files_only=_resolve_local_files_only(),
         )
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"},
-        )
+        if self.generation_id:
+            self.collection_metadata = {
+                "hnsw:space": "cosine",
+                "generation_id": self.generation_id,
+                "corpus_snapshot_id": self.corpus_snapshot_id,
+                "embedding_model": self.model_name,
+                "chunk_size": self.chunk_size,
+                "chunk_overlap": self.chunk_overlap,
+                "index_config_fingerprint": self.index_config_fingerprint,
+            }
+            # A generation collection is immutable.  create_collection must
+            # fail if a previous attempt already used this name; never reuse,
+            # clear, or delete a legacy/v1 collection.
+            self.collection = self.client.create_collection(
+                name=collection_name,
+                metadata=self.collection_metadata,
+            )
+        else:
+            self.collection_metadata = {"hnsw:space": "cosine"}
+            self.collection = self.client.get_or_create_collection(
+                name=collection_name,
+                metadata=self.collection_metadata,
+            )
 
     def add_article(self, article_id: int, article: NewsArticle) -> List[str]:
         """
         Add or replace one article in the vector store as chunk-level records.
         """
-        self.delete_article(article_id)
+        if article.source == "news" and article.content_validation_status != "verified":
+            raise ValueError("News article content must be verified before vector indexing")
+        if article.content_status != "ready":
+            raise ValueError("Article content must be ready before vector indexing")
+        active_content_sha256 = article.active_content_sha256 or article.content_sha256
+        if not active_content_sha256 or compute_content_sha256(article.content) != active_content_sha256:
+            raise ValueError("Article active content hash must match before vector indexing")
+        generation_metadata = None
+        if self.generation_id:
+            generation_metadata = {
+                "generation_id": self.generation_id,
+                "corpus_snapshot_id": self.corpus_snapshot_id,
+                "indexed_content_sha256": active_content_sha256,
+                "index_config_fingerprint": self.index_config_fingerprint,
+                "embedding_model": self.model_name,
+                "chunk_size": self.chunk_size,
+                "chunk_overlap": self.chunk_overlap,
+            }
 
         chunk_documents = split_article_document(
             article_id,
             article,
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
+            generation_metadata=generation_metadata,
         )
         if not chunk_documents:
             return []
 
         chunks = [document.page_content for document in chunk_documents]
-        record_ids = [build_chunk_id(article_id, index) for index in range(len(chunk_documents))]
+        record_ids = [
+            (
+                f"{self.generation_id}:{article_id}:{index}"
+                if self.generation_id
+                else build_chunk_id(article_id, index)
+            )
+            for index in range(len(chunk_documents))
+        ]
         embeddings = self.embedder.encode(chunks).tolist()
         metadata = [dict(document.metadata) for document in chunk_documents]
-        self.collection.upsert(
+        if not self.generation_id:
+            self.delete_article(article_id)
+        write = self.collection.add if self.generation_id else self.collection.upsert
+        write(
             ids=record_ids,
             embeddings=embeddings,
             metadatas=metadata,
@@ -134,6 +206,14 @@ class ChromaVectorStore(VectorStore):
             "query_embeddings": [query_embedding],
             "n_results": chunk_limit,
         }
+        provider = getattr(self, "eligible_article_ids_provider", None)
+        if provider is not None:
+            live_eligible_ids = set(provider())
+            allowed_article_ids = (
+                live_eligible_ids
+                if allowed_article_ids is None
+                else set(allowed_article_ids) & live_eligible_ids
+            )
         if allowed_article_ids is not None:
             if not allowed_article_ids:
                 return []
@@ -152,13 +232,20 @@ class ChromaVectorStore(VectorStore):
             metadata = metadatas[index] if metadatas and len(metadatas) > index else {}
             document = documents[index] if documents and len(documents) > index else ""
             distance = distances[index] if distances and len(distances) > index else 0.0
+            if (
+                metadata.get("source") == "news"
+                and metadata.get("content_validation_status") != "verified"
+            ):
+                continue
             article_id = int(metadata.get("article_id") or parse_article_id_from_chunk_id(chunk_id))
+            story_group_id = int(metadata.get("story_group_id") or article_id)
 
             grouped_result = grouped.setdefault(
-                article_id,
+                story_group_id,
                 {
                     "id": str(article_id),
                     "article_id": article_id,
+                    "story_group_id": story_group_id,
                     "title": metadata.get("title", "Untitled"),
                     "url": metadata.get("canonical_url") or metadata.get("original_url") or metadata.get("url") or "N/A",
                     "original_url": metadata.get("original_url"),
@@ -167,11 +254,22 @@ class ChromaVectorStore(VectorStore):
                     "source": metadata.get("source"),
                     "published_at": metadata.get("published_at"),
                     "content_sha256": metadata.get("content_sha256"),
+                    "publisher_source_id": metadata.get("publisher_source_id") or None,
+                    "publisher_source_name": metadata.get("publisher_source_name") or None,
                     "distance": distance,
                     "matched_chunks": [],
+                    "duplicate_article_ids": set(),
+                    "publisher_sources": {},
                 },
             )
             grouped_result["distance"] = min(grouped_result["distance"], distance)
+            grouped_result["duplicate_article_ids"].add(article_id)
+            grouped_result["publisher_sources"][article_id] = {
+                "article_id": article_id,
+                "source_id": metadata.get("publisher_source_id") or None,
+                "source_name": metadata.get("publisher_source_name") or None,
+                "url": metadata.get("canonical_url") or metadata.get("original_url") or metadata.get("url") or "N/A",
+            }
             grouped_result["matched_chunks"].append(
                 {
                     "chunk_id": chunk_id,
@@ -188,6 +286,8 @@ class ChromaVectorStore(VectorStore):
             article_results.append(
                 {
                     **grouped_result,
+                    "duplicate_article_ids": sorted(grouped_result["duplicate_article_ids"]),
+                    "publisher_sources": list(grouped_result["publisher_sources"].values()),
                     "matched_chunks": top_chunks,
                     "content": "\n".join(chunk["content"] for chunk in top_chunks if chunk["content"]).strip(),
                 }

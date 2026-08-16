@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from event_collector.entity_kb import CompanyProfile, SQLiteEntityStore
@@ -13,7 +14,22 @@ from event_collector.financial_agent_mcp import (
     ToolMetadata,
     create_financial_agent_server,
 )
+from event_collector.refresh_ledger import RetrySchedule, compute_scope_key
+
+
+class _TimeWindowPassthroughReader:
+    active_generation = SimpleNamespace(
+        generation_id="generation-test-1",
+        corpus_snapshot_id="snapshot-test-1",
+        index_config_fingerprint="b" * 64,
+    )
+
+    def with_time_window(self, **kwargs):
+        return self
 from event_collector.watchlist_progress import WatchlistProgressEvent, utc_now
+from event_collector.successor_generation_coordinator import (
+    RuntimeSuccessorGenerationCoordinator,
+)
 
 
 def test_create_financial_agent_server_exposes_only_high_level_openclaw_tools_by_default():
@@ -36,6 +52,27 @@ def test_default_capabilities_do_not_require_quantgpt():
     assert server.requires_quantgpt("run_watchlist_triage") is False
 
 
+def test_runtime_defaults_point_to_activated_v2_corpus():
+    """SELECT INVARIANT: default serving config resolves the activated immutable corpus."""
+    config = FinancialAgentRuntimeConfig()
+
+    assert config.db_path == "data/rag_corpus_v2_20260815/news_articles.db"
+    assert config.canonical_db_path == config.db_path
+    assert config.canonical_content_root == "data/rag_corpus_v2_20260815/data/articles"
+    assert config.chroma_persist_dir == "data/rag_index_v2_20260815"
+
+
+def test_default_mcp_runtime_has_an_executable_successor_generation_coordinator():
+    """SELECT INVARIANT: real MCP refresh promotes its fully verified successor by default."""
+    server = create_financial_agent_server()
+
+    assert isinstance(
+        server.successor_generation_coordinator,
+        RuntimeSuccessorGenerationCoordinator,
+    )
+    assert server.successor_generation_coordinator._config.activate_verified_generation is True
+
+
 def test_only_refresh_news_is_marked_as_mutating_tool():
     server = create_financial_agent_server()
 
@@ -48,7 +85,7 @@ def test_only_refresh_news_is_marked_as_mutating_tool():
     assert mutating == ["refresh_news", "run_watchlist_workflow"]
 
 
-def test_refresh_news_allows_first_run_blocks_second_same_day_and_allows_next_day(tmp_path, monkeypatch):
+def test_refresh_news_fails_closed_without_verified_generation_proof(tmp_path, monkeypatch):
     calls: list[str] = []
     server = create_financial_agent_server(
         FinancialAgentRuntimeConfig(
@@ -71,22 +108,140 @@ def test_refresh_news_allows_first_run_blocks_second_same_day_and_allows_next_da
     second = server.call_tool("refresh_news", today="2026-06-02")
     third = server.call_tool("refresh_news", today="2026-06-03")
 
-    assert first["status"] == "refreshed"
+    assert first["status"] == "failed"
     assert first["refresh_date"] == "2026-06-02"
-    assert second["status"] == "skipped"
-    assert "already ran" in second["message"].lower()
-    assert third["status"] == "refreshed"
-    assert calls == ["news_articles.db", "news_articles.db"]
+    assert first["counts"]["usable_items"] == 0
+    assert second["status"] == "failed"
+    assert second["failure_code"] == "retry_exhausted"
+    assert second["disposition"] == "retry_exhausted"
+    assert third["status"] == "failed"
+    assert calls == [
+        "data/rag_corpus_v2_20260815/news_articles.db",
+        "data/rag_corpus_v2_20260815/news_articles.db",
+    ]
+    assert not (tmp_path / "refresh_state.json").exists()
+    assert (tmp_path / "refresh_state.sqlite3").exists()
+
+
+def test_refresh_news_threads_runtime_corpus_and_successor_coordinator(tmp_path, monkeypatch):
+    """SELECT INVARIANT: MCP exposes the verified-generation build seam explicitly."""
+    captured = {}
+    coordinator = object()
+    server = create_financial_agent_server(
+        FinancialAgentRuntimeConfig(
+            index_corpus_id="news-canonical",
+            refresh_state_path=str(tmp_path / "refresh_state.json"),
+        ),
+        successor_generation_coordinator=coordinator,
+    )
+
+    def fake_refresh(request, **kwargs):
+        captured["request"] = request
+        captured["coordinator"] = kwargs.get("successor_generation_coordinator")
+        return {"status": "failed", "failure_code": "generation_rebuild_required"}
+
+    monkeypatch.setattr("event_collector.financial_agent_mcp.refresh_news_corpus", fake_refresh)
+
+    payload = server.call_tool("refresh_news", today="2026-08-15")
+
+    assert payload["failure_code"] == "generation_rebuild_required"
+    assert captured["request"].index_corpus_id == "news-canonical"
+    assert captured["coordinator"] is coordinator
+
+
+def test_scheduled_retry_reconstructs_frozen_scope_and_uses_default_provider_adapters(
+    tmp_path, monkeypatch
+):
+    """SELECT INVARIANT: automatic dispatch re-enters the exact child scope, never a new root."""
+    captured = {}
+    coordinator = object()
+    server = create_financial_agent_server(
+        FinancialAgentRuntimeConfig(
+            db_path=str(tmp_path / "news.db"),
+            refresh_state_path=str(tmp_path / "refresh.json"),
+            collection_name="news-v2",
+            index_corpus_id="news",
+        ),
+        successor_generation_coordinator=coordinator,
+    )
+
+    def fake_refresh(request, **kwargs):
+        captured["request"] = request
+        captured["kwargs"] = kwargs
+        return {"status": "completed", "run_id": "child-2"}
+
+    monkeypatch.setattr("event_collector.financial_agent_mcp.refresh_news_corpus", fake_refresh)
+    snapshot = {
+        "requested_date": "2026-08-15",
+        "news_endpoint": "everything",
+        "news_days_back": 3,
+        "news_page": 2,
+        "news_sort_by": "publishedAt",
+        "news_page_size": 25,
+        "include_manual": False,
+        "corpus_collection": "news-v2",
+        "index_corpus_id": "news",
+        "ingestion_contract_version": "refresh-generation-proof-v5",
+    }
+    schedule = RetrySchedule(
+        scope_key=compute_scope_key(snapshot),
+        requested_date="2026-08-15",
+        due_at=datetime(2026, 8, 16, tzinfo=timezone.utc),
+        config_snapshot=snapshot,
+    )
+
+    result = server._run_scheduled_retry(schedule)
+
+    assert result == {"status": "completed", "run_id": "child-2"}
+    assert captured["request"].today == "2026-08-15"
+    assert captured["request"].news_days_back == 3
+    assert captured["request"].news_page == 2
+    assert captured["request"].news_page_size == 25
+    assert captured["kwargs"] == {
+        "run_news_pipeline_fn": server._run_news_pipeline,
+        "successor_generation_coordinator": coordinator,
+    }
+
+
+def test_mcp_run_owns_one_automatic_retry_scheduler_lifecycle(tmp_path):
+    """SELECT INVARIANT: production serving starts and stops its retry poller with MCP."""
+    server = create_financial_agent_server(
+        FinancialAgentRuntimeConfig(refresh_state_path=str(tmp_path / "refresh.json"))
+    )
+    calls = []
+
+    class Scheduler:
+        def start(self):
+            calls.append("scheduler-start")
+
+        def stop(self):
+            calls.append("scheduler-stop")
+
+    class Runtime:
+        def run(self, transport="stdio"):
+            calls.append(("mcp-run", transport))
+
+    server.retry_scheduler = Scheduler()
+    server._mcp = Runtime()
+
+    server.run(transport="streamable-http")
+
+    assert calls == [
+        "scheduler-start",
+        ("mcp-run", "streamable-http"),
+        "scheduler-stop",
+    ]
 
 
 def test_research_tools_return_structured_results_and_optional_report_paths(tmp_path, monkeypatch):
+    captured = {}
     server = create_financial_agent_server(
         FinancialAgentRuntimeConfig(
             reports_dir=str(tmp_path / "reports"),
             refresh_state_path=str(tmp_path / "refresh_state.json"),
         )
     )
-    monkeypatch.setattr(server, "_make_vector_store", lambda: object())
+    monkeypatch.setattr(server, "_make_vector_store", _TimeWindowPassthroughReader)
 
     monkeypatch.setattr(
         "event_collector.financial_agent_mcp.answer_query",
@@ -116,7 +271,9 @@ def test_research_tools_return_structured_results_and_optional_report_paths(tmp_
     )
     monkeypatch.setattr(
         "event_collector.financial_agent_mcp.write_recommendation_report",
-        lambda target, response, output_dir, debug_rerank=False, debug_aggregation=False: os.path.join(output_dir, "recommendation.md"),
+        lambda target, response, output_dir, debug_rerank=False, debug_aggregation=False, **kwargs: captured.setdefault(
+            "recommendation_provenance", kwargs["retrieval_provenance"]
+        ) and os.path.join(output_dir, "recommendation.md"),
     )
     monkeypatch.setattr(
         "event_collector.financial_agent_mcp.run_watchlist_triage_workflow",
@@ -151,6 +308,14 @@ def test_research_tools_return_structured_results_and_optional_report_paths(tmp_
     assert research["sources"][0]["title"] == "MSFT demand"
     assert recommendation["decision"] == "HOLD"
     assert recommendation["report_path"].endswith("recommendation.md")
+    assert captured["recommendation_provenance"] == {
+        "generation_id": "generation-test-1",
+        "corpus_snapshot_id": "snapshot-test-1",
+        "index_config_fingerprint": "b" * 64,
+        "corpus_id": None,
+        "collection_name": None,
+        "embedding_artifact": None,
+    }
     assert triage["run_id"] == "watch-1"
     assert triage["ranked_items"][0]["ticker"] == "MSFT"
     assert triage["report_path"].endswith("watchlist.md")
@@ -529,6 +694,7 @@ def test_watchlist_triage_always_writes_report_even_without_include_report(tmp_p
             reports_dir=str(tmp_path / "reports"),
         )
     )
+    monkeypatch.setattr(server, "_make_vector_store", _TimeWindowPassthroughReader)
     monkeypatch.setattr(
         "event_collector.financial_agent_mcp.run_watchlist_triage_workflow",
         lambda request, storage, vector_store_provider, output_dir=None, **kwargs: SimpleNamespace(
@@ -631,7 +797,7 @@ def test_get_company_profile_and_retrieve_supporting_articles_use_existing_data(
     server = create_financial_agent_server(
         FinancialAgentRuntimeConfig(entity_db_path=str(entity_db))
     )
-    monkeypatch.setattr(server, "_make_vector_store", lambda: object())
+    monkeypatch.setattr(server, "_make_vector_store", _TimeWindowPassthroughReader)
     profile = server.call_tool("get_company_profile", ticker="MSFT")
     articles = server.call_tool("retrieve_supporting_articles", query="MSFT", top_k=2)
 
@@ -735,6 +901,7 @@ def test_small_parameter_surface_uses_shared_defaults(tmp_path, monkeypatch):
             reports_dir=str(tmp_path / "reports"),
         )
     )
+    monkeypatch.setattr(server, "_make_vector_store", _TimeWindowPassthroughReader)
     captured: dict[str, object] = {}
 
     def fake_answer_query(question, vector_store, top_k=3, retrieval_top_k=5, retrieval_intent="direct"):
@@ -802,6 +969,7 @@ def test_watchlist_triage_delegates_batching_policy_to_watchlist_research(tmp_pa
             watchlist_retrieval_max_concurrency=5,
         )
     )
+    monkeypatch.setattr(server, "_make_vector_store", _TimeWindowPassthroughReader)
 
     monkeypatch.setattr(
         "event_collector.financial_agent_mcp.run_watchlist_triage_workflow",

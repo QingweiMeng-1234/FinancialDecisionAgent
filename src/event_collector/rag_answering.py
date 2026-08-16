@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import json
+import re
 from typing import Any, Protocol
 
 from event_collector.entity_kb import SQLiteEntityStore
@@ -26,6 +27,31 @@ from event_collector.vector_store import VectorStore
 
 
 DEFAULT_TOP_K = 3
+
+_INLINE_CITATION_PATTERN = re.compile(r"\[(\d+)\]")
+_NON_MATERIAL_ANSWER_SEGMENTS = frozenset(
+    {
+        "answer",
+        "based on the retrieved evidence",
+        "by contrast",
+        "counterpoints",
+        "counter points",
+        "however",
+        "in summary",
+        "key point",
+        "key points",
+        "meanwhile",
+        "on balance",
+        "overall",
+        "risk factors",
+        "risks",
+        "summary",
+        "supporting evidence",
+        "supporting points",
+        "that said",
+        "therefore",
+    }
+)
 
 
 class ConfidenceLevel(str, Enum):
@@ -160,11 +186,13 @@ Answer the user's question using only the retrieved sources provided.
 Requirements:
 - Do not use outside knowledge.
 - Cite claims with numbered source references like [1] that match the provided source ids.
+- Every material sentence, semicolon-delimited clause, and list item must contain its own citation; citations do not carry across those boundaries.
 - If evidence is conflicting, surface both supporting_points and counter_points.
 - If evidence is insufficient, say so clearly, set insufficient_evidence to true, and use low confidence.
 - confidence must reflect the strength of the retrieved evidence, not your own certainty.
 - Only include sources that were actually used in the answer or cited points.
 - supporting_points and counter_points must each cite at least one source id.
+- insufficient_evidence permits only an uncited insufficiency statement, never uncited facts, forecasts, or recommendations.
 """.strip()
 
 
@@ -190,11 +218,13 @@ Return only valid json matching this schema:
 Requirements:
 - Do not use outside knowledge.
 - Cite claims with numbered source references like [1] that match the provided source ids.
+- Every material sentence, semicolon-delimited clause, and list item must contain its own citation; citations do not carry across those boundaries.
 - If evidence is conflicting, surface both supporting_points and counter_points.
 - If evidence is insufficient, say so clearly, set insufficient_evidence to true, and use low confidence.
 - confidence must reflect the strength of the retrieved evidence, not your own certainty.
 - Only include sources that were actually used in the answer or cited points.
 - supporting_points and counter_points must each cite at least one source id when present.
+- insufficient_evidence permits only an uncited insufficiency statement, never uncited facts, forecasts, or recommendations.
 """.strip()
 
 
@@ -207,7 +237,7 @@ class RAGAnsweringAgent:
     def answer_query(self, request: AnswerQueryRequest) -> RAGAnswerResponse:
         raw_response = self.llm_client.answer_query(request)
         response = RAGAnswerResponse.model_validate(raw_response)
-        _validate_response_citations(response)
+        _validate_response_citations(response, request)
         return response
 
 
@@ -298,12 +328,125 @@ def build_retrieved_evidence(
     )
 
 
-def _validate_response_citations(response: RAGAnswerResponse) -> None:
+def _validate_response_citations(
+    response: RAGAnswerResponse,
+    request: AnswerQueryRequest,
+) -> None:
+    """Bind every model-returned source and citation to the retrieved evidence."""
+    evidence_by_id = {evidence.id: evidence for evidence in request.evidence}
+    if len(evidence_by_id) != len(request.evidence):
+        raise ValueError("Input evidence contains duplicate source ids")
+
+    invalid_source_ids = {source.id for source in response.sources} - set(evidence_by_id)
+    if invalid_source_ids:
+        raise ValueError(
+            "Response source ids not present in input evidence: "
+            f"{sorted(invalid_source_ids)}"
+        )
+
+    for source in response.sources:
+        evidence = evidence_by_id[source.id]
+        for field in ("title", "url", "snippet"):
+            if getattr(source, field) != getattr(evidence, field):
+                raise ValueError(f"Response source {field} does not match input evidence")
+
+    valid_evidence_ids = set(evidence_by_id)
+    answer_citations = {int(citation) for citation in _INLINE_CITATION_PATTERN.findall(response.answer)}
+    if not response.insufficient_evidence and not answer_citations:
+        raise ValueError("Material answers require at least one inline citation")
+    unknown_answer_citations = answer_citations - valid_evidence_ids
+    if unknown_answer_citations:
+        raise ValueError(
+            "Answer citations reference unknown input evidence ids: "
+            f"{sorted(unknown_answer_citations)}"
+        )
+
     valid_source_ids = {source.id for source in response.sources}
+    omitted_answer_citations = answer_citations - valid_source_ids
+    if omitted_answer_citations:
+        raise ValueError(
+            "Answer citations reference omitted response source ids: "
+            f"{sorted(omitted_answer_citations)}"
+        )
+    for claim in _material_answer_claims(response.answer):
+        if _INLINE_CITATION_PATTERN.search(claim):
+            continue
+        if response.insufficient_evidence and _is_insufficiency_only_claim(claim):
+            continue
+        raise ValueError("Material answer claim lacks an inline citation")
+    if (
+        response.insufficient_evidence
+        and response.confidence is not ConfidenceLevel.LOW
+    ):
+        raise ValueError("Insufficient-evidence responses require low confidence")
     for point in response.supporting_points + response.counter_points:
+        unknown_evidence_ids = set(point.citations) - valid_evidence_ids
+        if unknown_evidence_ids:
+            raise ValueError(f"Point citations reference unknown source ids: {sorted(unknown_evidence_ids)}")
         missing = set(point.citations) - valid_source_ids
         if missing:
             raise ValueError(f"Point citations reference unknown source ids: {sorted(missing)}")
+
+
+def _material_answer_claims(answer: str) -> list[str]:
+    """Return deterministic sentence/list-item units that make material assertions."""
+    claims: list[str] = []
+    for raw_line in answer.splitlines():
+        line = re.sub(r"^\s*(?:[-*+\u2022]|\d+[.)])\s+", "", raw_line).strip()
+        if not line:
+            continue
+        for segment in _split_answer_line(line):
+            if _is_material_answer_segment(segment):
+                claims.append(segment)
+    return claims
+
+
+def _split_answer_line(line: str) -> list[str]:
+    # A citation written after terminal punctuation still belongs to the preceding
+    # sentence. Move it before the terminator in this temporary parsing copy.
+    normalized = re.sub(
+        r"([.!?;\u3002\uff01\uff1f\uff1b])\s*((?:\[\d+\]\s*)+)(?=\S)",
+        r" \2\1 ",
+        line,
+    )
+    clauses: list[str] = []
+    for semicolon_part in re.split(r"(?<=[;\uff1b])\s*", normalized):
+        if not semicolon_part:
+            continue
+        for cjk_part in re.split(r"(?<=[\u3002\uff01\uff1f])\s*", semicolon_part):
+            if not cjk_part:
+                continue
+            clauses.extend(
+                part
+                for part in re.split(
+                    r"(?<=[.!?])\s+(?=[\"'\u201c\u2018(]*[A-Z0-9])",
+                    cjk_part,
+                )
+                if part
+            )
+    return [claim.strip() for claim in clauses if claim.strip()]
+
+
+def _is_material_answer_segment(segment: str) -> bool:
+    without_citations = _INLINE_CITATION_PATTERN.sub("", segment)
+    normalized = re.sub(r"^[#>*_`\s]+|[#>*_`\s]+$", "", without_citations)
+    normalized = normalized.strip(" \t\r\n:;,.!?\u3002\uff01\uff1f\uff1b").casefold()
+    return bool(normalized) and normalized not in _NON_MATERIAL_ANSWER_SEGMENTS
+
+
+def _is_insufficiency_only_claim(segment: str) -> bool:
+    """Allow only a bounded no-evidence statement, never a hidden assertion."""
+    normalized = _INLINE_CITATION_PATTERN.sub("", segment).strip().casefold()
+    normalized = normalized.strip(" \t\r\n:;,.!?\u3002\uff01\uff1f\uff1b")
+    patterns = (
+        r"(?:the )?(?:(?:retrieved|available|provided) )?evidence (?:is|was) insufficient(?: to answer (?:(?:this|that|the) question))?",
+        r"i (?:do not|don't) have enough (?:retrieved )?evidence to answer (?:(?:this|that|the) question)(?: yet)?",
+        r"there is (?:not enough|insufficient) (?:retrieved )?evidence to answer (?:(?:this|that|the) question)(?: yet)?",
+        r"(?:(?:the answer|this question) )?cannot be determined from (?:the )?(?:(?:retrieved|available|provided) )?evidence",
+        r"(?:检索到的|现有的|提供的)?证据不足(?:以回答(?:该|这个)?问题)?",
+        r"(?:根据)?(?:检索到的|现有的|提供的)?证据(?:无法|不能)(?:回答|判断|确定)(?:该|这个)?问题",
+    )
+    return any(re.fullmatch(pattern, normalized) is not None for pattern in patterns)
 
 
 def _format_request(request: AnswerQueryRequest) -> str:
