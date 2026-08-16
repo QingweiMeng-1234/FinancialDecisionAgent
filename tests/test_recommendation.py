@@ -755,11 +755,17 @@ def test_render_and_write_recommendation_report():
             response,
             output_dir=tmpdir,
             generated_at=datetime(2026, 5, 10, 20, 30, 15),
+            retrieval_provenance={
+                "generation_id": "generation-test-1",
+                "corpus_snapshot_id": "snapshot-test-1",
+                "index_config_fingerprint": "b" * 64,
+            },
         )
         saved_text = open(report_path, encoding="utf-8").read()
 
         assert report_path.endswith("2026-05-10_203015_MSFT.md")
         assert "Evidence is too thin for a stronger call." in saved_text
+        assert "## Retrieval Provenance" in saved_text
 
     assert "# Recommendation Report: MSFT" in rendered
     assert "## Key Risks" in rendered

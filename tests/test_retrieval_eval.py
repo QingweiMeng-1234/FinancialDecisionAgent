@@ -1,12 +1,17 @@
 import json
 
 from datetime import datetime, timedelta
+from pathlib import Path
+import pytest
 
 from event_collector.entity_kb import CompanyProfile, SQLiteEntityStore
-from event_collector.news_storage import NewsArticle, SQLiteNewsStore
+from event_collector.news_storage import NewsArticle, SQLiteNewsStore, compute_content_sha256
 from event_collector.retrieval_eval import (
     AnnotationFile,
     AnnotationRecord,
+    GenerationAnnotationBinding,
+    RetrievalChainResult,
+    RetrievalComparison,
     build_fresh_annotation_eligibility,
     build_annotation_file,
     evaluate_retrieval_comparisons,
@@ -19,6 +24,7 @@ from event_collector.retrieval_eval import (
     split_master_annotations_by_ticker,
     suggest_annotation_directory,
     write_evaluation_outputs,
+    validate_annotation_file_binding,
 )
 from event_collector.reranking import RAGRerankingAgent
 from event_collector.ticker_kb import TickerIdentity
@@ -147,6 +153,74 @@ def test_build_annotation_file_prioritizes_both_then_kb_then_baseline():
     company_kb.close()
 
 
+def test_generation_bound_annotation_records_carry_exact_generation_and_hash():
+    comparison = RetrievalComparison(
+        ticker="MSFT",
+        ticker_only=RetrievalChainResult(
+            chain_name="ticker_only",
+            query="MSFT",
+            search_results=[
+                {
+                    **_result(7, "Microsoft contract", content="Microsoft contract detail."),
+                    "generation_id": "generation-7",
+                    "corpus_snapshot_id": "snapshot-7",
+                    "index_config_fingerprint": "fingerprint-7",
+                    "indexed_content_sha256": "a" * 64,
+                }
+            ],
+            filtered_results=[],
+            reranked_results=[],
+            rerank_metadata=None,
+        ),
+    )
+    binding = GenerationAnnotationBinding(
+        generation_id="generation-7",
+        corpus_snapshot_id="snapshot-7",
+        index_config_fingerprint="fingerprint-7",
+        article_content_hashes={7: "a" * 64},
+    )
+
+    annotation = build_annotation_file(
+        comparison,
+        annotation_target=1,
+        generation_binding=binding,
+    )
+
+    assert annotation.generation_id == "generation-7"
+    assert annotation.annotations[0].indexed_content_sha256 == "a" * 64
+    assert annotation.annotations[0].content_path == "generation://generation-7/articles/7/a" + "a" * 63
+    validate_annotation_file_binding(annotation, binding)
+
+
+def test_generation_bound_annotation_rejects_hash_that_differs_from_pinned_eligibility():
+    binding = GenerationAnnotationBinding(
+        generation_id="generation-7",
+        corpus_snapshot_id="snapshot-7",
+        index_config_fingerprint="fingerprint-7",
+        article_content_hashes={7: "a" * 64},
+    )
+    annotation = AnnotationFile(
+        ticker="MSFT",
+        generation_id="generation-7",
+        corpus_snapshot_id="snapshot-7",
+        index_config_fingerprint="fingerprint-7",
+        annotations=[
+            AnnotationRecord(
+                article_id=7,
+                title="Microsoft contract",
+                url="https://example.com/7",
+                excerpt="Microsoft contract detail.",
+                content_path="generation://generation-7/articles/7/" + "b" * 64,
+                dedupe_key="microsoft-contract",
+                indexed_content_sha256="b" * 64,
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError, match="content hash"):
+        validate_annotation_file_binding(annotation, binding)
+
+
 def test_save_and_load_annotation_file_preserves_null_label(tmp_path):
     annotation_file = AnnotationFile(
         ticker="MSFT",
@@ -220,8 +294,12 @@ def test_build_annotation_file_enriches_excerpt_from_sqlite_content(tmp_path):
     annotation_file = build_annotation_file(comparison, storage=storage, annotation_target=1)
 
     assert annotation_file.annotations[0].excerpt.startswith("Microsoft announced a large AI contract with clear business impact.")
-    assert annotation_file.annotations[0].content_path.endswith("1.txt")
-    assert "data" in annotation_file.annotations[0].content_path
+    content_path = Path(annotation_file.annotations[0].content_path)
+    assert content_path.parent.name == str(article_id)
+    assert content_path.name == (
+        f"{compute_content_sha256('Microsoft announced a large AI contract with clear business impact.')}.txt"
+    )
+    assert "data" in content_path.parts
     assert annotation_file.annotations[0].dedupe_key == "microsoft-wins-contract"
     assert annotation_file.annotations[0].url == "https://example.com/1"
     storage.close()
@@ -276,6 +354,44 @@ def test_build_annotation_file_skips_articles_without_original_content(tmp_path)
     assert annotation_file.annotations == []
     storage.close()
     company_kb.close()
+
+
+def test_build_annotation_file_never_repairs_missing_canonical_content_file(tmp_path):
+    db_path = tmp_path / "news.db"
+    storage = SQLiteNewsStore(db_path=str(db_path))
+    storage.init_db()
+    article_id = storage.save_article(
+        NewsArticle(
+            source="news",
+            title="Microsoft contract",
+            description="Contract",
+            content="Microsoft contract content that is only present inline in the database.",
+            url="https://example.com/1",
+            published_at=datetime.now(),
+        )
+    )
+    before = storage.get_article(article_id)
+    missing_path = Path(before.content_path)
+    missing_path.unlink()
+
+    comparison = RetrievalComparison(
+        ticker="MSFT",
+        ticker_only=RetrievalChainResult(
+            chain_name="ticker_only",
+            query="MSFT",
+            search_results=[_result(article_id, "Microsoft contract", content="contract")],
+            filtered_results=[],
+            reranked_results=[],
+            rerank_metadata=None,
+        ),
+    )
+
+    annotation = build_annotation_file(comparison, storage=storage, annotation_target=1)
+
+    assert annotation.annotations == []
+    assert not missing_path.exists()
+    assert storage.get_article(article_id).content_path == before.content_path
+    storage.close()
 
 
 def test_evaluate_retrieval_comparisons_computes_metrics_and_outputs(tmp_path):

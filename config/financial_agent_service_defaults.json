@@ -3,5 +3,6 @@
   "retrieval_top_k": 5,
   "recommendation_top_k": 3,
   "watchlist_top_n": 3,
-  "watchlist_retrieval_top_k": 5
+  "watchlist_retrieval_top_k": 5,
+  "query_lookback_days": 30
 }

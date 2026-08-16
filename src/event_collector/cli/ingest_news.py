@@ -8,13 +8,18 @@ from datetime import datetime
 import os
 
 from event_collector.news_pipeline import NewsPipelineRequest, run_news_pipeline
+from event_collector.rag_runtime_paths import (
+    DEFAULT_RAG_CANONICAL_DB_PATH,
+    DEFAULT_RAG_CHROMA_PERSIST_DIR,
+    DEFAULT_RAG_COLLECTION_NAME,
+)
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Collect news, summarize it, index it, and optionally run a grounded RAG question.")
-    parser.add_argument("--db-path", default="news_articles.db", help="SQLite article database path")
-    parser.add_argument("--persist-dir", default="./chroma_data", help="Chroma persistence directory")
-    parser.add_argument("--collection-name", default="news_articles", help="Chroma collection name")
+    parser = argparse.ArgumentParser(description="Collect news into canonical v2 content; successor generation activation is separate.")
+    parser.add_argument("--db-path", default=DEFAULT_RAG_CANONICAL_DB_PATH, help="Canonical v2 SQLite article database path")
+    parser.add_argument("--persist-dir", default=DEFAULT_RAG_CHROMA_PERSIST_DIR, help="Successor-generation Chroma persistence root")
+    parser.add_argument("--collection-name", default=DEFAULT_RAG_COLLECTION_NAME, help="Reserved generation collection name")
     parser.add_argument("--top-k", type=int, default=3, help="Number of reranked articles to use in the answer")
     parser.add_argument("--question", default=None, help="Optional grounded question to run after ingestion")
     parser.add_argument("--debug-rerank", action="store_true", help="Print rerank order and short reasons")
@@ -37,11 +42,14 @@ def main(argv=None):
     news_key = os.getenv("NEWSAPI_API_KEY")
     print(f"NewsAPI key: {'Set' if news_key else 'Not set'}")
     print(f"SQLite DB: {args.db_path}")
-    print(f"ChromaDB: {args.persist_dir}")
+    print(f"Successor-generation Chroma root: {args.persist_dir}")
     print()
     try:
         print("Collecting events from all sources...")
-        print("Ingesting, summarizing, and indexing...")
+        if args.question:
+            print("Error: ingestion does not serve grounded questions; build and activate a verified successor generation, then use query_news.")
+            return 1
+        print("Ingesting and summarizing canonical content (no mutable legacy index writes)...")
         result = run_news_pipeline(
             NewsPipelineRequest(
                 db_path=args.db_path,
@@ -65,17 +73,11 @@ def main(argv=None):
         print(f"  Total events:  {stats['total_events']}")
         print(f"  Saved:         {stats['saved']}")
         print(f"  Summarized:    {stats['summarized']}")
-        print(f"  Indexed:       {stats['indexed']}")
+        print("  Successor generation: deferred (not activated)")
         print(f"  Skipped:       {stats['skipped']}")
         print()
         print(f"Total articles in database: {result.total_articles}")
-        if args.question:
-            print()
-            print("Grounded RAG Answer:")
-            print("-" * 50)
-            print(result.answer_text)
-        else:
-            print("Ready for grounded RAG queries.")
+        print("Successor generation rebuild and activation are required before grounded RAG queries.")
         print()
         print("=" * 50)
         print("Pipeline complete.")

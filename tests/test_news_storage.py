@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import sys
 import tempfile
 from datetime import datetime
@@ -79,8 +80,14 @@ def test_update_article_content_sets_hash_and_resets_processing_states(storage):
         original_url="https://example.com/pending",
         published_at=datetime.now(),
     )
-    storage.update_article_summary(article_id, "- Existing summary")
-    storage.mark_article_processing_status(article_id, index_status="ready")
+    storage.update_article_content(article_id, content="Earlier canonical content.")
+    previous = storage.get_article(article_id)
+    storage.update_article_summary(
+        article_id,
+        "- Existing summary",
+        content_sha256=previous.active_content_sha256,
+    )
+    storage.mark_article_index_ready(article_id, previous.active_content_sha256)
 
     storage.update_article_content(
         article_id,
@@ -183,6 +190,44 @@ def test_watchlist_run_schema_adds_nullable_report_path_column(storage):
     }
 
     assert "report_path" in columns
+
+
+def test_legacy_schema_migration_marks_raw_json_rows_unverified_without_guessing_source_date(temp_db):
+    connection = sqlite3.connect(temp_db)
+    connection.executescript(
+        """
+        CREATE TABLE articles (
+            id INTEGER PRIMARY KEY,
+            source TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            content TEXT NOT NULL,
+            url TEXT UNIQUE NOT NULL,
+            published_at TEXT NOT NULL,
+            summary TEXT,
+            fetched_at TEXT NOT NULL,
+            raw_json TEXT
+        );
+        INSERT INTO articles VALUES (
+            1, 'theme_search', 'Legacy', '', '', 'https://example.com/legacy',
+            '2026-08-15T12:00:00+00:00', NULL, '2026-08-15T12:00:00+00:00',
+            '{"publishedAt":"2026-08-01T00:00:00Z"}'
+        );
+        """
+    )
+    connection.close()
+
+    store = SQLiteNewsStore(db_path=temp_db)
+    store.init_db()
+    try:
+        row = store.conn.execute(
+            "SELECT source_published_at, published_at_provenance, raw_json FROM articles WHERE id = 1"
+        ).fetchone()
+        assert row["source_published_at"] is None
+        assert row["published_at_provenance"] == "legacy_unverified"
+        assert row["raw_json"] == '{"publishedAt":"2026-08-01T00:00:00Z"}'
+    finally:
+        store.close()
 
 
 def test_save_and_fetch_watchlist_report_path(storage):

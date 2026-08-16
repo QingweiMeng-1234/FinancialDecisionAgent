@@ -10,8 +10,12 @@ import os
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.recommendation import recommend_target, write_recommendation_report
 from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT
-from event_collector.service_defaults import load_service_defaults
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.service_defaults import load_service_defaults, resolve_query_time_window
+from event_collector.serving_generation_factory import (
+    CorpusUnavailableError,
+    ServingCorpusConfig,
+    create_active_generation_reader,
+)
 
 
 def parse_args(argv=None):
@@ -20,9 +24,23 @@ def parse_args(argv=None):
         description="Generate a news-grounded Buffett-style recommendation for a stock, ETF, or general market target."
     )
     parser.add_argument("--target", required=True, help="Ticker, ETF, or 'general market'")
-    parser.add_argument("--db-path", default="news_articles.db", help="SQLite article database path")
-    parser.add_argument("--persist-dir", default="./chroma_data", help="Chroma persistence directory")
-    parser.add_argument("--collection-name", default="news_articles", help="Chroma collection name")
+    parser.add_argument("--index-control-db-path", default="data/runtime/index_generation_control.db")
+    parser.add_argument("--index-corpus-id", default="news")
+    parser.add_argument(
+        "--canonical-db-path",
+        default="data/rag_corpus_v2_20260815/news_articles.db",
+        help="Read-only canonical article database path",
+    )
+    parser.add_argument(
+        "--canonical-content-root",
+        default="data/rag_corpus_v2_20260815/data/articles",
+        help="Canonical article content root",
+    )
+    parser.add_argument(
+        "--chroma-persist-dir",
+        default="data/rag_index_v2_20260815",
+        help="Chroma root containing the active immutable generation",
+    )
     parser.add_argument("--top-k", type=int, default=defaults.recommendation_top_k, help="Number of reranked articles to use in the recommendation")
     parser.add_argument("--retrieval-top-k", type=int, default=defaults.retrieval_top_k, help="How many retrieved candidates to consider before reranking")
     parser.add_argument(
@@ -31,6 +49,10 @@ def parse_args(argv=None):
         default=DEFAULT_RETRIEVAL_INTENT,
         help="Whether retrieval should prefer direct company attribution or indirect theme exposure",
     )
+    parser.add_argument("--start-at", default=None, help="Inclusive UTC ISO-8601 start timestamp")
+    parser.add_argument("--end-at", default=None, help="Inclusive UTC ISO-8601 end timestamp")
+    parser.add_argument("--latest-at", default=None, help="UTC ISO-8601 end anchor for --lookback-days")
+    parser.add_argument("--lookback-days", type=int, default=None, help="Positive rolling UTC lookback in days")
     parser.add_argument("--output-dir", default=os.path.join("reports", "recommendations"), help="Directory to store generated recommendation reports")
     parser.add_argument("--debug-rerank", action="store_true", help="Include rerank details in output and report")
     parser.add_argument("--debug-aggregation", action="store_true", help="Include aggregated event details in output and report")
@@ -80,12 +102,41 @@ def render_recommendation(response, debug_rerank=False, debug_aggregation=False)
 
 def main(argv=None):
     args = parse_args(argv)
+    defaults = load_service_defaults()
     print("Financial Agent - Recommendation Flow")
     print("=" * 50)
     print(f"Started at: {datetime.now()}")
     print()
-    storage = SQLiteNewsStore(db_path=args.db_path)
-    vector_store = ChromaVectorStore(persist_dir=args.persist_dir, collection_name=args.collection_name)
+    try:
+        pinned = create_active_generation_reader(
+            ServingCorpusConfig(
+                index_control_db_path=args.index_control_db_path,
+                index_corpus_id=args.index_corpus_id,
+                canonical_db_path=args.canonical_db_path,
+                canonical_content_root=args.canonical_content_root,
+                chroma_persist_dir=args.chroma_persist_dir,
+            )
+        )
+    except CorpusUnavailableError as exc:
+        print(f"{exc.code}:{exc.reason_code} ({exc.stage}): {exc}")
+        return 1
+
+    try:
+        vector_store = pinned.reader.with_time_window(
+            **resolve_query_time_window(
+                defaults,
+                start_at=args.start_at,
+                end_at=args.end_at,
+                latest_at=args.latest_at,
+                lookback_days=args.lookback_days,
+            )
+        )
+    except ValueError as exc:
+        print(f"Invalid time window: {exc}")
+        return 1
+
+    storage = SQLiteNewsStore(db_path=args.canonical_db_path)
+    print(f"Active generation: {pinned.active_generation.generation_id}")
     total = storage.count_articles()
     print(f"Database has {total} articles")
     if total == 0:
@@ -95,7 +146,18 @@ def main(argv=None):
     print()
     try:
         response = recommend_target(args.target, vector_store, storage, top_k=args.top_k, retrieval_top_k=args.retrieval_top_k, retrieval_intent=args.retrieval_intent)
-        report_path = write_recommendation_report(args.target, response, output_dir=args.output_dir, debug_rerank=args.debug_rerank, debug_aggregation=args.debug_aggregation)
+        report_path = write_recommendation_report(
+            args.target,
+            response,
+            output_dir=args.output_dir,
+            debug_rerank=args.debug_rerank,
+            debug_aggregation=args.debug_aggregation,
+            retrieval_provenance={
+                "generation_id": pinned.active_generation.generation_id,
+                "corpus_snapshot_id": pinned.active_generation.corpus_snapshot_id,
+                "index_config_fingerprint": pinned.active_generation.index_config_fingerprint,
+            },
+        )
         print(render_recommendation(response, debug_rerank=args.debug_rerank, debug_aggregation=args.debug_aggregation))
         print()
         print(f"Report saved to: {report_path}")

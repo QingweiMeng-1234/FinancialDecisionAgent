@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import re
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from urllib.parse import urlparse
 
 import requests
 
-from event_collector.article_content import ArticleContentFetcher
+from event_collector.article_content import (
+    CONTENT_VALIDATOR_VERSION,
+    ArticleContentFetcher,
+    ArticleFetchError,
+)
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 
 RESEARCH_ROOT = os.path.join(
@@ -44,6 +48,16 @@ COMMENTARY_DOMAINS = {
     "x.com",
     "twitter.com",
 }
+COMPANY_SOURCE_DOMAINS_BY_TICKER = {
+    "AAPL": frozenset({"apple.com"}),
+    "MSFT": frozenset({"microsoft.com"}),
+    "NVDA": frozenset({"nvidia.com"}),
+    "TSLA": frozenset({"tesla.com"}),
+}
+COMPANY_SOURCE_HOST_LABELS = frozenset({"investor", "investors", "ir", "press", "newsroom"})
+COMPANY_SOURCE_PATH_SEGMENTS = frozenset(
+    {"investor", "investors", "investor-relations", "ir", "press", "newsroom"}
+)
 GENERIC_HOST_PARTS = {
     "www",
     "investor",
@@ -131,6 +145,8 @@ class ThemeEvidence:
     acquisition_channel: str
     domain: str
     is_newly_ingested: bool = False
+    source_published_at: datetime | None = None
+    published_at_provenance: str = "source_metadata"
 
 
 @dataclass(frozen=True)
@@ -152,6 +168,30 @@ class ThemeResearchResult:
     evidence_provenance: dict[str, Any]
     sufficiency: SufficiencyStatus
     evidence: list[ThemeEvidence] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SearchEvidenceAcquisition:
+    """Search-result acquisition evidence, excluding local-corpus retrieval."""
+
+    evidence: list[ThemeEvidence]
+    attempted: int
+    accepted: int
+    failed: int
+    failure_codes: dict[str, int]
+    generation_handoff_article_ids: tuple[int, ...] = ()
+
+    def provenance(self) -> dict[str, Any]:
+        return {
+            "attempted": self.attempted,
+            "accepted": self.accepted,
+            "failed": self.failed,
+            "failure_codes": dict(sorted(self.failure_codes.items())),
+            "generation_handoff": {
+                "scheduled": len(self.generation_handoff_article_ids),
+                "article_ids": list(self.generation_handoff_article_ids),
+            },
+        }
 
 
 @dataclass(frozen=True)
@@ -233,10 +273,13 @@ def run_theme_research(
     request: ThemeResearchRequest,
     *,
     storage: SQLiteNewsStore | None = None,
-    vector_store: Any | None = None,
+    local_vector_reader: Any | None = None,
+    discovered_article_sink: Callable[[int, str], None] | None = None,
+    retrieval_provenance: dict[str, Any] | None = None,
     search_provider: SearchProvider | None = None,
     content_fetcher: ArticleContentFetcher | None = None,
     summarizer: SummaryGenerator | None = None,
+    publish_assets: bool = True,
 ) -> ThemeResearchResult:
     normalized = normalize_theme_research_request(request)
     metadata = ThemeMetadata(
@@ -257,20 +300,21 @@ def run_theme_research(
     runtime_summarizer = summarizer or SimpleSummaryGenerator()
 
     try:
-        discovered = _acquire_search_evidence(
+        acquisition = _acquire_search_evidence(
             metadata,
             normalized,
             runtime_storage,
-            vector_store=vector_store,
+            discovered_article_sink=discovered_article_sink,
             search_provider=runtime_search,
             content_fetcher=runtime_fetcher,
             summarizer=runtime_summarizer,
         )
+        discovered = acquisition.evidence
         local_support = _retrieve_local_support(
             metadata,
             normalized,
             runtime_storage,
-            vector_store=vector_store,
+            local_vector_reader=local_vector_reader,
             exclude_article_ids={item.article_id for item in discovered},
         )
         consolidated = _dedupe_evidence(discovered + local_support)
@@ -287,16 +331,22 @@ def run_theme_research(
             related_companies,
             candidate_segments,
         )
-        artifact_paths = write_theme_research_assets(
-            metadata,
-            normalized,
-            consolidated,
-            sufficiency,
-            theme_summary,
-            related_companies,
-            candidate_segments,
-        )
+        artifact_paths = {}
+        if publish_assets:
+            artifact_paths = write_theme_research_assets(
+                metadata,
+                normalized,
+                consolidated,
+                sufficiency,
+                theme_summary,
+                related_companies,
+                candidate_segments,
+                retrieval_provenance=retrieval_provenance,
+            )
         provenance = build_evidence_provenance_summary(consolidated)
+        provenance["acquisition"] = acquisition.provenance()
+        if retrieval_provenance is not None:
+            provenance["retrieval_generation"] = dict(retrieval_provenance)
         return ThemeResearchResult(
             metadata=metadata,
             theme_summary=theme_summary,
@@ -389,14 +439,35 @@ def classify_source_kind(url: str, *, tickers: list[str] | None = None) -> str:
         return "commentary"
     if root in SECONDARY_DOMAINS:
         return "secondary"
-    host_parts = [part for part in domain.split(".") if part not in {"com", "net", "org", "io", "co", "gov"}]
-    if any(part in {"investor", "ir", "press", "newsroom"} for part in host_parts):
-        return "company"
-    if tickers and any(ticker.lower() in domain for ticker in tickers):
-        return "company"
-    if len(host_parts) <= 2 and host_parts[0] not in {"reuters", "bloomberg", "marketwatch"}:
+
+    supported_domains = _supported_company_domains(tickers)
+    if root not in supported_domains:
+        return "secondary"
+    host_labels = domain[: -len(root)].rstrip(".").split(".") if domain != root else []
+    path_segments = {
+        segment.casefold()
+        for segment in urlparse(url).path.split("/")
+        if segment
+    }
+    if (
+        COMPANY_SOURCE_HOST_LABELS.intersection(host_labels)
+        or COMPANY_SOURCE_PATH_SEGMENTS.intersection(path_segments)
+    ):
         return "company"
     return "secondary"
+
+
+def _supported_company_domains(tickers: list[str] | None) -> set[str]:
+    if tickers:
+        supported: set[str] = set()
+        for ticker in normalize_ticker_hints(tickers):
+            supported.update(COMPANY_SOURCE_DOMAINS_BY_TICKER.get(ticker, ()))
+        return supported
+    return {
+        domain
+        for domains in COMPANY_SOURCE_DOMAINS_BY_TICKER.values()
+        for domain in domains
+    }
 
 
 def compute_sufficiency(
@@ -405,19 +476,22 @@ def compute_sufficiency(
     fresh_lookback_days: int = DEFAULT_FRESH_LOOKBACK_DAYS,
 ) -> SufficiencyStatus:
     counts = {"primary": 0, "company": 0, "secondary": 0, "commentary": 0}
-    fresh_cutoff = datetime.now() - timedelta(days=fresh_lookback_days)
+    fresh_cutoff = datetime.now(timezone.utc) - timedelta(days=fresh_lookback_days)
     fresh_evidence = 0
+    fresh_high_weight = 0
     for item in evidence:
         counts[item.source_kind] = counts.get(item.source_kind, 0) + 1
-        if item.published_at and item.published_at >= fresh_cutoff:
+        source_published_at = _source_published_at(item)
+        if source_published_at and _as_utc(source_published_at) >= fresh_cutoff:
             fresh_evidence += 1
+            if item.source_kind in {"primary", "company"}:
+                fresh_high_weight += 1
 
     high_weight = counts["primary"] + counts["company"]
     structure_sufficient = high_weight >= 2 or (high_weight >= 1 and counts["secondary"] >= 2)
     fresh_monitoring_sufficient = (
         fresh_evidence >= 3
-        or (fresh_evidence >= 2 and high_weight >= 1)
-        or (counts["secondary"] + counts["commentary"] >= 3)
+        or (fresh_evidence >= 2 and fresh_high_weight >= 1)
     )
     return SufficiencyStatus(
         structure_sufficient=structure_sufficient,
@@ -536,6 +610,9 @@ def write_theme_research_assets(
     theme_summary: str,
     related_companies: list[str],
     candidate_segments: list[str],
+    *,
+    retrieval_provenance: dict[str, Any] | None = None,
+    generation_handoff_provenance: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     theme_dir = os.path.join(request.research_root, metadata.theme_slug)
     os.makedirs(theme_dir, exist_ok=True)
@@ -544,6 +621,29 @@ def write_theme_research_assets(
     supply_chain_map_path = os.path.join(theme_dir, "supply-chain-map.md")
     evidence_log_path = os.path.join(theme_dir, "evidence-log.md")
     monitoring_triggers_path = os.path.join(theme_dir, "monitoring-triggers.md")
+    retrieval_lines: list[str] = []
+    if retrieval_provenance is not None:
+        retrieval_lines = [
+            f"- Generation ID: {retrieval_provenance.get('generation_id', 'unknown')}",
+            f"- Corpus snapshot ID: {retrieval_provenance.get('corpus_snapshot_id', 'unknown')}",
+            "- Index config fingerprint: "
+            f"{retrieval_provenance.get('index_config_fingerprint', 'unknown')}",
+        ]
+    handoff_lines: list[str] = []
+    if generation_handoff_provenance is not None:
+        receipt = generation_handoff_provenance.get("activation_receipt", {})
+        handoff_lines = [
+            "- Successor handoff run ID: "
+            f"{generation_handoff_provenance.get('handoff_run_id', 'unknown')}",
+            "- Successor generation ID: "
+            f"{generation_handoff_provenance.get('generation_id', 'unknown')}",
+            "- Successor corpus snapshot ID: "
+            f"{generation_handoff_provenance.get('corpus_snapshot_id', 'unknown')}",
+            "- Successor index config fingerprint: "
+            f"{generation_handoff_provenance.get('index_config_fingerprint', 'unknown')}",
+            "- Activation receipt: "
+            f"{receipt.get('status', 'unknown')} at {receipt.get('activated_at', 'unknown')}",
+        ]
 
     theme_card = "\n".join(
         [
@@ -557,6 +657,8 @@ def write_theme_research_assets(
             f"- Fresh monitoring sufficient: {sufficiency.fresh_monitoring_sufficient}",
             f"- Related companies: {', '.join(related_companies) if related_companies else 'None'}",
             f"- Candidate segments: {', '.join(candidate_segments) if candidate_segments else metadata.theme}",
+            *retrieval_lines,
+            *handoff_lines,
         ]
     )
     supply_chain_map = "\n".join(
@@ -581,6 +683,8 @@ def write_theme_research_assets(
             f"- Theme: {metadata.theme}",
             f"- Analysis goal: {metadata.analysis_goal}",
             f"- Search intents: {', '.join(metadata.search_intents)}",
+            *retrieval_lines,
+            *handoff_lines,
             *[
                 f"- [{item.source_kind}/{item.acquisition_channel}] {item.title} ({item.url})"
                 for item in evidence[:12]
@@ -614,52 +718,147 @@ def _acquire_search_evidence(
     request: ThemeResearchRequest,
     storage: SQLiteNewsStore,
     *,
-    vector_store: Any | None,
+    discovered_article_sink: Callable[[int, str], None] | None,
     search_provider: SearchProvider,
     content_fetcher: ArticleContentFetcher,
     summarizer: SummaryGenerator,
-) -> list[ThemeEvidence]:
+) -> SearchEvidenceAcquisition:
     collected: list[ThemeEvidence] = []
     seen_article_ids: set[int] = set()
+    attempted = 0
+    failed = 0
+    failure_codes: dict[str, int] = {}
+    generation_handoff_article_ids: list[int] = []
     for intent in metadata.search_intents:
         if len(collected) >= request.max_discovered_articles:
             break
-        results = search_provider.search(intent, num_results=request.search_results_per_query)
+        try:
+            results = search_provider.search(
+                intent, num_results=request.search_results_per_query
+            )
+        except Exception:
+            attempted += 1
+            failed += 1
+            _increment_failure_code(failure_codes, "search_intent_failed")
+            continue
         for result in results:
             if len(collected) >= request.max_discovered_articles:
                 break
-            article_id, created = storage.create_or_get_article_reference(
-                source="theme_search",
-                title=result.title,
-                description=result.snippet,
-                original_url=result.url,
-                published_at=result.published_at or datetime.now(),
+            attempted += 1
+            published_at_provenance = (
+                "source_metadata" if result.published_at is not None else "unknown"
             )
-            record = storage.get_article_record(article_id)
+            try:
+                article_id, created = storage.create_or_get_article_reference(
+                    source="theme_search",
+                    title=result.title,
+                    description=result.snippet,
+                    original_url=result.url,
+                    published_at=result.published_at or datetime.now(timezone.utc),
+                    source_published_at=result.published_at,
+                    published_at_provenance=published_at_provenance,
+                )
+                record = storage.get_article_record(article_id)
+                if record is None:
+                    raise RuntimeError("theme article reference disappeared")
+            except Exception:
+                failed += 1
+                _increment_failure_code(failure_codes, "reference_failed")
+                continue
             is_newly_ingested = created
-            if record is not None and record.content_status != "ready":
-                fetched = content_fetcher.fetch_with_classification(result.url)
+            if record.content_status != "ready":
+                try:
+                    fetched = content_fetcher.fetch_with_classification(result.url)
+                except Exception as exc:
+                    failed += 1
+                    failure_code = _fetch_failure_code(exc)
+                    _increment_failure_code(failure_codes, failure_code)
+                    _mark_theme_content_failure(
+                        storage,
+                        article_id,
+                        failure_code=failure_code,
+                        error=exc,
+                        fallback_url=result.url,
+                    )
+                    continue
                 title = result.title or record.article.title
                 description = result.snippet or record.article.description
-                storage.update_article_content(
-                    article_id,
-                    content=fetched.content,
-                    title=title,
-                    description=description,
-                    original_url=fetched.original_url,
-                    canonical_url=fetched.canonical_url,
-                    published_at=result.published_at or record.article.published_at,
-                )
-                article = storage.get_article(article_id)
-                assert article is not None
-                summary = summarizer.summarize(article)
-                storage.update_article_summary(article_id, summary)
-                article.summary = summary
-                if vector_store is not None:
-                    vector_store.add_article(article_id, article)
-                    storage.mark_article_processing_status(article_id, index_status="ready")
-            record = storage.get_article_record(article_id)
+                try:
+                    storage.update_article_content(
+                        article_id,
+                        content=fetched.content,
+                        title=title,
+                        description=description,
+                        original_url=fetched.original_url,
+                        canonical_url=fetched.canonical_url,
+                        published_at=result.published_at or record.article.published_at,
+                        source_published_at=result.published_at,
+                        published_at_provenance=published_at_provenance,
+                    )
+                    article = storage.get_article(article_id)
+                    if article is None:
+                        raise RuntimeError("theme article disappeared after content write")
+                except Exception as exc:
+                    failed += 1
+                    _increment_failure_code(failure_codes, "content_write_failed")
+                    _mark_theme_content_failure(
+                        storage,
+                        article_id,
+                        failure_code="content_write_failed",
+                        error=exc,
+                        fallback_url=getattr(fetched, "original_url", result.url),
+                    )
+                    continue
+            try:
+                record = storage.get_article_record(article_id)
+            except Exception:
+                failed += 1
+                _increment_failure_code(failure_codes, "evidence_state_read_failed")
+                continue
             if record is None or article_id in seen_article_ids or record.content_status != "ready":
+                continue
+            article = record.article
+            processing_hash = article.active_content_sha256 or article.content_sha256
+            summary_ready = bool(
+                processing_hash
+                and record.summary_status == "ready"
+                and article.summary_content_sha256 == processing_hash
+                and (article.summary or "").strip()
+            )
+            if not summary_ready:
+                try:
+                    summary = summarizer.summarize(article)
+                    if not processing_hash or not storage.update_article_summary(
+                        article_id, summary, content_sha256=processing_hash
+                    ):
+                        raise RuntimeError("active content changed before summary commit")
+                except Exception:
+                    if processing_hash:
+                        try:
+                            storage.mark_article_summary_failure(article_id, processing_hash)
+                        except Exception:
+                            _increment_failure_code(
+                                failure_codes, "summary_failure_persist_failed"
+                            )
+                    failed += 1
+                    _increment_failure_code(failure_codes, "summary_failed")
+                    continue
+                article.summary = summary
+            if discovered_article_sink is not None:
+                try:
+                    discovered_article_sink(article_id, processing_hash)
+                except Exception:
+                    failed += 1
+                    _increment_failure_code(failure_codes, "generation_handoff_failed")
+                    continue
+                generation_handoff_article_ids.append(article_id)
+            try:
+                record = storage.get_article_record(article_id)
+            except Exception:
+                failed += 1
+                _increment_failure_code(failure_codes, "evidence_state_read_failed")
+                continue
+            if record is None:
                 continue
             seen_article_ids.add(article_id)
             collected.append(
@@ -673,9 +872,53 @@ def _acquire_search_evidence(
                     acquisition_channel="open_search",
                     domain=_domain_for_url(record.article.url),
                     is_newly_ingested=is_newly_ingested,
+                    source_published_at=result.published_at,
+                    published_at_provenance=published_at_provenance,
                 )
             )
-    return collected
+    return SearchEvidenceAcquisition(
+        evidence=collected,
+        attempted=attempted,
+        accepted=len(collected),
+        failed=failed,
+        failure_codes=failure_codes,
+        generation_handoff_article_ids=tuple(generation_handoff_article_ids),
+    )
+
+
+def _fetch_failure_code(exc: Exception) -> str:
+    if isinstance(exc, ArticleFetchError):
+        return str(exc.reason.value)
+    return "fetch_exception"
+
+
+def _increment_failure_code(failure_codes: dict[str, int], failure_code: str) -> None:
+    failure_codes[failure_code] = failure_codes.get(failure_code, 0) + 1
+
+
+def _mark_theme_content_failure(
+    storage: SQLiteNewsStore,
+    article_id: int,
+    *,
+    failure_code: str,
+    error: Exception,
+    fallback_url: str,
+) -> None:
+    """Best-effort durable failure state without leaking provider error text."""
+    try:
+        storage.mark_article_content_failure(
+            article_id,
+            reason=failure_code,
+            validator_version=CONTENT_VALIDATOR_VERSION,
+            final_response_url=getattr(error, "url", None) or fallback_url,
+            response_status_code=getattr(error, "status_code", None),
+            response_content_type=getattr(error, "content_type", None),
+            extractor_version=getattr(error, "extractor_version", None),
+        )
+    except Exception:
+        # The per-item workflow must continue even when failure-state storage is
+        # itself unavailable. No success evidence is emitted for this item.
+        return
 
 
 def _retrieve_local_support(
@@ -683,17 +926,22 @@ def _retrieve_local_support(
     request: ThemeResearchRequest,
     storage: SQLiteNewsStore,
     *,
-    vector_store: Any | None,
+    local_vector_reader: Any | None,
     exclude_article_ids: set[int],
 ) -> list[ThemeEvidence]:
-    if vector_store is None or request.local_retrieval_top_k <= 0:
+    if local_vector_reader is None or request.local_retrieval_top_k <= 0:
         return []
     results: list[ThemeEvidence] = []
     seen_article_ids = set(exclude_article_ids)
     for intent in metadata.search_intents[:3]:
-        for raw in vector_store.search(intent, top_k=request.local_retrieval_top_k):
+        for raw in local_vector_reader.search(intent, top_k=request.local_retrieval_top_k):
             article_id = int(raw.get("article_id") or raw.get("id"))
             if article_id in seen_article_ids:
+                continue
+            pinned_evidence = _pinned_theme_evidence(raw, metadata, article_id)
+            if pinned_evidence is not None:
+                seen_article_ids.add(article_id)
+                results.append(pinned_evidence)
                 continue
             record = storage.get_article_record(article_id)
             if record is None:
@@ -710,9 +958,62 @@ def _retrieve_local_support(
                     acquisition_channel="local_corpus",
                     domain=_domain_for_url(record.article.url),
                     is_newly_ingested=False,
+                    source_published_at=record.article.source_published_at,
+                    published_at_provenance=record.article.published_at_provenance,
                 )
             )
     return results
+
+
+def _pinned_theme_evidence(
+    raw: dict[str, Any], metadata: ThemeMetadata, article_id: int
+) -> ThemeEvidence | None:
+    generation_id = raw.get("generation_id")
+    content_hash = raw.get("indexed_content_sha256")
+    title = raw.get("title")
+    url = raw.get("url")
+    if (
+        not isinstance(generation_id, str)
+        or not generation_id
+        or not isinstance(content_hash, str)
+        or len(content_hash) != 64
+        or not isinstance(title, str)
+        or not title.strip()
+        or not isinstance(url, str)
+        or not url.strip()
+    ):
+        return None
+    summary = raw.get("summary")
+    published_at = _parse_datetime(raw.get("published_at"))
+    source_published_at = _parse_datetime(raw.get("source_published_at"))
+    published_at_provenance = raw.get("published_at_provenance")
+    if not isinstance(published_at_provenance, str) or not published_at_provenance:
+        published_at_provenance = "unknown" if source_published_at is None else "pinned_generation_metadata"
+    return ThemeEvidence(
+        article_id=article_id,
+        title=title,
+        url=url,
+        summary=summary if isinstance(summary, str) else None,
+        published_at=published_at,
+        source_kind=classify_source_kind(url, tickers=metadata.tickers),
+        acquisition_channel="local_corpus",
+        domain=_domain_for_url(url),
+        is_newly_ingested=False,
+        source_published_at=source_published_at,
+        published_at_provenance=published_at_provenance,
+    )
+
+
+def _source_published_at(item: ThemeEvidence) -> datetime | None:
+    if item.published_at_provenance == "unknown":
+        return None
+    return item.source_published_at or item.published_at
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _dedupe_evidence(evidence: list[ThemeEvidence]) -> list[ThemeEvidence]:

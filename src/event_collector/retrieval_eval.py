@@ -86,12 +86,26 @@ class AnnotationRecord:
     notes: str = ""
     related_tickers: tuple[str, ...] = field(default_factory=tuple)
     suggested_tickers: tuple[str, ...] = field(default_factory=tuple)
+    indexed_content_sha256: str | None = None
 
 
 @dataclass(frozen=True)
 class AnnotationFile:
     ticker: str
     annotations: list[AnnotationRecord]
+    generation_id: str | None = None
+    corpus_snapshot_id: str | None = None
+    index_config_fingerprint: str | None = None
+
+
+@dataclass(frozen=True)
+class GenerationAnnotationBinding:
+    """Immutable generation proof required for generated/evaluated annotations."""
+
+    generation_id: str
+    corpus_snapshot_id: str
+    index_config_fingerprint: str
+    article_content_hashes: dict[int, str]
 
 
 @dataclass(frozen=True)
@@ -297,6 +311,7 @@ def build_annotation_file(
     annotation_target: int = DEFAULT_ANNOTATION_TARGET,
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
     snippet_chars: int = DEFAULT_SNIPPET_CHARS,
+    generation_binding: GenerationAnnotationBinding | None = None,
 ) -> AnnotationFile:
     """Build the prefilled annotation skeleton for one ticker comparison."""
     prioritized = _prioritize_candidate_articles(
@@ -312,6 +327,12 @@ def build_annotation_file(
             prioritized,
             storage=storage,
             snippet_chars=snippet_chars,
+            generation_binding=generation_binding,
+        ),
+        generation_id=generation_binding.generation_id if generation_binding else None,
+        corpus_snapshot_id=generation_binding.corpus_snapshot_id if generation_binding else None,
+        index_config_fingerprint=(
+            generation_binding.index_config_fingerprint if generation_binding else None
         ),
     )
 
@@ -342,10 +363,15 @@ def save_annotation_file(annotation_file: AnnotationFile, output_dir: str | Path
                 "notes": item.notes,
                 "related_tickers": list(item.related_tickers),
                 "suggested_tickers": list(item.suggested_tickers),
+                "indexed_content_sha256": item.indexed_content_sha256,
             }
             for item in annotation_file.annotations
         ],
     }
+    if annotation_file.generation_id is not None:
+        payload["generation_id"] = annotation_file.generation_id
+        payload["corpus_snapshot_id"] = annotation_file.corpus_snapshot_id
+        payload["index_config_fingerprint"] = annotation_file.index_config_fingerprint
     target.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=False), encoding="utf-8")
     return target
 
@@ -356,7 +382,10 @@ def load_annotation_file(path: str | Path) -> AnnotationFile:
     if not isinstance(raw, dict):
         raise ValueError(f"Annotation file must contain a top-level mapping: {path}")
 
-    unknown = sorted(set(raw) - {"ticker", "annotations"})
+    unknown = sorted(
+        set(raw)
+        - {"ticker", "annotations", "generation_id", "corpus_snapshot_id", "index_config_fingerprint"}
+    )
     if unknown:
         raise ValueError(f"Annotation file contains unsupported top-level fields: {unknown}")
 
@@ -385,6 +414,7 @@ def load_annotation_file(path: str | Path) -> AnnotationFile:
                 "notes",
                 "related_tickers",
                 "suggested_tickers",
+                "indexed_content_sha256",
             }
         )
         if unknown_fields:
@@ -430,10 +460,22 @@ def load_annotation_file(path: str | Path) -> AnnotationFile:
                 notes=notes,
                 related_tickers=related_tickers,
                 suggested_tickers=suggested_tickers,
+                indexed_content_sha256=_optional_content_hash(
+                    item.get("indexed_content_sha256"),
+                    f"annotations[{index}].indexed_content_sha256",
+                ),
             )
         )
 
-    return AnnotationFile(ticker=ticker, annotations=annotations)
+    return AnnotationFile(
+        ticker=ticker,
+        annotations=annotations,
+        generation_id=_optional_annotation_text(raw.get("generation_id"), "generation_id"),
+        corpus_snapshot_id=_optional_annotation_text(raw.get("corpus_snapshot_id"), "corpus_snapshot_id"),
+        index_config_fingerprint=_optional_annotation_text(
+            raw.get("index_config_fingerprint"), "index_config_fingerprint"
+        ),
+    )
 
 
 def _normalize_annotation_label(item: dict[str, Any], index: int) -> str | None:
@@ -940,7 +982,26 @@ def _build_annotation_record(
     *,
     storage: SQLiteNewsStore | None,
     snippet_chars: int,
+    generation_binding: GenerationAnnotationBinding | None,
 ) -> AnnotationRecord | None:
+    if generation_binding is not None:
+        content_hash = generation_binding.article_content_hashes.get(item.article_id)
+        if content_hash is None:
+            raise ValueError(
+                f"annotation article {item.article_id} is absent from pinned generation eligibility"
+            )
+        excerpt = _require_annotation_excerpt(item.excerpt, item.article_id)
+        return AnnotationRecord(
+            article_id=item.article_id,
+            title=item.title,
+            url=item.url,
+            excerpt=excerpt,
+            content_path=_generation_content_reference(
+                generation_binding.generation_id, item.article_id, content_hash
+            ),
+            dedupe_key=_build_dedupe_key(item.title, item.article_id),
+            indexed_content_sha256=content_hash,
+        )
     if storage is None:
         excerpt = _require_annotation_excerpt(item.excerpt, item.article_id)
         return AnnotationRecord(
@@ -1013,6 +1074,7 @@ def rebalance_annotation_directory(
                 notes=record.notes,
                 related_tickers=per_record_related,
                 suggested_tickers=record.suggested_tickers,
+                indexed_content_sha256=record.indexed_content_sha256,
             )
             redistributed[target_ticker].append(distributed_record)
 
@@ -1025,11 +1087,23 @@ def rebalance_annotation_directory(
             seen_article_ids.add(record.article_id)
             deduped_records.append(record)
         save_annotation_file(
-            AnnotationFile(ticker=ticker, annotations=deduped_records),
+            AnnotationFile(
+                ticker=ticker,
+                annotations=deduped_records,
+                generation_id=files[ticker].generation_id,
+                corpus_snapshot_id=files[ticker].corpus_snapshot_id,
+                index_config_fingerprint=files[ticker].index_config_fingerprint,
+            ),
             annotation_path,
             force=True,
         )
-        files[ticker] = AnnotationFile(ticker=ticker, annotations=deduped_records)
+        files[ticker] = AnnotationFile(
+            ticker=ticker,
+            annotations=deduped_records,
+            generation_id=files[ticker].generation_id,
+            corpus_snapshot_id=files[ticker].corpus_snapshot_id,
+            index_config_fingerprint=files[ticker].index_config_fingerprint,
+        )
     return {ticker: len(annotation_file.annotations) for ticker, annotation_file in files.items()}
 
 
@@ -1068,10 +1142,17 @@ def suggest_annotation_directory(
                     notes=record.notes,
                     related_tickers=related_tickers,
                     suggested_tickers=detected,
+                    indexed_content_sha256=record.indexed_content_sha256,
                 )
             )
         save_annotation_file(
-            AnnotationFile(ticker=annotation_file.ticker, annotations=updated_records),
+            AnnotationFile(
+                ticker=annotation_file.ticker,
+                annotations=updated_records,
+                generation_id=annotation_file.generation_id,
+                corpus_snapshot_id=annotation_file.corpus_snapshot_id,
+                index_config_fingerprint=annotation_file.index_config_fingerprint,
+            ),
             annotation_path,
             force=True,
         )
@@ -1115,11 +1196,15 @@ def _filter_annotation_file_by_relevance_type(
                 notes=item.notes,
                 related_tickers=item.related_tickers,
                 suggested_tickers=item.suggested_tickers,
+                indexed_content_sha256=item.indexed_content_sha256,
             )
         )
     return AnnotationFile(
         ticker=annotation_file.ticker,
         annotations=filtered_annotations,
+        generation_id=annotation_file.generation_id,
+        corpus_snapshot_id=annotation_file.corpus_snapshot_id,
+        index_config_fingerprint=annotation_file.index_config_fingerprint,
     )
 
 
@@ -1337,6 +1422,61 @@ def _require_annotation_text(value: object, field_name: str) -> str:
     return cleaned
 
 
+def _optional_annotation_text(value: object, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _require_annotation_text(value, field_name)
+
+
+def _optional_content_hash(value: object, field_name: str) -> str | None:
+    if value is None:
+        return None
+    digest = _require_annotation_text(value, field_name)
+    if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+        raise ValueError(f"{field_name} must be a lowercase SHA-256 digest")
+    return digest
+
+
+def _generation_content_reference(generation_id: str, article_id: int, content_hash: str) -> str:
+    return f"generation://{generation_id}/articles/{article_id}/{content_hash}"
+
+
+def validate_annotation_file_binding(
+    annotation_file: AnnotationFile,
+    binding: GenerationAnnotationBinding,
+) -> None:
+    """Reject annotations not exactly bound to the pinned generation snapshot."""
+
+    observed = (
+        annotation_file.generation_id,
+        annotation_file.corpus_snapshot_id,
+        annotation_file.index_config_fingerprint,
+    )
+    expected = (
+        binding.generation_id,
+        binding.corpus_snapshot_id,
+        binding.index_config_fingerprint,
+    )
+    if observed != expected:
+        raise ValueError("annotation file generation binding does not match pinned evaluation corpus")
+    for annotation in annotation_file.annotations:
+        expected_hash = binding.article_content_hashes.get(annotation.article_id)
+        if expected_hash is None:
+            raise ValueError(
+                f"annotation article {annotation.article_id} is absent from pinned generation eligibility"
+            )
+        if annotation.indexed_content_sha256 != expected_hash:
+            raise ValueError(
+                f"annotation article {annotation.article_id} content hash does not match pinned generation"
+            )
+        if annotation.content_path != _generation_content_reference(
+            binding.generation_id, annotation.article_id, expected_hash
+        ):
+            raise ValueError(
+                f"annotation article {annotation.article_id} content reference does not match pinned generation"
+            )
+
+
 def _truncate_preview(value: str, limit: int) -> str:
     cleaned = " ".join((value or "").split()).strip()
     if len(cleaned) <= limit:
@@ -1438,6 +1578,7 @@ def _build_annotation_records(
     *,
     storage: SQLiteNewsStore | None,
     snippet_chars: int,
+    generation_binding: GenerationAnnotationBinding | None,
 ) -> list[AnnotationRecord]:
     records: list[AnnotationRecord] = []
     for item in items:
@@ -1445,6 +1586,7 @@ def _build_annotation_records(
             item,
             storage=storage,
             snippet_chars=snippet_chars,
+            generation_binding=generation_binding,
         )
         if record is not None:
             records.append(record)
@@ -1509,19 +1651,8 @@ def _resolve_annotation_content_path(
     if content_path and os.path.exists(content_path):
         return os.path.abspath(content_path)
 
-    content = getattr(article, "content", "")
-    if not content or storage is None:
-        return None
-
-    # Older rows may still have inline SQLite content but no persisted article file yet.
-    final_path = storage.write_article_content(article_id, content)
-    if storage.conn is not None:
-        storage.conn.execute(
-            "UPDATE articles SET content_path = ? WHERE id = ?",
-            (final_path, article_id),
-        )
-        storage.conn.commit()
-    return os.path.abspath(final_path)
+    # Evaluation must never repair canonical state as an annotation side effect.
+    return None
 
 
 def _validate_dedupe_groups(annotation_file: AnnotationFile) -> None:

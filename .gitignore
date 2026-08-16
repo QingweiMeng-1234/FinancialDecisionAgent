@@ -16,6 +16,8 @@ logs/
 chroma_data/
 data/runtime/
 data/articles/
+data/rag_corpus_v2_*/
+data/rag_index_v2_*/
 
 # Generated reports and scratch exports
 reports/
