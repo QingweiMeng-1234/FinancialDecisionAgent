@@ -1,0 +1,13 @@
+pair_id,candidate_a,candidate_b,human_expected_relation,heuristic_relation,verdict,reason
+R01,PWR-C09,PWR-C07,A_before_B,A_before_B,aligned,current material revenue plus hard margin failure is more review-relevant than factory-area-only upside
+R02,PWR-C09,PWR-C06,A_before_B,A_before_B,aligned,current weak earnings is proven while reference architecture is only early integration
+R03,PWR-C08,PWR-C07,A_before_B,A_before_B,aligned,named production deployment has a stronger adoption floor than factory expansion
+R04,PWR-C06,PWR-C07,overlapping,overlapping,aligned,integration and execution signals are different and neither score interval strictly dominates
+R05,PWR-C01,PWR-C02,overlapping,overlapping,aligned,product-specific shortage versus broader grid financial evidence cannot be strictly ranked
+R06,PWR-C01,PWR-C03,overlapping,overlapping,aligned,scope and product-mix uncertainty prevent strict ranking
+R07,PWR-C04,PWR-C05,overlapping,overlapping,aligned,both are broad critical-power portfolios without product-level capacity and sourcing denominators
+R08,PWR-C02,PWR-C03,overlapping,overlapping,aligned,reported growth and backlog use incompatible segment definitions
+R09,PWR-C10,PWR-C07,B_before_A,B_before_A,aligned,stale historical non-adoption should not outrank a current execution signal
+R10,SUP-DURABLE-ASML-EUV,PWR-C01,A_before_B,A_before_B,aligned,fully gated defensibility case dominates a watch-only transformer card for calibration purposes
+R11,SUP-REALIZED-APPLE-SILICON,PWR-C08,A_before_B,A_before_B,aligned,full product-line displacement dominates a single named deployment
+R12,PWR-C03,PWR-C04,overlapping,overlapping,aligned,cross-segment total scores are not an investment ranking

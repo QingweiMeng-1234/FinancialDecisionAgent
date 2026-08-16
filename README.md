@@ -142,7 +142,7 @@ python structure_events.py --db-path news_articles.db
 
 ### Decision
 
-- Add an agent-driven decision flow that uses an agent plus a Buffett-style skill to make recommendations for user-specified stocks. (done)
+- Add an agent-driven decision flow that uses an agent plus a Buffett-style skill to make recommendations for user-specified stocks. (Done)
 
 ### Storage
 
