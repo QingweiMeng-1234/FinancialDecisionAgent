@@ -5,6 +5,10 @@ from types import SimpleNamespace
 import theme_research
 from event_collector.service_defaults import ServiceDefaults
 from event_collector.serving_generation_factory import CorpusUnavailableError
+from event_collector.watchlist_workflow import (
+    GenerationArticleProof,
+    SuccessorGenerationProof,
+)
 
 
 def test_theme_cli_defaults_to_activated_v2_corpus():
@@ -76,7 +80,9 @@ def test_theme_research_cli_runs_workflow_and_prints_artifacts(monkeypatch, caps
         local_vector_reader,
         retrieval_provenance,
         discovered_article_sink,
+        publish_assets,
     ):
+        assert publish_assets is False
         calls["request"] = request
         calls["storage"] = storage.db_path
         calls["reader"] = local_vector_reader
@@ -97,6 +103,8 @@ def test_theme_research_cli_runs_workflow_and_prints_artifacts(monkeypatch, caps
                     },
                 )(),
                 "related_companies": ["NVDA", "MSFT"],
+                "candidate_segments": ["semiconductors"],
+                "theme_summary": "AI infrastructure research",
                 "artifact_paths": {
                     "theme_card": os.path.join("docs", "research", "theme-card.md"),
                     "supply_chain_map": os.path.join("docs", "research", "supply-chain-map.md"),
@@ -105,6 +113,13 @@ def test_theme_research_cli_runs_workflow_and_prints_artifacts(monkeypatch, caps
         )()
 
     monkeypatch.setattr(f"{cli_path}.run_theme_research", fake_run_theme_research)
+    monkeypatch.setattr(
+        f"{cli_path}.write_theme_research_assets",
+        lambda *args, **kwargs: {
+            "theme_card": os.path.join("docs", "research", "theme-card.md"),
+            "supply_chain_map": os.path.join("docs", "research", "supply-chain-map.md"),
+        },
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         exit_code = theme_research.main(
@@ -213,7 +228,9 @@ def test_theme_cli_scopes_each_reader_once_with_defaults_or_explicit_window(
         local_vector_reader,
         retrieval_provenance,
         discovered_article_sink,
+        publish_assets,
     ):
+        assert publish_assets is False
         downstream_readers.append(local_vector_reader)
         return type(
             "Result",
@@ -228,12 +245,15 @@ def test_theme_cli_scopes_each_reader_once_with_defaults_or_explicit_window(
                     (),
                     {"structure_sufficient": False, "fresh_monitoring_sufficient": False},
                 )(),
-                "related_companies": [],
+                    "related_companies": [],
+                    "candidate_segments": [],
+                    "theme_summary": "AI research",
                 "artifact_paths": {},
             },
         )()
 
     monkeypatch.setattr(f"{cli_path}.run_theme_research", run_research)
+    monkeypatch.setattr(f"{cli_path}.write_theme_research_assets", lambda *args, **kwargs: {})
 
     base = ["--theme", "AI", "--analysis-goal", "monitor"]
     assert theme_research.main(base) == 0
@@ -289,7 +309,18 @@ def test_theme_cli_handoff_builds_and_activates_a_successor_generation(monkeypat
 
         def coordinate(request):
             coordinator_requests.append(request)
-            return object()
+            return SuccessorGenerationProof(
+                corpus_id="news",
+                generation_id="gen-successor",
+                corpus_snapshot_id="snapshot-successor",
+                index_config_fingerprint="config-successor",
+                status="verified",
+                chunk_verification_valid=True,
+                articles=(
+                    GenerationArticleProof(41, "a" * 64),
+                    GenerationArticleProof(42, "b" * 64),
+                ),
+            )
 
         return coordinate
 
@@ -307,10 +338,24 @@ def test_theme_cli_handoff_builds_and_activates_a_successor_generation(monkeypat
                 structure_sufficient=False, fresh_monitoring_sufficient=False
             ),
             related_companies=[],
+            candidate_segments=[],
+            theme_summary="AI research",
             artifact_paths={},
         )
 
     monkeypatch.setattr(f"{cli_path}.run_theme_research", run_research)
+    monkeypatch.setattr(
+        f"{cli_path}._read_activation_receipt",
+        lambda *args, **kwargs: {
+            "corpus_id": "news",
+            "generation_id": "gen-successor",
+            "corpus_snapshot_id": "snapshot-successor",
+            "index_config_fingerprint": "config-successor",
+            "status": "active",
+            "activated_at": "2026-08-16T01:02:03+00:00",
+        },
+    )
+    monkeypatch.setattr(f"{cli_path}.write_theme_research_assets", lambda *args, **kwargs: {})
 
     assert theme_research.main(["--theme", "AI", "--analysis-goal", "monitor"]) == 0
     assert coordinator_configs[0].activate_verified_generation is True
@@ -320,3 +365,135 @@ def test_theme_cli_handoff_builds_and_activates_a_successor_generation(monkeypat
         (41, "a" * 64),
         (42, "b" * 64),
     ]
+
+
+def test_theme_cli_does_not_publish_assets_when_successor_activation_fails(
+    monkeypatch, tmp_path, capsys
+):
+    """SELECT INVARIANT: an activation failure leaves no success research artifact behind."""
+    cli_path = "event_collector.cli.theme_research"
+    pinned = SimpleNamespace(
+        reader=FakeReader(),
+        active_generation=SimpleNamespace(
+            generation_id="gen-active",
+            corpus_id="news",
+            collection_name="news-active",
+            corpus_snapshot_id="snapshot-before",
+            embedding_artifact="embedder-v1",
+            index_config_fingerprint="config-before",
+        ),
+        eligibility=SimpleNamespace(policy_version="eligibility-v1", articles=(), exclusions=()),
+    )
+    monkeypatch.setattr(f"{cli_path}.create_active_generation_reader", lambda config: pinned)
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    artifact_path = tmp_path / "research" / "ai" / "theme-card.md"
+    calls = {}
+
+    def run_research(request, **kwargs):
+        calls["publish_assets"] = kwargs.get("publish_assets", True)
+        if calls["publish_assets"]:
+            artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            artifact_path.write_text("published too early", encoding="utf-8")
+        kwargs["discovered_article_sink"](41, "a" * 64)
+        return SimpleNamespace(
+            metadata=SimpleNamespace(theme=request.theme, analysis_goal=request.analysis_goal),
+            evidence=[],
+            sufficiency=SimpleNamespace(
+                structure_sufficient=False, fresh_monitoring_sufficient=False
+            ),
+            related_companies=[],
+            candidate_segments=[],
+            theme_summary="pending activation",
+            artifact_paths={},
+        )
+
+    monkeypatch.setattr(f"{cli_path}.run_theme_research", run_research)
+    monkeypatch.setattr(
+        f"{cli_path}.create_runtime_successor_generation_coordinator",
+        lambda config: lambda request: (_ for _ in ()).throw(RuntimeError("activation lost")),
+    )
+
+    assert theme_research.main(["--theme", "AI", "--analysis-goal", "monitor"]) == 1
+    assert calls["publish_assets"] is False
+    assert not artifact_path.exists()
+    assert "activation lost" in capsys.readouterr().out
+
+
+def test_theme_cli_persists_handoff_proof_with_activation_receipt_before_publishing(
+    monkeypatch
+):
+    """SELECT INVARIANT: published assets bind the handoff run to the activated generation receipt."""
+    cli_path = "event_collector.cli.theme_research"
+    pinned = SimpleNamespace(
+        reader=FakeReader(),
+        active_generation=SimpleNamespace(
+            generation_id="gen-active",
+            corpus_id="news",
+            collection_name="news-active",
+            corpus_snapshot_id="snapshot-before",
+            embedding_artifact="embedder-v1",
+            index_config_fingerprint="config-before",
+        ),
+        eligibility=SimpleNamespace(policy_version="eligibility-v1", articles=(), exclusions=()),
+    )
+    monkeypatch.setattr(f"{cli_path}.create_active_generation_reader", lambda config: pinned)
+    monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
+    events = []
+
+    def run_research(request, **kwargs):
+        assert kwargs["publish_assets"] is False
+        events.append("research")
+        kwargs["discovered_article_sink"](41, "a" * 64)
+        return SimpleNamespace(
+            metadata=SimpleNamespace(theme=request.theme, analysis_goal=request.analysis_goal),
+            evidence=[],
+            sufficiency=SimpleNamespace(
+                structure_sufficient=False, fresh_monitoring_sufficient=False
+            ),
+            related_companies=[],
+            candidate_segments=[],
+            theme_summary="activated research",
+            artifact_paths={},
+        )
+
+    proof = SuccessorGenerationProof(
+        corpus_id="news",
+        generation_id="gen-successor",
+        corpus_snapshot_id="snapshot-successor",
+        index_config_fingerprint="config-successor",
+        status="verified",
+        chunk_verification_valid=True,
+        articles=(GenerationArticleProof(41, "a" * 64),),
+    )
+    monkeypatch.setattr(f"{cli_path}.run_theme_research", run_research)
+    monkeypatch.setattr(
+        f"{cli_path}.create_runtime_successor_generation_coordinator",
+        lambda config: lambda request: events.append("activate") or proof,
+    )
+    monkeypatch.setattr(
+        f"{cli_path}._read_activation_receipt",
+        lambda *args, **kwargs: {
+            "corpus_id": "news",
+            "generation_id": "gen-successor",
+            "corpus_snapshot_id": "snapshot-successor",
+            "index_config_fingerprint": "config-successor",
+            "status": "active",
+            "activated_at": "2026-08-16T01:02:03+00:00",
+        },
+        raising=False,
+    )
+    published = {}
+
+    def write_assets(*args, **kwargs):
+        events.append("publish")
+        published["handoff"] = kwargs["generation_handoff_provenance"]
+        return {"theme_card": "theme-card.md"}
+
+    monkeypatch.setattr(f"{cli_path}.write_theme_research_assets", write_assets, raising=False)
+
+    assert theme_research.main(["--theme", "AI", "--analysis-goal", "monitor"]) == 0
+    assert events == ["research", "activate", "publish"]
+    assert published["handoff"]["generation_id"] == "gen-successor"
+    assert published["handoff"]["corpus_snapshot_id"] == "snapshot-successor"
+    assert published["handoff"]["activation_receipt"]["activated_at"] == "2026-08-16T01:02:03+00:00"
+    assert published["handoff"]["handoff_run_id"].startswith("theme-")

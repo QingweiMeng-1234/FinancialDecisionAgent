@@ -656,7 +656,7 @@ def ingest_raw_inputs(
         _update_progress(progress, **_build_progress_stats(items))
 
     publisher_executor.shutdown(wait=True, cancel_futures=False)
-    _retry_pending_identity_merge_cleanups(storage, vector_store)
+    cleanup_succeeded = _retry_pending_identity_merge_cleanups(storage, vector_store)
     _close_progress(progress)
     items = _normalize_outcome_identities(items, storage)
     items.sort(key=lambda item: item.input_index)
@@ -664,6 +664,21 @@ def ingest_raw_inputs(
     accepted_inputs = sum(1 for item in items if item.status == "accepted")
     rejected_inputs = sum(1 for item in items if item.status == "rejected")
     collection_facts = collection_result or _caller_supplied_collection_result()
+    collector_status = collection_facts.collector_status
+    source_outcomes = collection_facts.source_outcomes
+    source_errors = collection_facts.source_errors
+    empty_reason = collection_facts.empty_reason
+    if not cleanup_succeeded:
+        cleanup_failure = CollectionSourceOutcome(
+            source_name="canonical_merge_cleanup",
+            collector_status="failed",
+            failure_code="canonical_merge_cleanup_failed",
+            retryable=True,
+        )
+        collector_status = "failed"
+        source_outcomes = [*source_outcomes, cleanup_failure]
+        source_errors = [*source_errors, cleanup_failure]
+        empty_reason = None
     return NewsIngestionResult(
         collected_events=accepted_inputs,
         stats=_build_stats(items),
@@ -672,10 +687,10 @@ def ingest_raw_inputs(
         total_inputs=len(raw_inputs),
         accepted_inputs=accepted_inputs,
         rejected_inputs=rejected_inputs,
-        collector_status=collection_facts.collector_status,
-        source_outcomes=collection_facts.source_outcomes,
-        source_errors=collection_facts.source_errors,
-        empty_reason=collection_facts.empty_reason,
+        collector_status=collector_status,
+        source_outcomes=source_outcomes,
+        source_errors=source_errors,
+        empty_reason=empty_reason,
     )
 
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import sqlite3
 from uuid import uuid4
 
 from event_collector.news_storage import SQLiteNewsStore
@@ -17,10 +18,16 @@ from event_collector.successor_generation_coordinator import (
     SuccessorGenerationCoordinatorConfig,
     create_runtime_successor_generation_coordinator,
 )
-from event_collector.theme_research import ThemeResearchRequest, run_theme_research
+from event_collector import index_generation
+from event_collector.theme_research import (
+    ThemeResearchRequest,
+    run_theme_research,
+    write_theme_research_assets,
+)
 from event_collector.watchlist_workflow import (
     GenerationArticleProof,
     SuccessorGenerationBuildRequest,
+    SuccessorGenerationProof,
 )
 
 
@@ -71,16 +78,15 @@ def render_theme_research_summary(result) -> str:
 def main(argv=None):
     args = parse_args(argv)
     defaults = load_service_defaults()
+    corpus_config = ServingCorpusConfig(
+        index_control_db_path=args.index_control_db_path,
+        index_corpus_id=args.index_corpus_id,
+        canonical_db_path=args.canonical_db_path,
+        canonical_content_root=args.canonical_content_root,
+        chroma_persist_dir=args.chroma_persist_dir,
+    )
     try:
-        pinned = create_active_generation_reader(
-            ServingCorpusConfig(
-                index_control_db_path=args.index_control_db_path,
-                index_corpus_id=args.index_corpus_id,
-                canonical_db_path=args.canonical_db_path,
-                canonical_content_root=args.canonical_content_root,
-                chroma_persist_dir=args.chroma_persist_dir,
-            )
-        )
+        pinned = create_active_generation_reader(corpus_config)
     except CorpusUnavailableError as exc:
         print(f"{exc.code}:{exc.reason_code} ({exc.stage}): {exc}")
         return 1
@@ -131,9 +137,11 @@ def main(argv=None):
             local_vector_reader=local_vector_reader,
             retrieval_provenance=_retrieval_provenance(pinned),
             discovered_article_sink=discovered_article_sink,
+            publish_assets=False,
         )
+        generation_handoff_provenance = None
         if discovered_proofs:
-            coordinator(
+            proof = coordinator(
                 SuccessorGenerationBuildRequest(
                     run_id=handoff_run_id,
                     scope_key=f"theme:{args.theme.strip().casefold()}",
@@ -144,6 +152,36 @@ def main(argv=None):
                     ),
                 )
             )
+            activation_receipt = _read_activation_receipt(
+                args.index_control_db_path,
+                proof,
+            )
+            generation_handoff_provenance = {
+                "handoff_run_id": handoff_run_id,
+                "corpus_id": proof.corpus_id,
+                "generation_id": proof.generation_id,
+                "corpus_snapshot_id": proof.corpus_snapshot_id,
+                "index_config_fingerprint": proof.index_config_fingerprint,
+                "generation_status": proof.status,
+                "activation_receipt": activation_receipt,
+            }
+        artifact_paths = write_theme_research_assets(
+            result.metadata,
+            ThemeResearchRequest(
+                theme=args.theme,
+                analysis_goal=args.analysis_goal,
+                seed_query=args.seed_query,
+                tickers=parse_ticker_hints(args.tickers),
+                db_path=args.canonical_db_path,
+            ),
+            result.evidence,
+            result.sufficiency,
+            result.theme_summary,
+            result.related_companies,
+            result.candidate_segments,
+            retrieval_provenance=_retrieval_provenance(pinned),
+            generation_handoff_provenance=generation_handoff_provenance,
+        )
     except Exception as exc:
         storage.close()
         print(f"Error: {exc}")
@@ -152,7 +190,7 @@ def main(argv=None):
     print(render_theme_research_summary(result))
     print()
     print("Artifacts:")
-    for path in result.artifact_paths.values():
+    for path in artifact_paths.values():
         print(f"- {path}")
     storage.close()
     return 0
@@ -171,4 +209,38 @@ def _retrieval_provenance(pinned) -> dict[str, object]:
         "eligibility_policy_version": eligibility.policy_version,
         "eligible_article_count": len(eligibility.articles),
         "excluded_article_count": len(eligibility.exclusions),
+    }
+
+
+def _read_activation_receipt(
+    control_db_path: str,
+    proof: SuccessorGenerationProof,
+) -> dict[str, str]:
+    """Read back the durable active pointer before publishing success assets."""
+    if not isinstance(proof, SuccessorGenerationProof):
+        raise RuntimeError("successor generation activation returned no proof")
+    if proof.status != index_generation.VERIFIED or not proof.chunk_verification_valid:
+        raise RuntimeError("successor generation proof is not verified")
+    try:
+        with sqlite3.connect(control_db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            active = index_generation.read_active_generation(connection, proof.corpus_id)
+    except (OSError, sqlite3.Error, index_generation.GenerationStateError) as error:
+        raise RuntimeError("successor generation activation receipt is unavailable") from error
+    if (
+        active is None
+        or active.generation_id != proof.generation_id
+        or active.corpus_snapshot_id != proof.corpus_snapshot_id
+        or active.index_config_fingerprint != proof.index_config_fingerprint
+        or active.status != index_generation.ACTIVE
+        or active.activated_at is None
+    ):
+        raise RuntimeError("successor generation activation receipt does not match proof")
+    return {
+        "corpus_id": active.corpus_id,
+        "generation_id": active.generation_id,
+        "corpus_snapshot_id": active.corpus_snapshot_id,
+        "index_config_fingerprint": active.index_config_fingerprint,
+        "status": active.status,
+        "activated_at": active.activated_at,
     }

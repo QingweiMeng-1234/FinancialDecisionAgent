@@ -582,6 +582,32 @@ def test_pending_canonical_merge_cleanup_is_retried_on_later_ingestion(tmp_path)
     storage.close()
 
 
+def test_final_canonical_merge_cleanup_failure_is_exposed_as_collection_failure(
+    tmp_path, monkeypatch
+):
+    """SELECT INVARIANT: final cleanup failure cannot be reported as a clean collection."""
+    storage = SQLiteNewsStore(db_path=str(tmp_path / "news.db"))
+    storage.init_db()
+    monkeypatch.setattr(
+        "event_collector.news_ingestion._retry_pending_identity_merge_cleanups",
+        lambda *_: False,
+    )
+
+    result = ingest_raw_inputs([], storage)
+
+    assert result.collector_status == "failed"
+    assert result.empty_reason is None
+    assert result.source_error_count == 1
+    assert result.source_outcomes == result.source_errors
+    assert (
+        result.source_errors[0].source_name,
+        result.source_errors[0].collector_status,
+        result.source_errors[0].failure_code,
+        result.source_errors[0].retryable,
+    ) == ("canonical_merge_cleanup", "failed", "canonical_merge_cleanup_failed", True)
+    storage.close()
+
+
 def test_run_news_ingestion_preserves_successful_inputs_and_structured_source_failures(monkeypatch):
     """SELECT INVARIANT: one failed collector cannot erase another collector's inputs or outcome facts."""
     captured = {}
