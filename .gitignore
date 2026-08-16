@@ -16,13 +16,15 @@ logs/
 chroma_data/
 data/runtime/
 data/articles/
+data/rag_corpus_v2_*/
+data/rag_index_v2_*/
 
 # Generated reports and scratch exports
 reports/
+chats/*.jsonl
 backfill_report.csv
 pdf_text.txt
 *.pdf
 
 # Local agent/plugin development copies
 .agents/
-chats/*.jsonl
