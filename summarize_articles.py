@@ -2,7 +2,10 @@
 """
 Batch Article Summarization runner.
 
-Processes stored articles into factual bullet summaries and reindexes them.
+Processes canonical stored articles into factual bullet summaries.
+
+This command deliberately does not mutate a serving Chroma collection. A
+verified successor-generation refresh is required after canonical repair.
 """
 
 import argparse
@@ -16,15 +19,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from event_collector.errors import ArticleSummarizationError
 from event_collector.news_storage import SQLiteNewsStore
+from event_collector.rag_runtime_paths import DEFAULT_RAG_CANONICAL_DB_PATH
 from event_collector.summarization import summarize_stored_articles
-from event_collector.vector_store import ChromaVectorStore
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Summarize stored news articles for retrieval.")
-    parser.add_argument("--db-path", default="news_articles.db", help="SQLite article database path")
-    parser.add_argument("--persist-dir", default="./chroma_data", help="Chroma persistence directory")
-    parser.add_argument("--collection-name", default="news_articles", help="Chroma collection name")
+    parser.add_argument(
+        "--db-path",
+        default=DEFAULT_RAG_CANONICAL_DB_PATH,
+        help="Canonical v2 SQLite article database path",
+    )
     parser.add_argument("--limit", type=int, default=None, help="Maximum articles to process")
     parser.add_argument("--source", default=None, help="Optional article source filter")
     parser.add_argument("--force", action="store_true", help="Replace existing summaries")
@@ -39,21 +44,16 @@ def main():
     print("=" * 50)
     print(f"Started at: {datetime.now()}")
     print(f"SQLite DB: {args.db_path}")
-    print(f"Chroma DB: {args.persist_dir}")
+    print("Index mutation: disabled (run a verified successor refresh after repair)")
     print(f"Model: {os.getenv('OPENAI_MODEL') or 'deepseek-v4-flash'}")
     print()
 
     storage = SQLiteNewsStore(db_path=args.db_path)
     storage.init_db()
-    vector_store = ChromaVectorStore(
-        persist_dir=args.persist_dir,
-        collection_name=args.collection_name,
-    )
-
     try:
         stats = summarize_stored_articles(
             storage=storage,
-            vector_store=vector_store,
+            vector_store=None,
             source=args.source,
             limit=args.limit,
             force=args.force,
@@ -68,6 +68,8 @@ def main():
     print(f"Indexed:            {stats['indexed']}")
     print(f"Skipped:            {stats['skipped']}")
     print(f"Candidates:         {stats['total_candidates']}")
+    if stats["processed"]:
+        print("Serving index unchanged; run a verified successor-generation refresh.")
 
     storage.close()
     return 0

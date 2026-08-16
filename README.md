@@ -99,12 +99,12 @@ By default, reports are written to `reports/recommendations/` with names like:
 2026-05-10_203015_MSFT.md
 ```
 
-## Summarization Backfill
+## Canonical Summary and Content Repair
 
-If articles already exist in SQLite and you want to fill in missing summaries:
+If canonical articles already exist and you want to fill in missing summaries:
 
 ```powershell
-python summarize_articles.py --db-path news_articles.db --persist-dir .\chroma_data
+python summarize_articles.py --db-path .\data\rag_corpus_v2_20260815\news_articles.db
 ```
 
 Useful variants:
@@ -114,6 +114,18 @@ python summarize_articles.py --limit 10
 python summarize_articles.py --source news
 python summarize_articles.py --force
 ```
+
+To repair missing publisher content, use the canonical-only content backfill:
+
+```powershell
+python backfill_article_content.py --db-path .\data\rag_corpus_v2_20260815\news_articles.db
+```
+
+These repair commands never open or mutate a serving Chroma collection. After
+canonical rows change, run the verified successor-generation refresh before
+expecting the changes to appear in RAG queries. The refresh builds a new
+immutable generation, verifies it, and activates it with the control pointer;
+do not update `chroma_data/news_articles` in place.
 
 ## Event Structuring
 

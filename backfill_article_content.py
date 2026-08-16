@@ -18,12 +18,12 @@ from event_collector.article_content import (
     FetchFailureReason,
 )
 from event_collector.news_storage import ArticleRecord, NewsArticle, SQLiteNewsStore
+from event_collector.rag_runtime_paths import DEFAULT_RAG_CANONICAL_DB_PATH
 from event_collector.summarization import ArticleForSummarization, SummarizationAgent
-from event_collector.vector_store import ChromaVectorStore, VectorStore
+from event_collector.vector_store import VectorStore
 
 
 DEFAULT_REPORT_PATH = "content_backfill_report.csv"
-DEFAULT_COLLECTION_NAME = "news_articles"
 MIN_COMPLETE_CONTENT_LENGTH = 200
 MAX_PLACEHOLDER_CONTENT_LENGTH = 600
 
@@ -46,9 +46,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Backfill raw article content for news rows that already have external URLs."
     )
-    parser.add_argument("--db-path", default="news_articles.db", help="SQLite article database path")
-    parser.add_argument("--persist-dir", default="./chroma_data", help="Chroma persistence directory")
-    parser.add_argument("--collection-name", default=DEFAULT_COLLECTION_NAME, help="Chroma collection name")
+    parser.add_argument(
+        "--db-path",
+        default=DEFAULT_RAG_CANONICAL_DB_PATH,
+        help="Canonical v2 SQLite article database path",
+    )
     parser.add_argument("--limit", type=int, default=None, help="Optional max number of rows to process")
     parser.add_argument("--article-id", type=int, default=None, help="Only process one specific article")
     parser.add_argument("--force", action="store_true", help="Re-fetch even when content already looks complete")
@@ -135,6 +137,7 @@ def rebuild_summary_and_index(
     article = storage.get_article(record.id)
     if article is None:
         return False, False, "article disappeared before rebuild"
+    processing_hash = article.active_content_sha256 or article.content_sha256
 
     agent = summarizer or SummarizationAgent()
     try:
@@ -147,20 +150,26 @@ def rebuild_summary_and_index(
                 url=article.canonical_url or article.original_url or article.url,
             )
         )
-        storage.update_article_summary(record.id, summary)
+        if not processing_hash or not storage.update_article_summary(
+            record.id, summary, content_sha256=processing_hash
+        ):
+            raise RuntimeError("active content changed before summary commit")
         article.summary = summary
         summary_rebuilt = True
     except Exception as exc:
-        storage.mark_article_processing_status(record.id, summary_status="failed")
+        if processing_hash:
+            storage.mark_article_summary_failure(record.id, processing_hash)
         notes.append(f"summary_failed: {exc}")
 
     if vector_store is not None:
         try:
             vector_store.add_article(record.id, article)
-            storage.mark_article_processing_status(record.id, index_status="ready")
+            if not processing_hash or not storage.mark_article_index_ready(record.id, processing_hash):
+                raise RuntimeError("active content changed before index commit")
             index_rebuilt = True
         except Exception as exc:
-            storage.mark_article_processing_status(record.id, index_status="failed")
+            if processing_hash:
+                storage.mark_article_index_failure(record.id, processing_hash)
             notes.append(f"index_failed: {exc}")
 
     return summary_rebuilt, index_rebuilt, "; ".join(notes)
@@ -205,7 +214,12 @@ def process_record(
             published_at=article.published_at,
         )
     except ArticleFetchError as exc:
-        storage.mark_article_processing_status(record.id, content_status="failed")
+        storage.mark_article_content_failure(
+            record.id,
+            reason=exc.reason.value,
+            final_response_url=exc.url,
+            response_status_code=exc.status_code,
+        )
         return ContentBackfillReportRow(
             article_id=record.id,
             current_url=current_url,
@@ -219,7 +233,11 @@ def process_record(
             notes=str(exc),
         )
     except sqlite3.IntegrityError as exc:
-        storage.mark_article_processing_status(record.id, content_status="failed")
+        storage.mark_article_content_failure(
+            record.id,
+            reason=FetchFailureReason.DUPLICATE_URL_CONFLICT.value,
+            final_response_url=current_url,
+        )
         return ContentBackfillReportRow(
             article_id=record.id,
             current_url=current_url,
@@ -322,14 +340,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     storage = SQLiteNewsStore(db_path=args.db_path)
     storage.init_db()
-    vector_store = ChromaVectorStore(
-        persist_dir=args.persist_dir,
-        collection_name=args.collection_name,
-    )
     try:
         result = run_content_backfill(
             storage=storage,
-            vector_store=vector_store,
+            vector_store=None,
             article_id=args.article_id,
             limit=args.limit,
             force=args.force,
@@ -341,6 +355,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         print(f"Report written to {args.report_path}")
+        if result["content_backfilled"]:
+            print("Serving index unchanged; run a verified successor-generation refresh.")
         return 0
     finally:
         storage.close()

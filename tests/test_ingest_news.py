@@ -1,4 +1,5 @@
 import ingest_news
+from event_collector.financial_agent_mcp import FinancialAgentRuntimeConfig
 
 
 def test_main_runs_ingestion_only(monkeypatch, capsys):
@@ -30,18 +31,21 @@ def test_main_runs_ingestion_only(monkeypatch, capsys):
     captured = capsys.readouterr()
 
     assert result == 0
-    assert "Ready for grounded RAG queries." in captured.out
+    assert "Successor generation rebuild and activation are required before grounded RAG queries." in captured.out
+    assert "Ready for grounded RAG queries." not in captured.out
+    assert "Successor generation: deferred (not activated)" in captured.out
     assert "Collected 2 events" in captured.out
     assert "Summarized:    2" in captured.out
-    assert calls["request"].db_path == "news_articles.db"
-    assert calls["request"].persist_dir == "./chroma_data"
+    runtime = FinancialAgentRuntimeConfig()
+    assert calls["request"].db_path == runtime.canonical_db_path
+    assert calls["request"].persist_dir == runtime.chroma_persist_dir
     assert calls["request"].include_manual is False
     assert calls["request"].news_endpoint == "everything"
     assert calls["request"].news_days_back == 7
     assert calls["request"].show_progress is True
 
 
-def test_main_runs_question_after_ingestion(monkeypatch, capsys):
+def test_main_rejects_question_until_a_successor_generation_is_activated(monkeypatch, capsys):
     calls = {}
     cli_path = "event_collector.cli.ingest_news"
 
@@ -69,12 +73,9 @@ def test_main_runs_question_after_ingestion(monkeypatch, capsys):
     result = ingest_news.main(["--question", "What changed?", "--top-k", "5", "--debug-rerank"])
     captured = capsys.readouterr()
 
-    assert result == 0
-    assert "Grounded RAG Answer:" in captured.out
-    assert "formatted grounded answer" in captured.out
-    assert calls["request"].question == "What changed?"
-    assert calls["request"].top_k == 5
-    assert calls["request"].debug_rerank is True
+    assert result == 1
+    assert "ingestion does not serve grounded questions" in captured.out
+    assert "run_news_pipeline" not in calls
 
 
 def test_main_supports_batch_ingest_flags(monkeypatch, capsys):

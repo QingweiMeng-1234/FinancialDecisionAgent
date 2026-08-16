@@ -5,7 +5,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from event_collector import Event, EventBatch, EventSource, SQLiteNewsStore, ingest_events_to_storage
+from event_collector import Event, EventBatch, EventSource, RawEventInput, SQLiteNewsStore, create_event, ingest_events_to_storage
 
 
 class FakeVectorStore:
@@ -81,3 +81,23 @@ def test_ingest_events_to_storage_keeps_stats_shape_for_callers():
         assert stats["content_failed"] == 0
         assert stats["summary_failed"] == 0
         assert stats["index_failed"] == 0
+
+
+def test_missing_provider_date_stays_unknown_when_event_is_ingested_to_storage():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = SQLiteNewsStore(db_path=os.path.join(tmpdir, "news.db"))
+        storage.init_db()
+        event = create_event(
+            RawEventInput(
+                source="news",
+                raw_text="This news item has no provider date but is long enough to enter canonical ingestion safely.",
+                url="https://example.com/unknown-date",
+            )
+        )
+        batch = EventBatch(events=[event], batch_id="unknown-date", created_at=datetime.now())
+
+        ingest_events_to_storage(batch, storage, None, summarizer=FakeSummarizer())
+
+        record = storage.list_article_records()[0]
+        assert record.article.source_published_at is None
+        assert record.article.published_at_provenance == "unknown"

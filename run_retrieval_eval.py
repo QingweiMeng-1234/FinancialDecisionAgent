@@ -16,11 +16,21 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 load_dotenv()
 
 from event_collector.entity_kb import SQLiteEntityStore
-from event_collector.news_storage import SQLiteNewsStore
+from event_collector.evaluation_generation_factory import (
+    EvaluationCorpusConfig,
+    open_evaluation_corpus,
+)
+from event_collector.rag_runtime_paths import (
+    DEFAULT_RAG_CANONICAL_CONTENT_ROOT,
+    DEFAULT_RAG_CANONICAL_DB_PATH,
+    DEFAULT_RAG_CHROMA_PERSIST_DIR,
+    DEFAULT_RAG_INDEX_CONTROL_DB_PATH,
+    DEFAULT_RAG_INDEX_CORPUS_ID,
+)
 from event_collector.retrieval_eval import (
     DEFAULT_ANNOTATION_TARGET,
     DEFAULT_REPORTS_DIR,
-    build_fresh_annotation_eligibility,
+    GenerationAnnotationBinding,
     build_annotation_file,
     evaluate_retrieval_comparisons,
     load_annotation_file,
@@ -31,6 +41,7 @@ from event_collector.retrieval_eval import (
     suggest_annotation_directory,
     write_evaluation_outputs,
     load_tickers_from_annotation_dir,
+    validate_annotation_file_binding,
 )
 from event_collector.reranking import (
     DeepSeekRAGRerankingClient,
@@ -38,7 +49,6 @@ from event_collector.reranking import (
     RAGRerankingAgent,
 )
 from event_collector.ticker_kb import load_ticker_identities, load_ticker_list
-from event_collector.vector_store import ChromaVectorStore
 
 
 def parse_args(argv=None):
@@ -47,10 +57,12 @@ def parse_args(argv=None):
 
     common_defaults = {
         "ticker_list_path": os.path.join("data", "retrieval_eval", "experiment_tickers.yaml"),
-        "db_path": "news_articles.db",
+        "db_path": DEFAULT_RAG_CANONICAL_DB_PATH,
+        "canonical_content_root": DEFAULT_RAG_CANONICAL_CONTENT_ROOT,
+        "index_control_db_path": DEFAULT_RAG_INDEX_CONTROL_DB_PATH,
+        "index_corpus_id": DEFAULT_RAG_INDEX_CORPUS_ID,
         "entity_db_path": "company_entities.db",
-        "persist_dir": "./chroma_data",
-        "collection_name": "news_articles",
+        "persist_dir": DEFAULT_RAG_CHROMA_PERSIST_DIR,
         "retrieval_top_k": 4,
     }
 
@@ -171,21 +183,38 @@ def parse_args(argv=None):
 
 def _add_common_arguments(parser, defaults):
     parser.add_argument("--ticker-list-path", default=defaults["ticker_list_path"], help="Experiment ticker list YAML")
-    parser.add_argument("--db-path", default=defaults["db_path"], help="SQLite article database path")
+    parser.add_argument(
+        "--db-path",
+        default=defaults["db_path"],
+        help="Read-only canonical SQLite article database path",
+    )
+    parser.add_argument(
+        "--canonical-content-root",
+        default=defaults["canonical_content_root"],
+        help="Read-only root containing canonical versioned content files",
+    )
+    parser.add_argument(
+        "--index-control-db-path",
+        default=defaults["index_control_db_path"],
+        help="Read-only index-generation control SQLite database path",
+    )
+    parser.add_argument(
+        "--index-corpus-id",
+        default=defaults["index_corpus_id"],
+        help="Generation-control corpus identifier",
+    )
+    parser.add_argument(
+        "--generation-id",
+        default=None,
+        help="Explicit verified generation for offline evaluation; defaults to active generation",
+    )
     parser.add_argument("--entity-db-path", default=defaults["entity_db_path"], help="SQLite company entity KB path")
     parser.add_argument("--persist-dir", default=defaults["persist_dir"], help="Chroma persistence directory")
-    parser.add_argument("--collection-name", default=defaults["collection_name"], help="Chroma collection name")
     parser.add_argument(
         "--retrieval-top-k",
         type=int,
         default=defaults["retrieval_top_k"],
         help="How many retrieval candidates to consider per chain",
-    )
-    parser.add_argument(
-        "--fresh-window-hours",
-        type=int,
-        default=24,
-        help="Only use clean news articles fetched within this many hours of the latest successful ingest",
     )
     parser.add_argument(
         "--reranker-provider",
@@ -255,12 +284,26 @@ def main(argv=None):
     else:
         tickers = load_ticker_list(args.ticker_list_path)
 
-    vector_store = ChromaVectorStore(
-        persist_dir=args.persist_dir,
-        collection_name=args.collection_name,
+    corpus = open_evaluation_corpus(
+        EvaluationCorpusConfig(
+            index_control_db_path=args.index_control_db_path,
+            index_corpus_id=args.index_corpus_id,
+            canonical_db_path=args.db_path,
+            canonical_content_root=args.canonical_content_root,
+            chroma_persist_dir=args.persist_dir,
+            generation_id=args.generation_id,
+        )
     )
-    storage = SQLiteNewsStore(db_path=args.db_path)
-    storage.init_db()
+    vector_store = corpus.reader
+    generation_binding = GenerationAnnotationBinding(
+        generation_id=corpus.generation.generation_id,
+        corpus_snapshot_id=corpus.generation.corpus_snapshot_id,
+        index_config_fingerprint=corpus.generation.index_config_fingerprint,
+        article_content_hashes={
+            article.article_id: article.indexed_content_sha256
+            for article in corpus.eligibility.articles
+        },
+    )
     company_kb = SQLiteEntityStore(db_path=args.entity_db_path)
     company_kb.init_db()
     if args.command == "evaluate" and args.company_only:
@@ -269,12 +312,8 @@ def main(argv=None):
             company_kb=company_kb,
         )
     reranking_agent, deepseek_reranking_agent, entity_chain_name = _build_reranking_agents(args.reranker_provider)
-    eligibility = build_fresh_annotation_eligibility(
-        storage,
-        fresh_window_hours=args.fresh_window_hours,
-    )
     allowed_article_ids = _build_allowed_article_ids(
-        base_ids=eligibility.allowed_article_ids,
+        base_ids=set(corpus.eligibility.eligible_article_ids),
         max_article_id=args.max_article_id if args.command == "evaluate" else None,
     )
 
@@ -328,8 +367,8 @@ def main(argv=None):
         for index, comparison in enumerate(output_progress, start=1):
             annotation_file = build_annotation_file(
                 comparison,
-                storage=storage,
                 annotation_target=args.annotation_target,
+                generation_binding=generation_binding,
             )
             output_paths.append(
                 save_annotation_file(
@@ -348,6 +387,11 @@ def main(argv=None):
     if args.command == "evaluate":
         if args.show_progress:
             print("Evaluating labeled comparisons against annotations...")
+        _validate_annotation_directory_binding(
+            tickers,
+            annotation_dir=args.annotation_input_dir,
+            binding=generation_binding,
+        )
         evaluation = evaluate_retrieval_comparisons(
             comparisons,
             args.annotation_input_dir,
@@ -390,6 +434,19 @@ def _filter_tickers_by_min_relevant(
         if relevant_count >= min_relevant:
             filtered.append(ticker)
     return filtered
+
+
+def _validate_annotation_directory_binding(
+    tickers: list[str],
+    *,
+    annotation_dir: str,
+    binding: GenerationAnnotationBinding,
+) -> None:
+    for ticker in tickers:
+        validate_annotation_file_binding(
+            load_annotation_file(os.path.join(annotation_dir, f"{ticker}.yaml")),
+            binding,
+        )
 
 
 def _max_relevant_count_for_tickers(

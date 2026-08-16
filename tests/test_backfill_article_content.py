@@ -1,6 +1,7 @@
 import csv
 import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from datetime import datetime
@@ -288,3 +289,25 @@ def test_write_report_outputs_content_backfill_columns():
 
     assert rows[0]["status"] == "content_failed"
     assert rows[0]["fetch_failure_reason"] == "extract_empty"
+
+
+def test_backfill_script_rejects_legacy_mutable_index_flags(tmp_path):
+    legacy_chroma = tmp_path / "legacy-chroma"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "backfill_article_content.py",
+            "--db-path",
+            str(tmp_path / "canonical.db"),
+            "--persist-dir",
+            str(legacy_chroma),
+        ],
+        cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "unrecognized arguments: --persist-dir" in result.stderr
+    assert not legacy_chroma.exists()

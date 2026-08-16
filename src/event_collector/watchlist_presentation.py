@@ -9,6 +9,7 @@ def render_watchlist_report(
     result: WatchlistRunResult,
     debug_review: bool = False,
     debug_rerank: bool = False,
+    retrieval_provenance: dict[str, object] | None = None,
 ) -> str:
     ranking = {item.ticker: item for item in result.ranked_items}
     ordered_records = sorted(result.items, key=lambda item: ranking[normalize_ticker(item.ticker)].rank)
@@ -26,6 +27,10 @@ def render_watchlist_report(
         "| Rank | Ticker | Priority | Confidence | Human Review Flag |",
         "| --- | --- | --- | --- | --- |",
     ]
+    if retrieval_provenance is not None:
+        from event_collector.publication_provenance import render_publication_provenance_markdown
+
+        lines[7:7] = ["", *render_publication_provenance_markdown(retrieval_provenance), ""]
     for ranked in result.ranked_items[: result.top_n]:
         lines.append(
             f"| {ranked.rank} | {ranked.ticker} | {ranked.priority.value} | "

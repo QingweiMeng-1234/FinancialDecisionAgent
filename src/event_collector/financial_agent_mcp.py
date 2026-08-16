@@ -7,10 +7,13 @@ from datetime import date
 import json
 import os
 from pathlib import Path
+from threading import Lock
 from typing import Any, Callable
 
 from event_collector.entity_kb import SQLiteEntityStore
 from event_collector.news_storage import SQLiteNewsStore
+from event_collector.refresh_ledger import RetrySchedule, compute_scope_key
+from event_collector.refresh_retry_scheduler import RefreshRetryScheduler
 from event_collector.rag_answering import answer_query
 from event_collector.recommendation import recommend_target, write_recommendation_report
 from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT
@@ -19,8 +22,17 @@ from event_collector.service_defaults import (
     DEFAULT_SERVICE_DEFAULTS_PATH,
     ServiceDefaults,
     load_service_defaults,
+    resolve_query_time_window,
 )
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.serving_generation_factory import (
+    CorpusUnavailableError,
+    ServingCorpusConfig,
+    create_active_generation_reader,
+)
+from event_collector.successor_generation_coordinator import (
+    SuccessorGenerationCoordinatorConfig,
+    create_runtime_successor_generation_coordinator,
+)
 from event_collector.watchlist_domain import WatchlistRunRequest
 from event_collector.watchlist_progress import (
     WatchlistProgressEvent,
@@ -33,6 +45,8 @@ from event_collector.watchlist_workflow import (
     DEFAULT_REPORTS_DIR as DEFAULT_WATCHLIST_REPORTS_DIR,
     DEFAULT_TIMELINE_SUFFIX,
     RefreshNewsRequest,
+    REFRESH_CONTRACT_VERSION,
+    SuccessorGenerationCoordinator,
     WatchlistWorkflowResult,
     read_watchlist_report_artifact,
     read_watchlist_timeline_artifact,
@@ -55,6 +69,72 @@ DEFAULT_TOOL_NAMES = [
     "read_watchlist_report",
     "read_watchlist_timeline",
 ]
+
+
+def _refresh_ledger_path(refresh_state_path: str) -> str:
+    path = Path(refresh_state_path)
+    return str(path.with_name(f"{path.stem}.sqlite3"))
+
+
+def _scheduled_text(snapshot: dict[str, Any], field: str) -> str:
+    value = snapshot.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Scheduled {field} must be non-empty text")
+    return value
+
+
+def _scheduled_positive_int(snapshot: dict[str, Any], field: str) -> int:
+    value = snapshot.get(field)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"Scheduled {field} must be a positive integer")
+    return value
+
+
+def _reader_generation_id(reader: Any) -> str | None:
+    active = getattr(reader, "active_generation", None)
+    value = getattr(active, "generation_id", None)
+    return value if isinstance(value, str) and value else None
+
+
+def _reader_provenance(reader: Any) -> dict[str, str | None]:
+    """Return the immutable serving identity attached to one reader."""
+
+    active = getattr(reader, "active_generation", None)
+    return {
+        "generation_id": getattr(active, "generation_id", None),
+        "corpus_id": getattr(active, "corpus_id", None),
+        "collection_name": getattr(active, "collection_name", None),
+        "corpus_snapshot_id": getattr(active, "corpus_snapshot_id", None),
+        "embedding_artifact": getattr(active, "embedding_artifact", None),
+        "index_config_fingerprint": getattr(active, "index_config_fingerprint", None),
+    }
+
+
+def _corpus_unavailable_payload(error: CorpusUnavailableError) -> dict[str, str]:
+    """Expose expected serving absence as a stable MCP result, not a 5xx."""
+
+    return {
+        "status": "failed",
+        "failure_code": error.code,
+        "failure_stage": error.stage,
+        "failure_reason_code": error.reason_code,
+        "failure_message": str(error),
+    }
+
+
+class _SerializedVectorReader:
+    """Serialize access when one request shares a reader across worker threads."""
+
+    def __init__(self, reader: Any) -> None:
+        self._reader = reader
+        self._search_lock = Lock()
+
+    def search(self, *args: Any, **kwargs: Any) -> Any:
+        with self._search_lock:
+            return self._reader.search(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._reader, name)
 
 
 def run_news_pipeline(request):
@@ -88,9 +168,14 @@ class FinancialAgentCapabilities:
 
 @dataclass(frozen=True)
 class FinancialAgentRuntimeConfig:
-    db_path: str = "news_articles.db"
-    persist_dir: str = "./chroma_data"
-    collection_name: str = "news_articles"
+    db_path: str = "data/rag_corpus_v2_20260815/news_articles.db"
+    index_control_db_path: str = "data/runtime/index_generation_control.db"
+    index_corpus_id: str = "news"
+    canonical_db_path: str = "data/rag_corpus_v2_20260815/news_articles.db"
+    canonical_content_root: str = "data/rag_corpus_v2_20260815/data/articles"
+    chroma_persist_dir: str = "data/rag_index_v2_20260815"
+    persist_dir: str = "data/rag_index_v2_20260815"
+    collection_name: str = "news_articles_v2_20260815_v1"
     entity_db_path: str = "company_entities.db"
     reports_dir: str = "reports"
     recommendation_reports_subdir: str = "recommendations"
@@ -109,6 +194,8 @@ class FinancialAgentRuntimeConfig:
     watchlist_auto_batch_threshold: int = 12
     watchlist_auto_batch_size: int = 8
     watchlist_retrieval_max_concurrency: int = 5
+    refresh_retry_scheduler_enabled: bool = True
+    refresh_retry_poll_interval_seconds: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -197,15 +284,39 @@ class FinancialAgentMCPServer:
         model_policy: ModelManagementPolicy | None = None,
         security_config: OpenClawSecurityConfig | None = None,
         route_policy: OpenClawRoutePolicy | None = None,
+        successor_generation_coordinator: SuccessorGenerationCoordinator | None = None,
     ):
         self.runtime_config = runtime_config or FinancialAgentRuntimeConfig()
         self.capabilities = capabilities or FinancialAgentCapabilities()
         self.model_policy = model_policy or ModelManagementPolicy()
         self.security_config = security_config or OpenClawSecurityConfig.default_for_mvp()
         self.route_policy = route_policy or OpenClawRoutePolicy.default_for_mvp()
+        self.successor_generation_coordinator = (
+            successor_generation_coordinator
+            if successor_generation_coordinator is not None
+            else create_runtime_successor_generation_coordinator(
+                SuccessorGenerationCoordinatorConfig(
+                    control_db_path=self.runtime_config.index_control_db_path,
+                    canonical_db_path=self.runtime_config.canonical_db_path,
+                    canonical_content_root=self.runtime_config.canonical_content_root,
+                    chroma_persist_dir=self.runtime_config.chroma_persist_dir,
+                    activate_verified_generation=True,
+                )
+            )
+        )
+        self._run_news_pipeline = run_news_pipeline
         self._mcp = self._build_mcp_runtime()
         self._tool_registry = self._build_registry()
         self._register_tools()
+        self.retry_scheduler = (
+            RefreshRetryScheduler(
+                ledger_path=_refresh_ledger_path(self.runtime_config.refresh_state_path),
+                retry_handler=self._run_scheduled_retry,
+                poll_interval_seconds=self.runtime_config.refresh_retry_poll_interval_seconds,
+            )
+            if self.runtime_config.refresh_retry_scheduler_enabled
+            else None
+        )
 
     def list_tools(self) -> list[ToolMetadata]:
         return [metadata for metadata in self._tool_registry.values() if self._is_tool_exposed(metadata.name)]
@@ -227,7 +338,57 @@ class FinancialAgentMCPServer:
         return self._tool_registry[tool_name].handler(**kwargs)
 
     def run(self, transport: str = "stdio") -> None:
-        self._mcp.run(transport=transport)
+        if self.retry_scheduler is not None:
+            self.retry_scheduler.start()
+        try:
+            self._mcp.run(transport=transport)
+        finally:
+            if self.retry_scheduler is not None:
+                self.retry_scheduler.stop()
+
+    def _run_scheduled_retry(self, schedule: RetrySchedule) -> dict[str, Any]:
+        """Re-enter one frozen scope using runtime-owned provider adapters."""
+        if not isinstance(schedule, RetrySchedule):
+            raise TypeError("schedule must be a RetrySchedule")
+        snapshot = schedule.config_snapshot
+        if compute_scope_key(snapshot) != schedule.scope_key:
+            raise ValueError("Scheduled refresh scope fingerprint does not match its snapshot")
+        if snapshot.get("requested_date") != schedule.requested_date:
+            raise ValueError("Scheduled refresh date does not match its snapshot")
+        if snapshot.get("ingestion_contract_version") != REFRESH_CONTRACT_VERSION:
+            raise ValueError("Scheduled refresh contract is not executable by this runtime")
+        if snapshot.get("corpus_collection") != self.runtime_config.collection_name:
+            raise ValueError("Scheduled refresh collection differs from the runtime collection")
+        if snapshot.get("index_corpus_id") != self.runtime_config.index_corpus_id:
+            raise ValueError("Scheduled refresh corpus differs from the runtime corpus")
+
+        endpoint = _scheduled_text(snapshot, "news_endpoint")
+        sort_by = _scheduled_text(snapshot, "news_sort_by")
+        days_back = _scheduled_positive_int(snapshot, "news_days_back")
+        page = _scheduled_positive_int(snapshot, "news_page")
+        page_size = _scheduled_positive_int(snapshot, "news_page_size")
+        include_manual = snapshot.get("include_manual")
+        if not isinstance(include_manual, bool):
+            raise ValueError("Scheduled include_manual must be boolean")
+        return refresh_news_corpus(
+            RefreshNewsRequest(
+                refresh_state_path=self.runtime_config.refresh_state_path,
+                service_defaults_path=self.runtime_config.service_defaults_path,
+                db_path=self.runtime_config.db_path,
+                persist_dir=self.runtime_config.persist_dir,
+                collection_name=self.runtime_config.collection_name,
+                index_corpus_id=self.runtime_config.index_corpus_id,
+                today=schedule.requested_date,
+                include_manual=include_manual,
+                news_endpoint=endpoint,
+                news_days_back=days_back,
+                news_page=page,
+                news_sort_by=sort_by,
+                news_page_size=page_size,
+            ),
+            run_news_pipeline_fn=self._run_news_pipeline,
+            successor_generation_coordinator=self.successor_generation_coordinator,
+        )
 
     def streamable_http_app(self):
         if not hasattr(self._mcp, "streamable_http_app"):
@@ -338,6 +499,7 @@ class FinancialAgentMCPServer:
                 db_path=self.runtime_config.db_path,
                 persist_dir=self.runtime_config.persist_dir,
                 collection_name=self.runtime_config.collection_name,
+                index_corpus_id=self.runtime_config.index_corpus_id,
                 today=today,
                 top_k=top_k,
                 question=question,
@@ -352,6 +514,7 @@ class FinancialAgentMCPServer:
             ),
             progress_sink=progress_sink,
             run_news_pipeline_fn=run_news_pipeline,
+            successor_generation_coordinator=self.successor_generation_coordinator,
         )
 
     def refresh_news_tool(
@@ -388,9 +551,25 @@ class FinancialAgentMCPServer:
         top_k: int | None = None,
         retrieval_top_k: int | None = None,
         retrieval_intent: str = DEFAULT_RETRIEVAL_INTENT,
+        start_at: str | None = None,
+        end_at: str | None = None,
+        latest_at: str | None = None,
+        lookback_days: int | None = None,
     ) -> dict[str, Any]:
         defaults = self._service_defaults()
-        vector_store = self._make_vector_store()
+        try:
+            vector_store = self._make_vector_store()
+        except CorpusUnavailableError as error:
+            return _corpus_unavailable_payload(error)
+        vector_store = vector_store.with_time_window(
+            **resolve_query_time_window(
+                defaults,
+                start_at=start_at,
+                end_at=end_at,
+                latest_at=latest_at,
+                lookback_days=lookback_days,
+            )
+        )
         result = answer_query(
             question,
             vector_store,
@@ -400,6 +579,8 @@ class FinancialAgentMCPServer:
         )
         return {
             "question": question,
+            "generation_id": _reader_generation_id(vector_store),
+            "corpus_provenance": _reader_provenance(vector_store),
             "answer": result.answer,
             "confidence": result.confidence.value,
             "insufficient_evidence": result.insufficient_evidence,
@@ -432,8 +613,11 @@ class FinancialAgentMCPServer:
         include_report: bool = False,
     ) -> dict[str, Any]:
         defaults = self._service_defaults()
+        try:
+            vector_store = self._make_time_scoped_vector_store()
+        except CorpusUnavailableError as error:
+            return _corpus_unavailable_payload(error)
         storage = SQLiteNewsStore(db_path=self.runtime_config.db_path)
-        vector_store = self._make_vector_store()
         try:
             response = recommend_target(
                 target,
@@ -452,10 +636,13 @@ class FinancialAgentMCPServer:
                 target,
                 response,
                 output_dir=self._recommendation_reports_dir(),
+                retrieval_provenance=_reader_provenance(vector_store),
             )
 
         return {
             "target": target,
+            "generation_id": _reader_generation_id(vector_store),
+            "corpus_provenance": _reader_provenance(vector_store),
             "decision": response.decision.value,
             "confidence": response.confidence.value,
             "time_horizon": response.time_horizon.value,
@@ -475,17 +662,24 @@ class FinancialAgentMCPServer:
         progress_sink: WatchlistProgressSink | None = None,
         timeline_recorder: WatchlistTimelineRecorder | None = None,
     ) -> dict[str, Any]:
-        workflow = self._run_watchlist_triage_workflow(
-            tickers=tickers,
-            top_n=top_n,
-            retrieval_top_k=retrieval_top_k,
-            retrieval_intent=retrieval_intent,
-            progress_sink=progress_sink,
-            timeline_recorder=timeline_recorder,
-        )
+        provenance: dict[str, str | None] = {}
+        try:
+            workflow = self._run_watchlist_triage_workflow(
+                tickers=tickers,
+                top_n=top_n,
+                retrieval_top_k=retrieval_top_k,
+                retrieval_intent=retrieval_intent,
+                progress_sink=progress_sink,
+                timeline_recorder=timeline_recorder,
+                provenance_sink=provenance,
+            )
+        except CorpusUnavailableError as error:
+            return _corpus_unavailable_payload(error)
         result = workflow.result
         return {
             "run_id": result.run_id,
+            "generation_id": provenance.get("generation_id"),
+            "corpus_provenance": provenance,
             "top_n": result.top_n,
             "ranked_items": [
                 {
@@ -542,20 +736,27 @@ class FinancialAgentMCPServer:
         news_sort_by: str = "publishedAt",
         news_page_size: int = 100,
     ) -> dict[str, Any]:
-        workflow = self._run_refresh_then_watchlist_workflow(
-            tickers=tickers,
-            top_n=top_n,
-            retrieval_top_k=retrieval_top_k,
-            retrieval_intent=retrieval_intent,
-            today=today,
-            news_endpoint=news_endpoint,
-            news_days_back=news_days_back,
-            news_page=news_page,
-            news_sort_by=news_sort_by,
-            news_page_size=news_page_size,
-        )
+        provenance: dict[str, str | None] = {}
+        try:
+            workflow = self._run_refresh_then_watchlist_workflow(
+                tickers=tickers,
+                top_n=top_n,
+                retrieval_top_k=retrieval_top_k,
+                retrieval_intent=retrieval_intent,
+                today=today,
+                news_endpoint=news_endpoint,
+                news_days_back=news_days_back,
+                news_page=news_page,
+                news_sort_by=news_sort_by,
+                news_page_size=news_page_size,
+                provenance_sink=provenance,
+            )
+        except CorpusUnavailableError as error:
+            return _corpus_unavailable_payload(error)
         return {
             "workflow": "watchlist_refresh_then_triage",
+            "generation_id": provenance.get("generation_id"),
+            "corpus_provenance": provenance,
             "refresh": workflow.refresh,
             "triage": {
                 "run_id": workflow.result.run_id,
@@ -639,12 +840,29 @@ class FinancialAgentMCPServer:
         top_k: int | None = None,
         retrieval_top_k: int | None = None,
         retrieval_intent: str = DEFAULT_RETRIEVAL_INTENT,
+        start_at: str | None = None,
+        end_at: str | None = None,
+        latest_at: str | None = None,
+        lookback_days: int | None = None,
     ) -> dict[str, Any]:
         defaults = self._service_defaults()
+        try:
+            vector_store = self._make_vector_store()
+        except CorpusUnavailableError as error:
+            return _corpus_unavailable_payload(error)
         company_kb = SQLiteEntityStore(db_path=self.runtime_config.entity_db_path)
+        vector_store = vector_store.with_time_window(
+            **resolve_query_time_window(
+                defaults,
+                start_at=start_at,
+                end_at=end_at,
+                latest_at=latest_at,
+                lookback_days=lookback_days,
+            )
+        )
         bundle = retrieve_evidence_bundle(
             query,
-            self._make_vector_store(),
+            vector_store,
             top_k=top_k or defaults.query_top_k,
             retrieval_top_k=retrieval_top_k or defaults.retrieval_top_k,
             company_kb=company_kb,
@@ -653,6 +871,8 @@ class FinancialAgentMCPServer:
         company_kb.close()
         return {
             "query": query,
+            "generation_id": _reader_generation_id(vector_store),
+            "corpus_provenance": _reader_provenance(vector_store),
             "article_count": len(bundle.evidence),
             "articles": [
                 {
@@ -681,11 +901,46 @@ class FinancialAgentMCPServer:
             ],
         }
 
-    def _make_vector_store(self) -> ChromaVectorStore:
-        return ChromaVectorStore(
-            persist_dir=self.runtime_config.persist_dir,
-            collection_name=self.runtime_config.collection_name,
+    def _make_vector_store(self) -> Any:
+        pinned = create_active_generation_reader(
+            ServingCorpusConfig(
+                index_control_db_path=self.runtime_config.index_control_db_path,
+                index_corpus_id=self.runtime_config.index_corpus_id,
+                canonical_db_path=self.runtime_config.canonical_db_path,
+                canonical_content_root=self.runtime_config.canonical_content_root,
+                chroma_persist_dir=self.runtime_config.chroma_persist_dir,
+            )
         )
+        return pinned.reader
+
+    def _make_time_scoped_vector_store(self) -> Any:
+        """Pin one active generation and apply the service's finite news horizon."""
+
+        reader = self._make_vector_store()
+        return reader.with_time_window(
+            **resolve_query_time_window(self._service_defaults())
+        )
+
+    def _request_pinned_vector_store_provider(
+        self, provenance_sink: dict[str, str | None] | None = None
+    ) -> Callable[[], Any]:
+        lock = Lock()
+        unset = object()
+        reader: Any = unset
+
+        def provide() -> Any:
+            nonlocal reader
+            if reader is unset:
+                with lock:
+                    if reader is unset:
+                        reader = _SerializedVectorReader(
+                            self._make_time_scoped_vector_store()
+                        )
+                        if provenance_sink is not None:
+                            provenance_sink.update(_reader_provenance(reader))
+            return reader
+
+        return provide
 
     def _make_news_store(self) -> SQLiteNewsStore:
         return SQLiteNewsStore(db_path=self.runtime_config.db_path)
@@ -708,10 +963,16 @@ class FinancialAgentMCPServer:
         retrieval_intent: str = DEFAULT_RETRIEVAL_INTENT,
         progress_sink: WatchlistProgressSink | None = None,
         timeline_recorder: WatchlistTimelineRecorder | None = None,
+        provenance_sink: dict[str, str | None] | None = None,
     ) -> WatchlistWorkflowResult:
         defaults = self._service_defaults()
         storage = SQLiteNewsStore(db_path=self.runtime_config.db_path)
         try:
+            pinned_reader = _SerializedVectorReader(
+                self._make_time_scoped_vector_store()
+            )
+            if provenance_sink is not None:
+                provenance_sink.update(_reader_provenance(pinned_reader))
             return run_watchlist_triage_workflow(
                 WatchlistRunRequest(
                     tickers=tickers,
@@ -723,7 +984,7 @@ class FinancialAgentMCPServer:
                     collection_name=self.runtime_config.collection_name,
                 ),
                 storage,
-                self._make_vector_store,
+                lambda: pinned_reader,
                 output_dir=self._watchlist_reports_dir(),
                 timeline_suffix=self.runtime_config.watchlist_timeline_suffix,
                 config=WatchlistResearchConfig(
@@ -734,6 +995,7 @@ class FinancialAgentMCPServer:
                 progress_sink=progress_sink,
                 timeline_recorder=timeline_recorder,
                 persist_timeline=timeline_recorder is not None,
+                retrieval_provenance=_reader_provenance(pinned_reader),
             )
         finally:
             storage.close()
@@ -751,11 +1013,15 @@ class FinancialAgentMCPServer:
         news_page: int = 1,
         news_sort_by: str = "publishedAt",
         news_page_size: int = 100,
+        provenance_sink: dict[str, str | None] | None = None,
     ) -> WatchlistWorkflowResult:
         timeline_recorder = WatchlistTimelineRecorder(sink=self._watchlist_progress_printer)
         defaults = self._service_defaults()
         storage = SQLiteNewsStore(db_path=self.runtime_config.db_path)
         try:
+            request_reader_provider = self._request_pinned_vector_store_provider(
+                provenance_sink
+            )
             return run_refresh_then_watchlist_workflow(
                 WatchlistRunRequest(
                     tickers=tickers,
@@ -767,13 +1033,14 @@ class FinancialAgentMCPServer:
                     collection_name=self.runtime_config.collection_name,
                 ),
                 storage,
-                self._make_vector_store,
+                request_reader_provider,
                 refresh_request=RefreshNewsRequest(
                     refresh_state_path=self.runtime_config.refresh_state_path,
                     service_defaults_path=self.runtime_config.service_defaults_path,
                     db_path=self.runtime_config.db_path,
                     persist_dir=self.runtime_config.persist_dir,
                     collection_name=self.runtime_config.collection_name,
+                    index_corpus_id=self.runtime_config.index_corpus_id,
                     today=today,
                     news_endpoint=news_endpoint,
                     news_days_back=news_days_back,
@@ -789,6 +1056,10 @@ class FinancialAgentMCPServer:
                     max_concurrency=self.runtime_config.watchlist_retrieval_max_concurrency,
                 ),
                 timeline_recorder=timeline_recorder,
+                successor_generation_coordinator=self.successor_generation_coordinator,
+                retrieval_provenance_provider=lambda: _reader_provenance(
+                    request_reader_provider()
+                ),
             )
         finally:
             storage.close()
@@ -850,8 +1121,10 @@ class FinancialAgentMCPServer:
 def create_financial_agent_server(
     runtime_config: FinancialAgentRuntimeConfig | None = None,
     capabilities: FinancialAgentCapabilities | None = None,
+    successor_generation_coordinator: SuccessorGenerationCoordinator | None = None,
 ) -> FinancialAgentMCPServer:
     return FinancialAgentMCPServer(
         runtime_config=runtime_config,
         capabilities=capabilities,
+        successor_generation_coordinator=successor_generation_coordinator,
     )
