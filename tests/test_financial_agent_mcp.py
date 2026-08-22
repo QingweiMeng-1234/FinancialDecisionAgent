@@ -889,6 +889,57 @@ def test_http_transport_security_allows_localhost_and_docker_host(monkeypatch):
     ]
 
 
+def test_injected_theme_lifecycle_tools_register_only_through_explicit_allowlist(
+    monkeypatch,
+):
+    """SELECT INVARIANT: MCP exposes injected lifecycle handlers, never providers."""
+    captured = []
+    lifecycle_names = [
+        "theme_chokepoint_start",
+        "theme_chokepoint_get_run",
+        "theme_chokepoint_get_pending_anchors",
+        "theme_chokepoint_confirm_anchors",
+        "theme_chokepoint_continue",
+        "theme_chokepoint_get_artifacts",
+    ]
+
+    class FakeFastMCP:
+        def __init__(self, name, **kwargs):
+            pass
+
+        def tool(self, name=None):
+            def decorator(func):
+                captured.append(name)
+                return func
+            return decorator
+
+    class FakeInterface:
+        def tool_handlers(self):
+            return {name: (lambda **kwargs: kwargs) for name in lifecycle_names}
+
+    monkeypatch.setattr("event_collector.financial_agent_mcp._FastMCP", FakeFastMCP)
+    monkeypatch.setattr(
+        "event_collector.financial_agent_mcp._TransportSecuritySettings", None
+    )
+    security = OpenClawSecurityConfig(
+        host_exec_enabled=False,
+        native_plugins_enabled=False,
+        allow_yolo_mode=False,
+        allowed_mcp_tools=lifecycle_names,
+    )
+
+    server = FinancialAgentMCPServer(
+        runtime_config=FinancialAgentRuntimeConfig(
+            refresh_retry_scheduler_enabled=False
+        ),
+        security_config=security,
+        theme_chokepoint_interface=FakeInterface(),
+    )
+
+    assert server.list_tool_names() == lifecycle_names
+    assert captured == lifecycle_names
+
+
 def test_small_parameter_surface_uses_shared_defaults(tmp_path, monkeypatch):
     defaults_path = tmp_path / "service_defaults.json"
     defaults_path.write_text(

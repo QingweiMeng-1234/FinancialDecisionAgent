@@ -285,12 +285,14 @@ class FinancialAgentMCPServer:
         security_config: OpenClawSecurityConfig | None = None,
         route_policy: OpenClawRoutePolicy | None = None,
         successor_generation_coordinator: SuccessorGenerationCoordinator | None = None,
+        theme_chokepoint_interface: Any | None = None,
     ):
         self.runtime_config = runtime_config or FinancialAgentRuntimeConfig()
         self.capabilities = capabilities or FinancialAgentCapabilities()
         self.model_policy = model_policy or ModelManagementPolicy()
         self.security_config = security_config or OpenClawSecurityConfig.default_for_mvp()
         self.route_policy = route_policy or OpenClawRoutePolicy.default_for_mvp()
+        self.theme_chokepoint_interface = theme_chokepoint_interface
         self.successor_generation_coordinator = (
             successor_generation_coordinator
             if successor_generation_coordinator is not None
@@ -416,7 +418,7 @@ class FinancialAgentMCPServer:
         return _FastMCP("financial-agent", **fastmcp_kwargs)
 
     def _build_registry(self) -> dict[str, ToolMetadata]:
-        return {
+        registry = {
             "refresh_news": ToolMetadata(
                 name="refresh_news",
                 handler=self.refresh_news_tool,
@@ -468,6 +470,19 @@ class FinancialAgentMCPServer:
                 description="Return grounded supporting articles only.",
             ),
         }
+        if self.theme_chokepoint_interface is not None:
+            for name, handler in self.theme_chokepoint_interface.tool_handlers().items():
+                registry[name] = ToolMetadata(
+                    name=name,
+                    handler=handler,
+                    description="Theme Chokepoint lifecycle facade.",
+                    mutates_state=name in {
+                        "theme_chokepoint_start",
+                        "theme_chokepoint_confirm_anchors",
+                        "theme_chokepoint_continue",
+                    },
+                )
+        return registry
 
     def _register_tools(self) -> None:
         for metadata in self._tool_registry.values():
@@ -1122,9 +1137,13 @@ def create_financial_agent_server(
     runtime_config: FinancialAgentRuntimeConfig | None = None,
     capabilities: FinancialAgentCapabilities | None = None,
     successor_generation_coordinator: SuccessorGenerationCoordinator | None = None,
+    theme_chokepoint_interface: Any | None = None,
+    security_config: OpenClawSecurityConfig | None = None,
 ) -> FinancialAgentMCPServer:
     return FinancialAgentMCPServer(
         runtime_config=runtime_config,
         capabilities=capabilities,
         successor_generation_coordinator=successor_generation_coordinator,
+        theme_chokepoint_interface=theme_chokepoint_interface,
+        security_config=security_config,
     )

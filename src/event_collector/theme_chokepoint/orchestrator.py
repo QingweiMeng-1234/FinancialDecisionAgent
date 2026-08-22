@@ -196,6 +196,10 @@ class RootStageOrchestrator:
                 continue
             raise ValueError(f"unsupported orchestrator run status: {status.value}")
 
+    def get_manifest(self, run_id: str) -> Stage1To7RunManifest:
+        """Return the durable root manifest without exposing arbitrary paths."""
+        return self._load_manifest(run_id)
+
     @staticmethod
     def _reconcile_durable_receipts(run_id, status, receipts):
         recorded_stages = {item.stage for item in receipts}
@@ -274,7 +278,13 @@ class RootStageOrchestrator:
         return manifest
 
     def _manifest_path(self, run_id):
-        return self.manifest_root / run_id / "stage1-7-e2e-run-manifest.json"
+        root = self.manifest_root.resolve()
+        path = (root / run_id / "stage1-7-e2e-run-manifest.json").resolve()
+        try:
+            path.relative_to(root)
+        except ValueError:
+            raise ValueError("run_id resolves outside the manifest root") from None
+        return path
 
     def _write_manifest(self, manifest):
         path = self._manifest_path(manifest.run_id)

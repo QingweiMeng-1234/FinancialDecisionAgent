@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 import pytest
@@ -152,6 +154,52 @@ def test_root_orchestrator_stops_for_human_gate_then_runs_one_id_through_stage7(
     assert payload["executable_contract_sha256"] == CONTROLLED_OVERLAY_SHA256
     assert payload["final_status"] == "SIGNAL_EXPORT_READY"
     assert [item["stage"] for item in payload["stages"]] == [1, 2, 3, 4, 5, 6, 7]
+
+
+def test_root_orchestrator_exposes_public_read_only_manifest_access():
+    """SELECT INVARIANT: integrations read receipts through a public root facade."""
+    repository = FakeRepository()
+    temp_dir = TemporaryDirectory(dir=".tmp")
+    manifest_root = Path(temp_dir.name) / "manifests"
+    orchestrator = RootStageOrchestrator(
+        repository=repository,
+        stage1=FakeStage1(repository),
+        stage2=AdvancingStage(
+            repository, "build", RunStatus.SUPPLY_CHAIN_GRAPH_READY, "run_id"
+        ),
+        stage3=AdvancingStage(
+            repository, "run", RunStatus.CHOKEPOINT_ASSESSMENT_READY, "run_id"
+        ),
+        stage4=AdvancingStage(
+            repository, "run", RunStatus.COMPANY_ASSESSMENT_READY, "run_id"
+        ),
+        stage5=AdvancingStage(
+            repository, "finalize", RunStatus.PERSISTENT_RESEARCH_READY, "run_id"
+        ),
+        stage6=FakeMonitoringStage(repository),
+        stage7=AdvancingStage(
+            repository, "export", RunStatus.SIGNAL_EXPORT_READY, "run_id"
+        ),
+        manifest_root=manifest_root,
+        executable_contract_id=CONTROLLED_OVERLAY_ID,
+        executable_contract_sha256=CONTROLLED_OVERLAY_SHA256,
+    )
+    orchestrator.start(SimpleNamespace(run_id=repository.run_id))
+
+    manifest = orchestrator.get_manifest(repository.run_id)
+
+    assert manifest.run_id == repository.run_id
+    assert manifest.final_status is RunStatus.AWAITING_PRODUCT_CONFIRMATION
+    assert [receipt.stage for receipt in manifest.stages] == [1]
+
+    outside = Path(temp_dir.name) / "escape" / "stage1-7-e2e-run-manifest.json"
+    outside.parent.mkdir(parents=True)
+    outside.write_text(
+        (orchestrator._manifest_path(repository.run_id)).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="run_id"):
+        orchestrator.get_manifest("../escape")
 
 
 def test_root_orchestrator_stops_after_persisted_incomplete_company_stage(tmp_path):
