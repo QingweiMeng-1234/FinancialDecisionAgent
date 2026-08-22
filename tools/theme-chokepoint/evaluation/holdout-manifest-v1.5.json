@@ -1,0 +1,45 @@
+{
+  "evaluation_id": "theme-chokepoint-holdout-v1.5",
+  "contract_version": "theme-chokepoint-scoring-v1.5",
+  "status": "double_annotation_gate_pass_identity_unverified",
+  "case_identifiers": [
+    "H15-C01",
+    "H15-C02",
+    "H15-C03"
+  ],
+  "case_type": "controlled_counterfactual",
+  "minimum_case_count": 2,
+  "actual_case_count": 3,
+  "ordinal_item_count": 18,
+  "package_root": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/holdout",
+  "evidence_pack": {
+    "path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/holdout/common/evidence-pack-v1.5.json",
+    "sha256": "4e72bb52158ec1db94ff260aa730a4f5dc272eb1031bec61f5ae2b40af2ec375"
+  },
+  "annotation_task": {
+    "path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/holdout/common/annotation-task-v1.5.json",
+    "sha256": "97b254afc6a16d53b0a9145175e1df4b4d065121211d1e99a28a83f2a54debf9"
+  },
+  "contamination_scan": {
+    "performed_before_creation": true,
+    "result": "zero_hits",
+    "receipt": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/pollution-scan-v1.5.json"
+  },
+  "requirements": [
+    "not used in Prompt, implementation or Golden tuning before case creation",
+    "contains multiple non-semiconductor industries",
+    "double annotated before adjudication",
+    "contains 18 ordinal pairs, permitting the precommitted minimum of 10 exact/exact pairs"
+  ],
+  "results": {
+    "report": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/agreement-20260820/holdout-agreement-v1.5.json",
+    "report_sha256": "1ce1afa363101795762334a6157b754d21fa0f6ec3bf335302073adbc15c679c",
+    "hard_gate_agreement": 1.0,
+    "final_state_agreement": 1.0,
+    "exact_exact_pairs": 18,
+    "linear_weighted_kappa": 1.0,
+    "high_risk_one_sided_upgrades": 0,
+    "pre_adjudication_gate": "pass"
+  },
+  "proof_boundary": "The controlled semantic Holdout passed for the submitted annotation files. The internal directory identifies a Codex annotator, so two-human identity is unverified; controlled cases do not establish real-world market validity or frozen status."
+}

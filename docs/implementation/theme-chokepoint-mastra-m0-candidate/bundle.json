@@ -1,0 +1,63 @@
+{
+  "schema_version": "tc-compact-frozen-bundle.v2",
+  "bundle_id": "THEME-CHOKEPOINT-MASTRA-M0",
+  "bundle_version": "0.1",
+  "bundle_status": "FROZEN_FOR_IMPLEMENTATION",
+  "predecessor_bundle_sha256": null,
+  "documents": [
+    {
+      "document_roles": [
+        "PRD",
+        "ADR",
+        "SYSTEM_DESIGN",
+        "API_CLI_CONTRACT"
+      ],
+      "path_or_embedded_id": "integrated-contract.md",
+      "sha256": "4f1a937d102ab5f4a2b7c7f2c0ec76112de8308f713bec5667eccdbe358bf321"
+    }
+  ],
+  "allowed_scope": [
+    "apps/theme-chokepoint-mastra/**",
+    "src/event_collector/theme_chokepoint/interfaces.py",
+    "src/event_collector/theme_chokepoint/orchestrator.py",
+    "src/event_collector/financial_agent_mcp.py",
+    "src/event_collector/__init__.py",
+    "tests/test_theme_chokepoint_interfaces.py",
+    "tests/test_theme_chokepoint_orchestrator.py",
+    "tests/test_financial_agent_mcp.py"
+  ],
+  "forbidden_scope": [
+    "docs/implementation/theme-chokepoint-mastra-m0-candidate/**",
+    "src/event_collector/theme_chokepoint/contracts.py",
+    "src/event_collector/theme_chokepoint/repository.py",
+    "src/event_collector/theme_chokepoint/stage1.py",
+    "src/event_collector/theme_chokepoint/stage2.py",
+    "src/event_collector/theme_chokepoint/stage3.py",
+    "src/event_collector/theme_chokepoint/stage4.py",
+    "src/event_collector/theme_chokepoint/stage5.py",
+    "src/event_collector/theme_chokepoint/stage6.py",
+    "src/event_collector/theme_chokepoint/stage7.py",
+    "src/event_collector/theme_chokepoint/providers/**",
+    "src/event_collector/theme_chokepoint/production.py",
+    "docs/product/theme-chokepoint-scoring-*",
+    "docs/adr/0002-theme-chokepoint-evidence-trust-architecture.zh-CN.md",
+    "docs/adr/0003-theme-chokepoint-authoritative-verification-and-assessment.zh-CN.md",
+    "QuantGPT/**"
+  ],
+  "acceptance_checks": [
+    "Python lifecycle/interface focused tests",
+    "Python MCP registration focused tests",
+    "Mastra workflow focused tests",
+    "Mastra persistent restart/reopen integration test",
+    "Concurrent and duplicate resume focused test",
+    "Malformed/strict JSON/non-finite/error-redaction/unknown-state boundary matrix",
+    "Existing Stage 1, root orchestrator, and Financial MCP regressions",
+    "Mastra TypeScript typecheck and full test suite",
+    "Exact baseline scope diff"
+  ],
+  "changes_existing_persisted_data": false,
+  "human_approval": {
+    "status": "APPROVED",
+    "reference": "Codex user approval on 2026-08-22 of integrated-contract.md SHA-256 4f1a937d102ab5f4a2b7c7f2c0ec76112de8308f713bec5667eccdbe358bf321"
+  }
+}

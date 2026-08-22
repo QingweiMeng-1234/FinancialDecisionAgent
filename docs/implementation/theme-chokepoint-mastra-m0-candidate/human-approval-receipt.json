@@ -1,0 +1,10 @@
+{
+  "schema_version": "theme-chokepoint-mastra-m0-human-approval.v1",
+  "bundle_id": "THEME-CHOKEPOINT-MASTRA-M0",
+  "approved_at_local_date": "2026-08-22",
+  "approved_document": "integrated-contract.md",
+  "approved_document_sha256": "4f1a937d102ab5f4a2b7c7f2c0ec76112de8308f713bec5667eccdbe358bf321",
+  "approval_text": "批准合同 SHA 4f1a937d102ab5f4a2b7c7f2c0ec76112de8308f713bec5667eccdbe358bf321；授权创建并推送隔离基线分支 tc/theme-chokepoint-mastra-m0-baseline-20260822。只纳入 Theme Chokepoint 源码、相关测试/合同和 M0 Frozen Bundle，不纳入数据库、日志、QuantGPT 或其他无关改动。",
+  "baseline_branch_authorized": "tc/theme-chokepoint-mastra-m0-baseline-20260822",
+  "status": "APPROVED"
+}

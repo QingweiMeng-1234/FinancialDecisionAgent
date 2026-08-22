@@ -1,0 +1,37 @@
+{
+  "policy_id": "theme-chokepoint-source-identity-policy-v1",
+  "status": "frozen_for_implementation",
+  "url_normalization": {
+    "lowercase_scheme_and_host": true,
+    "remove_default_ports": {"http": 80, "https": 443},
+    "remove_fragment": true,
+    "normalize_empty_path_to_slash": true,
+    "remove_trailing_slash_except_root": true,
+    "sort_query_parameters": true,
+    "remove_tracking_parameters": [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "gclid",
+      "fbclid"
+    ],
+    "normalize_percent_encoding": true,
+    "idn_host_encoding": "ascii_punycode"
+  },
+  "identity_rules": {
+    "known_redirects_share_terminal_identity": true,
+    "url_difference_proves_new_event": false,
+    "raw_hash_difference_proves_new_event": false,
+    "normalized_hash_difference_proves_new_event": false,
+    "paraphrased_reprint_without_origin": "ambiguous",
+    "unknown_provenance_can_establish_independent_event": false,
+    "ambiguous_provenance_can_establish_independent_event": false
+  },
+  "immutability": {
+    "source_identity_update": "append_relation_or_create_successor",
+    "source_version_update": "create_new_version",
+    "delete_after_scoring_use": false
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "theme-chokepoint-runtime-governance-bundle-v1",
+  "bundle_id": "theme-chokepoint-evidence-trust-runtime-v1",
+  "status": "frozen_for_implementation",
+  "created_at": "2026-08-17",
+  "scoring_semantics": "inherits theme-chokepoint-scoring-v1.4 without semantic changes",
+  "historical_frozen_machine_artifact_reproduced": false,
+  "artifacts": {
+    "runtime_overlay": {
+      "path": "semantic-task-contract-v1.4.json",
+      "sha256": "c7490b28fa12801c0a9e1aa6b054a676f2bb62265f5caac683d79e07d0491f03"
+    },
+    "business_fact_decision_table": {
+      "path": "business-fact-decision-table-v1.4.json",
+      "sha256": "9b76aaaab33cf887aaaccc5809246c5fdfe8c6c0a2c68abc8aa3744f69600e6b"
+    },
+    "source_identity_schema": {
+      "path": "source-identity-schema-v1.json",
+      "sha256": "38c3ed7fa231af22c2bea9c42915dc0092246afaa34ebb40203a4f1b3715ee0f"
+    },
+    "source_identity_policy": {
+      "path": "source-identity-policy-v1.json",
+      "sha256": "8bf45510ca03a416f1a3d43105cb5d129547c7368583790d157dc20afae43a69"
+    }
+  },
+  "proof_boundary": "This bundle pins the remediation runtime controls. It is not the historical v1.4 frozen machine artifact and does not prove implementation or GO."
+}

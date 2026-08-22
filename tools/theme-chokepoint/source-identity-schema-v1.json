@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "theme-chokepoint-source-identity-schema-v1",
+  "title": "Theme Chokepoint SourceIdentity and SourceVersion",
+  "type": "object",
+  "required": ["source_identity", "source_version"],
+  "properties": {
+    "source_identity": {
+      "type": "object",
+      "required": [
+        "source_identity_id",
+        "canonical_publisher_id",
+        "canonical_url_key",
+        "provenance_state"
+      ],
+      "properties": {
+        "source_identity_id": {"type": "string", "minLength": 1},
+        "canonical_publisher_id": {"type": "string", "minLength": 1},
+        "canonical_document_id": {"type": ["string", "null"]},
+        "origin_event_id": {"type": ["string", "null"]},
+        "canonical_url_key": {"type": "string", "minLength": 1},
+        "redirect_terminal_identity_id": {"type": ["string", "null"]},
+        "redirect_chain": {"type": "array", "items": {"type": "string"}},
+        "relation_type": {
+          "enum": ["original", "redirect_alias", "reprint", "unknown"]
+        },
+        "provenance_state": {"enum": ["verified", "ambiguous", "unknown"]}
+      },
+      "additionalProperties": false
+    },
+    "source_version": {
+      "type": "object",
+      "required": [
+        "source_version_id",
+        "source_identity_id",
+        "retrieved_at",
+        "raw_bytes_sha256",
+        "normalized_content_sha256",
+        "content_type",
+        "language"
+      ],
+      "properties": {
+        "source_version_id": {"type": "string", "minLength": 1},
+        "source_identity_id": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "raw_bytes_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "normalized_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "quote_span_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "content_type": {"type": "string", "minLength": 1},
+        "language": {"type": "string", "minLength": 1},
+        "publication_time": {"type": ["string", "null"], "format": "date-time"},
+        "updated_time": {"type": ["string", "null"], "format": "date-time"},
+        "version_sequence": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,47 @@
+{
+  "receipt_id": "theme-chokepoint-v1.5-freeze-candidate-2026-08-20",
+  "generated_at": "2026-08-20T20:30:00+08:00",
+  "contract_version": "theme-chokepoint-scoring-v1.5",
+  "contract_status": "freeze_candidate",
+  "git_commit_sha": "819fad0b84fe5d6d4c985a82b99cc291bfe72894",
+  "worktree_state": "dirty",
+  "worktree_note": "Repository contained substantial pre-existing tracked and untracked user work. This receipt hashes v1.5 assets individually and does not claim the commit alone reproduces the dirty worktree.",
+  "assets": {
+    "prd": {"path": "docs/product/theme-chokepoint-research-agent-prd.md", "sha256": "c21f561ed37c793634dfc45d937ecbaea4aeadb105ce32ac887e0ac74f2dc48e"},
+    "human_contract": {"path": "docs/product/theme-chokepoint-scoring-contract-v1.5.zh-CN.md", "sha256": "8dd27a5f3a392d438573329cbeeeaf4fd736d3bd529a19f980f4bca830f976b5"},
+    "machine_contract": {"path": "tools/theme-chokepoint/semantic-task-contract-v1.5.json", "sha256": "c39d54a6699977f42a098b860e7969d107cbc02cea7f7025e65ce2ad967c3671"},
+    "prompt": {"path": "tools/theme-chokepoint/prompts/segment-fact-extractor-v1.5.md", "sha256": "848151bbe9bc50528ac64c85b5cda7be2d7bda08811b3429198913264fdf4b3c"},
+    "segment_schema": {"path": "tools/theme-chokepoint/schemas/theme-chokepoint-segment-facts-v1.5.schema.json", "sha256": "618cf751cb06e0c4ee9282974d54a0183e3c6c5c79faf080d39ea88bab8bdd4f"},
+    "stage4_schema": {"path": "tools/theme-chokepoint/schemas/theme-chokepoint-stage4-v1.5.schema.json", "sha256": "c87bf562fa0d77e5e0c4ac77656139bf4ae3ca440103b426a51ec29615250e7d"},
+    "validator": {"path": "src/event_collector/theme_chokepoint/validation_v15.py", "sha256": "707d2f88b25ae1c71bd7f6894711b3951694aa2c8222128ee12dfcc505a968cb"},
+    "deterministic_scorer": {"path": "src/event_collector/theme_chokepoint/scoring_v15.py", "sha256": "69266d21608cd467efc9ba29437ba8e7e0637e19fdac181e759ccfc4eef54513"},
+    "golden": {"path": "tools/theme-chokepoint/evaluation/golden-manifest-v1.5.json", "sha256": "1c818c655eca5340470deef638bd8ebe681cc562d62bd533fff363b83898b9d0", "status": "double_annotation_complete_identity_unverified"},
+    "holdout": {"path": "tools/theme-chokepoint/evaluation/holdout-manifest-v1.5.json", "sha256": "31da207bbcec811f6b7b4754213ec8e368826d6133e49c762b627932ca5118ea", "status": "double_annotation_gate_pass_identity_unverified"},
+    "human_evaluation_validator": {"path": "tools/theme-chokepoint/evaluation/semantic-validator-v1.5.mjs", "sha256": "410d12123a0548fababf53c9a32d7ca991eab3dddd8bb30c82288f6a9c7b450d"},
+    "human_evaluation_precommit_manifest": {"path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/precommit-manifest-v1.5.json", "sha256": "dca693f7129d1f880cda5a092523914e9db5a514c20cf683b6e327893aac1554"},
+    "submission_receipts": {"path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/agreement-20260820/submission-receipts-v1.5.json", "sha256": "8d807fa1d415512ba43abf2586870b14ed11e136993b8a401fef5ade956a0c15"},
+    "hbm_regression_report": {"path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/agreement-20260820/hbm-golden-regression-v1.5.json", "sha256": "26a39e93e7544fc39527d546dbe9326f39d1e5436540147274f5dea9a6d34ace"}
+  },
+  "automated_evidence": {
+    "focused_stage3_stage4_work_package": "128 passed in 180.62s",
+    "theme_chokepoint_regression": "318 passed, 1 skipped, 804 deselected in 322.11s before final provider-resume refinement; all affected packages were rerun in the final 128-test focused suite",
+    "legacy_v1_4_semantic_validator": "58 passed",
+    "legacy_v1_4_hbm_boundary_regression": "22 passed",
+    "python_compileall": "passed",
+    "json_parse": "passed",
+    "receipt_hash_verification": "passed after annotation overlay",
+    "human_evaluation_validator": "3 passed",
+    "golden_holdout_json_and_hash_binding": "passed"
+  },
+  "human_gates": {
+    "hard_gate_agreement_gte_95pct": "submitted_annotations_pass_identity_unverified",
+    "final_state_agreement_gte_90pct": "submitted_annotations_pass_identity_unverified",
+    "exact_exact_pairs_gte_10": "submitted_annotations_pass_18_pairs_identity_unverified",
+    "linear_weighted_kappa_gte_0_70": "submitted_annotations_pass_1_0_identity_unverified",
+    "high_risk_one_sided_upgrades_eq_0": "submitted_annotations_pass_identity_unverified",
+    "hbm_regression": "pass_with_proof_boundary",
+    "top_10_review": "not_run"
+  },
+  "freeze_decision": "not_eligible",
+  "proof_boundary": "This is a freeze-candidate coverage receipt. It proves asset identity and recorded automated checks only; it does not claim v1.5 is frozen."
+}
