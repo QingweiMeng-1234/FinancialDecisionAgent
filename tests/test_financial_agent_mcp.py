@@ -15,6 +15,7 @@ from event_collector.financial_agent_mcp import (
     create_financial_agent_server,
 )
 from event_collector.refresh_ledger import RetrySchedule, compute_scope_key
+from event_collector.theme_chokepoint.interfaces import ThemeChokepointInterface
 
 
 class _TimeWindowPassthroughReader:
@@ -41,6 +42,104 @@ def test_create_financial_agent_server_exposes_only_high_level_openclaw_tools_by
         "read_watchlist_report",
         "read_watchlist_timeline",
     ]
+
+
+def test_injected_theme_runtime_registers_lifecycle_tools_and_normalizes_missing_run():
+    """SELECT INVARIANT: production MCP registration exposes the Python lifecycle authority."""
+
+    class MissingRepository:
+        def get_run(self, run_id):
+            raise KeyError("C:/secret/provider.db")
+
+    theme_interface = ThemeChokepointInterface(
+        MissingRepository(),
+        product_service=None,
+        stage1=object(),
+        orchestrator=object(),
+    )
+    server = create_financial_agent_server(theme_interface=theme_interface)
+
+    assert {
+        "theme_chokepoint_start",
+        "theme_chokepoint_get_run",
+        "theme_chokepoint_get_pending_anchors",
+        "theme_chokepoint_confirm_anchors",
+        "theme_chokepoint_continue",
+        "theme_chokepoint_get_artifacts",
+    } <= set(server.list_tool_names())
+    result = server.call_tool("theme_chokepoint_get_run", run_id="missing")
+    assert result == {
+        "ok": False,
+        "error": {
+            "code": "RUN_NOT_FOUND",
+            "message": "Run was not found",
+            "retryable": False,
+        },
+    }
+    assert "secret" not in repr(result)
+
+
+def test_mcp2_streamable_app_kwargs_are_separate_from_run_bind_kwargs(monkeypatch):
+    """SELECT INVARIANT: MCP 2.0 app construction never receives the bind port."""
+    captured = {"tools": []}
+
+    class SDK2LikeServer:
+        def __init__(self, name, **kwargs):
+            captured["init"] = {"name": name, **kwargs}
+
+        def tool(self, name=None):
+            def decorator(handler):
+                captured["tools"].append(name)
+                return handler
+
+            return decorator
+
+        def streamable_http_app(self, *, host):
+            captured["app"] = {"host": host}
+            return "starlette-app"
+
+        def run(self, *, transport, host, port):
+            captured["run"] = {
+                "transport": transport,
+                "host": host,
+                "port": port,
+            }
+
+    monkeypatch.setattr(
+        "event_collector.financial_agent_mcp._FastMCP", SDK2LikeServer
+    )
+    server = create_financial_agent_server(
+        FinancialAgentRuntimeConfig(
+            http_host="127.0.0.1",
+            http_port=9988,
+            refresh_retry_scheduler_enabled=False,
+        )
+    )
+
+    assert server.streamable_http_app() == "starlette-app"
+    assert captured["app"] == {"host": "127.0.0.1"}
+    server.run(transport="streamable-http")
+    assert captured["run"] == {
+        "transport": "streamable-http",
+        "host": "127.0.0.1",
+        "port": 9988,
+    }
+
+
+def test_production_wrapper_builds_real_installed_mcp2_starlette_app():
+    """SELECT INVARIANT: the production wrapper embeds the installed MCP 2.0 server."""
+    server = create_financial_agent_server(
+        FinancialAgentRuntimeConfig(
+            http_host="127.0.0.1",
+            http_port=9989,
+            refresh_retry_scheduler_enabled=False,
+        )
+    )
+
+    app = server.streamable_http_app()
+
+    assert app.__class__.__name__ == "Starlette"
+    assert server._mcp.__class__.__name__ == "MCPServer"
 
 
 def test_default_capabilities_do_not_require_quantgpt():

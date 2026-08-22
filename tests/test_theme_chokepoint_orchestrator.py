@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from threading import Event, Lock, Thread
 from types import SimpleNamespace
 
 import pytest
@@ -18,6 +21,7 @@ from event_collector.theme_chokepoint.orchestrator import (
     MonitoringStageOutcome,
     NoEventsMonitoringStage,
     RootStageOrchestrator,
+    _continue_owner,
 )
 from event_collector.theme_chokepoint.stage1 import AssistedThemeFramingService
 from event_collector.theme_chokepoint.stage2 import SupplyChainGraphService
@@ -106,6 +110,108 @@ class FakeMonitoringStage:
             change_count=0,
             outcome="no_events",
         )
+
+
+def test_continue_has_one_durable_owner_across_two_orchestrator_instances(tmp_path):
+    """SELECT INVARIANT: two runtimes can dispatch the current Stage only once."""
+    repository = FakeRepository()
+    entered = Event()
+    release = Event()
+
+    class BlockingStage2:
+        def __init__(self):
+            self.calls = 0
+            self.lock = Lock()
+
+        def build(self, run_id):
+            with self.lock:
+                self.calls += 1
+                call_number = self.calls
+            if call_number > 1:
+                raise AssertionError("duplicate Stage 2 dispatch")
+            entered.set()
+            assert release.wait(5)
+            repository.status = RunStatus.SUPPLY_CHAIN_GRAPH_READY
+            return SimpleNamespace(run_id=run_id, status=repository.status)
+
+    stage2 = BlockingStage2()
+    manifest_root = tmp_path / "m0-owner"
+    shared = {
+        "repository": repository,
+        "stage1": FakeStage1(repository),
+        "stage2": stage2,
+        "stage3": AdvancingStage(
+            repository, "run", RunStatus.CHOKEPOINT_ASSESSMENT_READY, "run_id"
+        ),
+        "stage4": AdvancingStage(
+            repository, "run", RunStatus.COMPANY_ASSESSMENT_READY, "run_id"
+        ),
+        "stage5": AdvancingStage(
+            repository, "finalize", RunStatus.PERSISTENT_RESEARCH_READY, "run_id"
+        ),
+        "stage6": FakeMonitoringStage(repository),
+        "stage7": AdvancingStage(
+            repository, "export", RunStatus.SIGNAL_EXPORT_READY, "run_id"
+        ),
+        "manifest_root": manifest_root,
+        "executable_contract_id": CONTROLLED_OVERLAY_ID,
+        "executable_contract_sha256": CONTROLLED_OVERLAY_SHA256,
+    }
+    first = RootStageOrchestrator(**shared)
+    second = RootStageOrchestrator(**shared)
+    first.start(SimpleNamespace(run_id=repository.run_id))
+    repository.status = RunStatus.READY_FOR_SUPPLY_CHAIN
+    first_errors = []
+
+    def run_first():
+        try:
+            first.continue_run(repository.run_id)
+        except Exception as error:  # pragma: no cover - asserted below
+            first_errors.append(error)
+
+    worker = Thread(target=run_first)
+    worker.start()
+    assert entered.wait(5)
+    try:
+        with pytest.raises(RuntimeError, match="continue already in progress"):
+            second.continue_run(repository.run_id)
+    finally:
+        release.set()
+        worker.join(5)
+
+    assert worker.is_alive() is False
+    assert first_errors == []
+    assert stage2.calls == 1
+    assert second.get_manifest(repository.run_id).final_status is RunStatus.SIGNAL_EXPORT_READY
+
+
+def test_continue_owner_lock_is_visible_to_an_independent_process(tmp_path):
+    """SELECT INVARIANT: direct continue ownership survives process boundaries."""
+    lock_path = tmp_path / "process-visible.continue.lock"
+    child = """
+from pathlib import Path
+import sys
+from event_collector.theme_chokepoint.orchestrator import (
+    ContinueInProgressError,
+    _continue_owner,
+)
+
+try:
+    with _continue_owner(Path(sys.argv[1])):
+        pass
+except ContinueInProgressError:
+    raise SystemExit(23)
+"""
+
+    with _continue_owner(lock_path):
+        blocked = subprocess.run(
+            [sys.executable, "-c", child, str(lock_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert blocked.returncode == 23, blocked.stderr
 
 
 def test_root_orchestrator_stops_for_human_gate_then_runs_one_id_through_stage7(tmp_path):

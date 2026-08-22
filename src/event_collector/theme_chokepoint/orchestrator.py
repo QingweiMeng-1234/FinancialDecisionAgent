@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import json
 from pathlib import Path
 
@@ -52,6 +53,18 @@ class NoEventsMonitoringStage:
             change_count=0,
             outcome="no_events",
         )
+
+
+class ContinueInProgressError(RuntimeError):
+    pass
+
+
+class ManifestNotFoundError(KeyError):
+    pass
+
+
+class ManifestCorruptionError(ValueError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -136,6 +149,10 @@ class RootStageOrchestrator:
         return manifest
 
     def continue_run(self, run_id: str) -> Stage1To7RunManifest:
+        with _continue_owner(self._manifest_path(run_id).with_name(".continue.lock")):
+            return self._continue_run_owned(run_id)
+
+    def _continue_run_owned(self, run_id: str) -> Stage1To7RunManifest:
         manifest = self._load_manifest(run_id)
         completed_stages = {item.stage for item in manifest.stages}
         receipts = list(manifest.stages)
@@ -195,6 +212,9 @@ class RootStageOrchestrator:
                 )
                 continue
             raise ValueError(f"unsupported orchestrator run status: {status.value}")
+
+    def get_manifest(self, run_id: str) -> Stage1To7RunManifest:
+        return self._load_manifest(run_id)
 
     @staticmethod
     def _reconcile_durable_receipts(run_id, status, receipts):
@@ -290,32 +310,78 @@ class RootStageOrchestrator:
     def _load_manifest(self, run_id):
         path = self._manifest_path(run_id)
         if not path.is_file():
-            raise ValueError("Stage 1 run manifest is missing")
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return Stage1To7RunManifest(
-            run_id=payload["run_id"],
-            contract_id=payload["contract_id"],
-            executable_contract_id=payload["executable_contract_id"],
-            executable_contract_sha256=payload["executable_contract_sha256"],
-            stages=tuple(
-                OrchestrationStageReceipt(
-                    stage=item["stage"],
-                    input_status=(
-                        RunStatus(item["input_status"])
-                        if item["input_status"]
-                        else None
-                    ),
-                    output_status=RunStatus(item["output_status"]),
-                    outcome=item["outcome"],
-                    artifact_ids=tuple(item["artifact_ids"]),
-                    completed_at=datetime.fromisoformat(item["completed_at"]),
-                )
+            raise ManifestNotFoundError("run manifest is missing")
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            expected = {
+                "run_id",
+                "contract_id",
+                "executable_contract_id",
+                "executable_contract_sha256",
+                "stages",
+                "final_status",
+                "created_at",
+                "updated_at",
+            }
+            if not isinstance(payload, dict) or set(payload) != expected:
+                raise ManifestCorruptionError
+            if payload["run_id"] != run_id or not isinstance(payload["stages"], list):
+                raise ManifestCorruptionError
+            stage_expected = {
+                "stage",
+                "input_status",
+                "output_status",
+                "outcome",
+                "artifact_ids",
+                "completed_at",
+            }
+            if any(
+                not isinstance(item, dict) or set(item) != stage_expected
                 for item in payload["stages"]
-            ),
-            final_status=RunStatus(payload["final_status"]),
-            created_at=datetime.fromisoformat(payload["created_at"]),
-            updated_at=datetime.fromisoformat(payload["updated_at"]),
-        )
+            ):
+                raise ManifestCorruptionError
+            manifest = Stage1To7RunManifest(
+                run_id=payload["run_id"],
+                contract_id=payload["contract_id"],
+                executable_contract_id=payload["executable_contract_id"],
+                executable_contract_sha256=payload["executable_contract_sha256"],
+                stages=tuple(
+                    OrchestrationStageReceipt(
+                        stage=item["stage"],
+                        input_status=(
+                            RunStatus(item["input_status"])
+                            if item["input_status"]
+                            else None
+                        ),
+                        output_status=RunStatus(item["output_status"]),
+                        outcome=item["outcome"],
+                        artifact_ids=tuple(item["artifact_ids"]),
+                        completed_at=datetime.fromisoformat(item["completed_at"]),
+                    )
+                    for item in payload["stages"]
+                ),
+                final_status=RunStatus(payload["final_status"]),
+                created_at=datetime.fromisoformat(payload["created_at"]),
+                updated_at=datetime.fromisoformat(payload["updated_at"]),
+            )
+            if (
+                not isinstance(manifest.contract_id, str)
+                or not isinstance(manifest.executable_contract_id, str)
+                or not isinstance(manifest.executable_contract_sha256, str)
+                or any(
+                    not isinstance(item.stage, int)
+                    or isinstance(item.stage, bool)
+                    or not isinstance(item.outcome, str)
+                    or not all(isinstance(value, str) for value in item.artifact_ids)
+                    for item in manifest.stages
+                )
+            ):
+                raise ManifestCorruptionError
+            return manifest
+        except ManifestCorruptionError:
+            raise
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            raise ManifestCorruptionError("run manifest is corrupt") from None
 
 
 def _artifact_ids(result) -> tuple[str, ...]:
@@ -332,6 +398,31 @@ def _artifact_ids(result) -> tuple[str, ...]:
         if value is not None and str(value) not in values:
             values.append(str(value))
     return tuple(values)
+
+
+@contextmanager
+def _continue_owner(lock_path):
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = lock_path.open("a+b")
+    if lock_file.tell() == 0:
+        lock_file.write(b"0")
+        lock_file.flush()
+    lock_file.seek(0)
+    acquired = False
+    try:
+        try:
+            import msvcrt
+
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            acquired = True
+        except OSError as error:
+            raise ContinueInProgressError("continue already in progress") from error
+        yield
+    finally:
+        if acquired:
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        lock_file.close()
 
 
 def _stage_outcome(status: RunStatus) -> str:

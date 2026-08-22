@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 import json
+import inspect
 import os
 from pathlib import Path
 from threading import Lock
@@ -55,12 +56,18 @@ from event_collector.watchlist_workflow import (
     run_watchlist_triage_workflow,
 )
 
-try:  # pragma: no cover - exercised only when FastMCP is installed locally
+try:  # pragma: no cover - version-specific import
     from mcp.server.fastmcp import FastMCP as _FastMCP
     from mcp.server.transport_security import TransportSecuritySettings as _TransportSecuritySettings
-except Exception:  # pragma: no cover - the test environment does not ship MCP
-    _FastMCP = None
-    _TransportSecuritySettings = None
+except Exception:  # pragma: no cover - MCP 2.0 moved the public server
+    try:
+        from mcp.server import MCPServer as _FastMCP
+        from mcp.server.transport_security import (
+            TransportSecuritySettings as _TransportSecuritySettings,
+        )
+    except Exception:  # pragma: no cover - environments without MCP
+        _FastMCP = None
+        _TransportSecuritySettings = None
 
 
 DEFAULT_TOOL_NAMES = [
@@ -285,12 +292,14 @@ class FinancialAgentMCPServer:
         security_config: OpenClawSecurityConfig | None = None,
         route_policy: OpenClawRoutePolicy | None = None,
         successor_generation_coordinator: SuccessorGenerationCoordinator | None = None,
+        theme_interface: Any | None = None,
     ):
         self.runtime_config = runtime_config or FinancialAgentRuntimeConfig()
         self.capabilities = capabilities or FinancialAgentCapabilities()
         self.model_policy = model_policy or ModelManagementPolicy()
         self.security_config = security_config or OpenClawSecurityConfig.default_for_mvp()
         self.route_policy = route_policy or OpenClawRoutePolicy.default_for_mvp()
+        self.theme_interface = theme_interface
         self.successor_generation_coordinator = (
             successor_generation_coordinator
             if successor_generation_coordinator is not None
@@ -341,7 +350,17 @@ class FinancialAgentMCPServer:
         if self.retry_scheduler is not None:
             self.retry_scheduler.start()
         try:
-            self._mcp.run(transport=transport)
+            self._mcp.run(
+                **_supported_kwargs(
+                    self._mcp.run,
+                    {
+                        "transport": transport,
+                        "host": self.runtime_config.http_host,
+                        "port": self.runtime_config.http_port,
+                    },
+                    allow_var_keyword=True,
+                )
+            )
         finally:
             if self.retry_scheduler is not None:
                 self.retry_scheduler.stop()
@@ -393,7 +412,16 @@ class FinancialAgentMCPServer:
     def streamable_http_app(self):
         if not hasattr(self._mcp, "streamable_http_app"):
             raise RuntimeError("HTTP MCP app is unavailable because the `mcp` package is missing.")
-        return self._mcp.streamable_http_app()
+        return self._mcp.streamable_http_app(
+            **_supported_kwargs(
+                self._mcp.streamable_http_app,
+                {
+                    "host": self.runtime_config.http_host,
+                    "streamable_http_path": self.runtime_config.streamable_http_path,
+                    "transport_security": self._transport_security(),
+                },
+            )
+        )
 
     def http_endpoint_url(self, *, hostname: str | None = None) -> str:
         host = hostname or self.runtime_config.http_host
@@ -408,15 +436,28 @@ class FinancialAgentMCPServer:
             "port": self.runtime_config.http_port,
             "streamable_http_path": self.runtime_config.streamable_http_path,
         }
-        if _TransportSecuritySettings is not None:
-            fastmcp_kwargs["transport_security"] = _TransportSecuritySettings(
-                allowed_hosts=list(self.runtime_config.http_allowed_hosts),
-            )
+        transport_security = self._transport_security()
+        if transport_security is not None:
+            fastmcp_kwargs["transport_security"] = transport_security
 
-        return _FastMCP("financial-agent", **fastmcp_kwargs)
+        return _FastMCP(
+            "financial-agent",
+            **_supported_kwargs(
+                _FastMCP,
+                fastmcp_kwargs,
+                allow_var_keyword=True,
+            ),
+        )
+
+    def _transport_security(self):
+        if _TransportSecuritySettings is None:
+            return None
+        return _TransportSecuritySettings(
+            allowed_hosts=list(self.runtime_config.http_allowed_hosts),
+        )
 
     def _build_registry(self) -> dict[str, ToolMetadata]:
-        return {
+        registry = {
             "refresh_news": ToolMetadata(
                 name="refresh_news",
                 handler=self.refresh_news_tool,
@@ -468,6 +509,20 @@ class FinancialAgentMCPServer:
                 description="Return grounded supporting articles only.",
             ),
         }
+        if self.theme_interface is not None:
+            for name, handler in self.theme_interface.tool_handlers().items():
+                registry[name] = ToolMetadata(
+                    name=name,
+                    handler=handler,
+                    description="Theme Chokepoint lifecycle authority.",
+                    mutates_state=name
+                    in {
+                        "theme_chokepoint_start",
+                        "theme_chokepoint_confirm_anchors",
+                        "theme_chokepoint_continue",
+                    },
+                )
+        return registry
 
     def _register_tools(self) -> None:
         for metadata in self._tool_registry.values():
@@ -475,7 +530,11 @@ class FinancialAgentMCPServer:
                 self._mcp.tool(name=metadata.name)(metadata.handler)
 
     def _is_tool_exposed(self, tool_name: str) -> bool:
-        return tool_name in self.security_config.allowed_mcp_tools
+        return tool_name in self.security_config.allowed_mcp_tools or (
+            self.theme_interface is not None
+            and tool_name.startswith("theme_chokepoint_")
+            and tool_name in self._tool_registry
+        )
 
     def refresh_news(
         self,
@@ -1122,9 +1181,25 @@ def create_financial_agent_server(
     runtime_config: FinancialAgentRuntimeConfig | None = None,
     capabilities: FinancialAgentCapabilities | None = None,
     successor_generation_coordinator: SuccessorGenerationCoordinator | None = None,
+    theme_interface: Any | None = None,
 ) -> FinancialAgentMCPServer:
     return FinancialAgentMCPServer(
         runtime_config=runtime_config,
         capabilities=capabilities,
         successor_generation_coordinator=successor_generation_coordinator,
+        theme_interface=theme_interface,
     )
+
+
+def _supported_kwargs(callable_value, candidates, *, allow_var_keyword=False):
+    parameters = inspect.signature(callable_value).parameters
+    if allow_var_keyword and any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    ):
+        return dict(candidates)
+    return {
+        name: value
+        for name, value in candidates.items()
+        if name in parameters
+    }
