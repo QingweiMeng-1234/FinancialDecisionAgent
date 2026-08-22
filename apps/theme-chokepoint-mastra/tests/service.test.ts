@@ -232,6 +232,38 @@ describe("Theme Chokepoint Mastra M0", () => {
     });
   });
 
+  it("never continues after a mismatched confirmation receipt", async () => {
+    for (const mismatch of ["run", "status"] as const) {
+      const mcp = new FakeMcp();
+      mcp.confirmAnchors = async (runId, ids, actor) => ok({
+        schema_version: "theme-chokepoint-mcp.v1",
+        run_id: mismatch === "run" ? "different-python-run" : runId,
+        status: mismatch === "status"
+          ? "AWAITING_PRODUCT_CONFIRMATION"
+          : "READY_FOR_SUPPLY_CHAIN",
+        confirmed_anchor_ids: ids,
+        confirmed_by: actor,
+        confirmed_at: "2026-08-22T12:00:00+00:00",
+      });
+      const service = await createM0Service({
+        mcp,
+        storageUrl: await storageUrl(),
+      });
+      const started = await service.startM0(request);
+
+      await expect(service.resumeM0({
+        mastraRunId: started.mastraRunId,
+        actor: "analyst",
+        selectedAnchorIds: ["anchor-1"],
+      })).rejects.toMatchObject({
+        code: mismatch === "run"
+          ? "RUN_CORRELATION_MISMATCH"
+          : "PYTHON_STATUS_MISMATCH",
+      });
+      expect(mcp.continueCalls).toBe(0);
+    }
+  });
+
   it("rejects strict-input violations, non-finite values, unknown state, and unsafe URLs", async () => {
     await expect(createM0Service({
       mcp: new FakeMcp(),
@@ -261,6 +293,21 @@ describe("Theme Chokepoint Mastra M0", () => {
     await expect(service.startM0(request)).rejects.toSatisfy((error: unknown) => {
       const serialized = JSON.stringify(error);
       return serialized.includes("MCP_RESPONSE_SCHEMA_MISMATCH")
+        && !serialized.includes("secret")
+        && !serialized.includes("C:/private");
+    });
+
+    const throwingMcp = new FakeMcp();
+    throwingMcp.getRun = async () => {
+      throw new Error("token=secret provider-body C:/private");
+    };
+    const throwing = await createM0Service({
+      mcp: throwingMcp,
+      storageUrl: await storageUrl(),
+    });
+    await expect(throwing.startM0(request)).rejects.toSatisfy((error: unknown) => {
+      const serialized = JSON.stringify(error);
+      return serialized.includes("MCP_TOOL_FAILURE")
         && !serialized.includes("secret")
         && !serialized.includes("C:/private");
     });
