@@ -18,6 +18,7 @@ const optionsSchema = z
   .object({
     databasePath: z.string().min(1),
     mcpUrl: z.string().url(),
+    mcpTimeoutMs: z.number().int().min(1_000).max(1_800_000).default(5_000),
   })
   .strict();
 
@@ -29,7 +30,10 @@ export async function createM0Runtime(options: unknown) {
     url: `file:${parsed.databasePath}.mastra`,
   });
   await mastraStorage.init();
-  const python = new MastraMcpPythonClient({ url: parsed.mcpUrl });
+  const python = new MastraMcpPythonClient({
+    url: parsed.mcpUrl,
+    timeoutMs: parsed.mcpTimeoutMs,
+  });
   const workflow = createM0Workflow({
     continuePythonRun: (correlation) =>
       reconcileAndContinuePython(python, correlation),

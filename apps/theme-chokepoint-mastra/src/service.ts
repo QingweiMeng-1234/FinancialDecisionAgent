@@ -267,6 +267,46 @@ export class M0Service {
     }
   }
 
+  async getM0PendingAnchors(_input: unknown): Promise<unknown> {
+    const parsed = querySchema.safeParse(_input);
+    if (!parsed.success) {
+      return failure("INVALID_ARGUMENT");
+    }
+    try {
+      const correlation = await this.correlatedRun(parsed.data.mastraRunId);
+      if (isFailure(correlation)) return correlation;
+      const current = await this.readPythonRun(correlation);
+      if (isFailure(current)) return current;
+      if (current.status !== "AWAITING_PRODUCT_CONFIRMATION") {
+        return failure("RUN_NOT_AWAITING_CONFIRMATION");
+      }
+      const raw = await this.ports!.python.call(
+        "theme_chokepoint_get_pending_anchors",
+        { run_id: correlation.pythonRunId },
+      );
+      const pythonFailure = decodeFailureResponse(raw);
+      if (pythonFailure) return pythonFailure;
+      const pending = pendingEnvelopeSchema.safeParse(raw);
+      if (
+        !pending.success ||
+        pending.data.data.run_id !== correlation.pythonRunId
+      ) {
+        return failure("MCP_RESPONSE_SCHEMA_MISMATCH");
+      }
+      return {
+        ok: true,
+        data: {
+          mastraRunId: correlation.mastraRunId,
+          pythonRunId: correlation.pythonRunId,
+          status: pending.data.data.status,
+          anchors: pending.data.data.anchors,
+        },
+      };
+    } catch (error) {
+      return this.mapException(error);
+    }
+  }
+
   async getM0Artifacts(_input: unknown): Promise<unknown> {
     const parsed = querySchema.safeParse(_input);
     if (!parsed.success) {

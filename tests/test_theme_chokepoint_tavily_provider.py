@@ -215,6 +215,9 @@ def test_tavily_discovers_url_but_evidence_comes_from_refetched_original(monkeyp
     assert candidate.claim.condition_ids == (
         "effective_supply_concentration.source_fact",
     )
+    assert candidate.claim.scoring_eligible is False
+    assert candidate.claim.scoring_use == "context_only"
+    assert candidate.claim.primary_scoring_dimension is None
     post_url, headers, payload, timeout = session.posts[0]
     assert post_url == "https://api.tavily.com/search"
     assert headers["Authorization"] == "Bearer secret-test-key"
@@ -222,6 +225,30 @@ def test_tavily_discovers_url_but_evidence_comes_from_refetched_original(monkeyp
     assert payload["max_results"] == 3
     assert timeout > 0
     assert session.gets[0][0] == url
+
+
+def test_original_fetcher_verifies_publication_date_only_from_original_metadata():
+    """SELECT INVARIANT: original page metadata, not Tavily, can verify source date."""
+    url = "https://issuer.example.com/dated-release"
+    html = (
+        '<html><head><meta property="article:published_time" '
+        'content="2026-08-01T09:30:00Z"></head><body><main><p>'
+        + "Issuer original release text. " * 20
+        + "</p></main></body></html>"
+    ).encode()
+    session = FakeSession(
+        {},
+        {url: FakeResponse(content=html, url=url, content_type="text/html")},
+    )
+    hit = SearchHit(url, "Dated release", "", 1.0, date(2026, 8, 2))
+
+    document = OriginalTextFetcher(
+        session=session, minimum_text_chars=100
+    ).fetch(hit)
+
+    assert document is not None
+    assert document.publication_date == date(2026, 8, 1)
+    assert document.publication_date_verified is True
 
 
 def test_tavily_reprints_share_one_event_family_and_search_dates_remain_ambiguous():
@@ -337,6 +364,71 @@ def test_tavily_fallback_family_is_stable_across_extractor_paraphrases():
 
     assert len({item.origin_event_id for item in candidates}) == 1
     assert len({item.evidence_family_id for item in candidates}) == 1
+
+
+def test_repeated_quote_with_changed_claim_semantics_cannot_reuse_claim_id():
+    """SELECT INVARIANT: claim IDs bind model semantics while source family stays stable."""
+    hit = SearchHit(
+        "https://issuer.example.com/release", "Issuer", "", 1, date(2026, 8, 1)
+    )
+    document = OriginalDocument(
+        article_id="article-official",
+        canonical_url=hit.url,
+        title=hit.title,
+        publisher="issuer.example.com",
+        source_type="original_web",
+        publication_date=hit.publication_date,
+        text="Qualified supply grew only five percent year over year.",
+        content_hash="a" * 64,
+        publication_date_verified=True,
+    )
+
+    class SearchProvider:
+        def search(self, query):
+            return (hit,)
+
+    class Fetcher:
+        def fetch(self, _hit):
+            return document
+
+    class StatefulExtractor:
+        model_version = "test"
+        prompt_version = "test"
+
+        def __init__(self):
+            self.count = 0
+
+        def extract(self, *, document, node, material_field, query):
+            self.count += 1
+            return [
+                ExtractedEvidenceSpan(
+                    exact_quote=document.text,
+                    claim_type="source_fact",
+                    statement=f"Qualified supply interpretation {self.count}.",
+                    stance="supports",
+                    limitations="One issuer statement.",
+                    location="body",
+                    primary_scoring_dimension=material_field,
+                    scoring_use="primary",
+                    data_as_of_date=date(2026, 6, 30),
+                )
+            ]
+
+    acquirer = TavilyOriginalEvidenceAcquirer(
+        SearchProvider(), Fetcher(), StatefulExtractor()
+    )
+    kwargs = {
+        "query": "qualified supply",
+        "run": _run(),
+        "node": _node(),
+        "material_field": "effective_supply_concentration",
+    }
+    first = acquirer.acquire(**kwargs)[0]
+    second = acquirer.acquire(**kwargs)[0]
+
+    assert first.claim.claim_id != second.claim.claim_id
+    assert first.origin_event_id == second.origin_event_id
+    assert first.evidence_family_id == second.evidence_family_id
 
 
 def test_tavily_different_reprint_wording_uses_explicit_origin_event_key_for_one_family():
@@ -633,6 +725,42 @@ def test_openai_compatible_extractor_repairs_one_contract_violation():
     assert len(client.chat.completions.calls) == 2
     repair_messages = client.chat.completions.calls[1]["messages"]
     assert "floor_only or context_only" in repair_messages[-1]["content"]
+
+
+def test_openai_compatible_extractor_repairs_with_redacted_schema_path():
+    """SELECT INVARIANT: schema repair names loc/type but never rejected values."""
+    quote = "Qualified supply grew only five percent year over year."
+    valid = {
+        "spans": [
+            {
+                "exact_quote": quote,
+                "claim_type": "source_fact",
+                "statement": quote,
+                "stance": "supports",
+                "limitations": "No industry-wide denominator.",
+                "location": "Capacity section",
+                "primary_scoring_dimension": "effective_supply_concentration",
+                "scoring_use": "primary",
+                "data_as_of_date": "2026-06-30",
+                "origin_event_key": None,
+            }
+        ]
+    }
+    invalid = {"spans": [{key: value for key, value in valid["spans"][0].items() if key != "limitations"}]}
+    client = SequenceLLMClient([invalid, valid])
+    extractor = OpenAICompatibleEvidenceSpanExtractor(client=client, model="test-model")
+
+    spans = extractor.extract(
+        document=_document(),
+        node=_node(),
+        material_field="effective_supply_concentration",
+        query="qualified effective supply",
+    )
+
+    repair = client.chat.completions.calls[1]["messages"][-1]["content"]
+    assert len(spans) == 1
+    assert "spans.0.limitations:missing" in repair
+    assert quote not in repair
 
 
 def test_theme_provider_selector_pins_deepseek_without_copying_its_key(

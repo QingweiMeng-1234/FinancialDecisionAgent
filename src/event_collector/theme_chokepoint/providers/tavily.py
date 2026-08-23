@@ -175,10 +175,17 @@ class OriginalTextFetcher:
         if len(content) > self.max_content_bytes:
             return None
         content_type = response.headers.get("Content-Type", "").casefold()
+        publication_date = hit.publication_date
+        publication_date_verified = False
         if "application/pdf" in content_type or urlsplit(final_url).path.casefold().endswith(".pdf"):
             text = _extract_pdf_text(content)
             source_type = "original_pdf"
         else:
+            metadata = trafilatura.extract_metadata(response.text)
+            metadata_date = _parse_date(getattr(metadata, "date", None))
+            if metadata_date is not None:
+                publication_date = metadata_date
+                publication_date_verified = True
             text = trafilatura.extract(
                 response.text,
                 include_links=False,
@@ -200,9 +207,10 @@ class OriginalTextFetcher:
             title=hit.title,
             publisher=(urlsplit(canonical_url).hostname or "unknown").casefold(),
             source_type=source_type,
-            publication_date=hit.publication_date,
+            publication_date=publication_date,
             text=text,
             content_hash=content_hash,
+            publication_date_verified=publication_date_verified,
         )
 
 
@@ -236,13 +244,18 @@ class TavilyOriginalEvidenceAcquirer:
                     raise ValueError("evidence extractor quote is not present in original text")
                 if not span.statement.strip() or not span.limitations.strip() or not span.location.strip():
                     raise ValueError("extracted evidence requires statement, limitations and location")
-                claim_id = "claim_" + sha256(
-                    "\0".join(
-                        (node.node_id, material_field, document.article_id, str(ordinal), quote)
-                    ).encode("utf-8")
-                ).hexdigest()[:20]
                 if span.scoring_use in {"primary", "floor_only"} and not node.product_anchor_id:
                     raise ValueError("scoring evidence requires an atomic product scope")
+                scoring_use = (
+                    span.scoring_use
+                    if document.publication_date_verified
+                    else "context_only"
+                )
+                primary_scoring_dimension = (
+                    span.primary_scoring_dimension
+                    if document.publication_date_verified
+                    else None
+                )
                 scope = AssessmentScope(
                     company_id=None,
                     product_id=node.product_anchor_id or "",
@@ -265,7 +278,22 @@ class TavilyOriginalEvidenceAcquirer:
                         )
                     ).encode("utf-8")
                 ).hexdigest()[:20]
-                scoring_dimension = span.primary_scoring_dimension or material_field
+                claim_id = "claim_" + sha256(
+                    "\0".join(
+                        (
+                            node.node_id,
+                            material_field,
+                            document.article_id,
+                            str(ordinal),
+                            quote,
+                            fact_key,
+                            span.claim_type,
+                            primary_scoring_dimension or "",
+                            scoring_use,
+                        )
+                    ).encode("utf-8")
+                ).hexdigest()[:20]
+                scoring_dimension = primary_scoring_dimension or material_field
                 event_identity = (
                     "explicit:" + " ".join(span.origin_event_key.casefold().split())
                     if span.origin_event_key and span.origin_event_key.strip()
@@ -311,8 +339,8 @@ class TavilyOriginalEvidenceAcquirer:
                             claim_type=span.claim_type,
                             statement=span.statement.strip(),
                             material_field=material_field,
-                            primary_scoring_dimension=span.primary_scoring_dimension,
-                            scoring_use=span.scoring_use,
+                            primary_scoring_dimension=primary_scoring_dimension,
+                            scoring_use=scoring_use,
                             fact_key=fact_key,
                             assessment_scope=scope,
                             condition_ids=(f"{scoring_dimension}.source_fact",),

@@ -43,6 +43,32 @@ const pending = {
   },
 };
 
+it("exposes pending anchors through the correlated read-only facade", async () => {
+  const service = new M0Service({
+    store: { async getCorrelation() { return correlation; } },
+    workflow: { async getSnapshot() { return correlation; } },
+    python: {
+      async call(tool: string) {
+        if (tool === "theme_chokepoint_get_run") return awaiting;
+        if (tool === "theme_chokepoint_get_pending_anchors") return pending;
+        throw new Error("unexpected tool");
+      },
+    },
+  });
+
+  await expect(
+    service.getM0PendingAnchors({ mastraRunId: "mastra-1" }),
+  ).resolves.toEqual({
+    ok: true,
+    data: {
+      mastraRunId: "mastra-1",
+      pythonRunId: "python-1",
+      status: "AWAITING_PRODUCT_CONFIRMATION",
+      anchors: pending.data.anchors,
+    },
+  });
+});
+
 it("rejects every direct-confirm run/actor/ID substitution with zero continue", async () => {
   const variants = [
     { run_id: "python-other", confirmed_by: "owner", confirmed_anchor_ids: ["anchor-1"] },

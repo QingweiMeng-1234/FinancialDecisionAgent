@@ -36,6 +36,7 @@ it("composes Mastra, LibSQL, the fixed workflow, service, and production MCP cli
   const runtime = (await createM0Runtime({
     databasePath: join(directory, "state.sqlite"),
     mcpUrl: "http://127.0.0.1:1/mcp",
+    mcpTimeoutMs: 120_000,
   })) as {
     mastra: { getWorkflow(name: string): { id: string } };
     service: unknown;

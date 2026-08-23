@@ -7,7 +7,7 @@ import json
 import os
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from event_collector.theme_chokepoint.contracts import ExtractedEvidenceSpan
 
@@ -96,6 +96,7 @@ class OpenAICompatibleEvidenceSpanExtractor:
         last_error: RuntimeError | ValueError = RuntimeError(
             "evidence extractor returned invalid structured output"
         )
+        repair_violation = None
         for attempt in range(2):
             completion = self.client.chat.completions.create(
                 model=self.model,
@@ -110,7 +111,16 @@ class OpenAICompatibleEvidenceSpanExtractor:
             else:
                 try:
                     response = _EvidenceSpanResponse.model_validate(json.loads(raw_content))
+                except ValidationError as error:
+                    repair_violation = ",".join(
+                        f"{'.'.join(str(part) for part in item['loc'])}:{item['type']}"
+                        for item in error.errors()
+                    )
+                    last_error = RuntimeError(
+                        "evidence extractor returned invalid structured output"
+                    )
                 except (json.JSONDecodeError, ValueError):
+                    repair_violation = None
                     last_error = RuntimeError(
                         "evidence extractor returned invalid structured output"
                     )
@@ -123,11 +133,17 @@ class OpenAICompatibleEvidenceSpanExtractor:
                             drop_invalid=attempt > 0,
                         )
                     except ValueError as error:
+                        repair_violation = None
                         last_error = error
             if attempt == 0:
                 messages = [
                     *messages,
-                    {"role": "user", "content": _repair_instruction(last_error)},
+                    {
+                        "role": "user",
+                        "content": _repair_instruction(
+                            last_error, violation=repair_violation
+                        ),
+                    },
                 ]
         raise last_error from None
 
@@ -280,7 +296,7 @@ def _validate_span(item, content, material_field):
         raise ValueError("non-primary reuse cannot claim primary scoring ownership")
 
 
-def _repair_instruction(error):
+def _repair_instruction(error, *, violation=None):
     message = str(error)
     if message == "non-primary reuse cannot claim primary scoring ownership":
         rule = (
@@ -296,8 +312,9 @@ def _repair_instruction(error):
         rule = "Every exact_quote must be one contiguous verbatim substring from ORIGINAL_TEXT."
     else:
         rule = "Every span must contain every field from the required JSON schema."
+    schema_detail = f" Schema violation paths: {violation}." if violation else ""
     return (
         "Your previous response violated the evidence contract. "
-        f"{rule} Drop any span you cannot correct. Return a complete corrected JSON object "
+        f"{rule}{schema_detail} Drop any span you cannot correct. Return a complete corrected JSON object "
         "only; do not explain the correction."
     )

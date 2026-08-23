@@ -1,0 +1,6 @@
+# Frozen Theme Chokepoint governance artifacts are byte-addressed contracts.
+tools/theme-chokepoint/runtime-governance-bundle-v1.json -text
+tools/theme-chokepoint/semantic-task-contract-v1.4.json -text
+tools/theme-chokepoint/business-fact-decision-table-v1.4.json -text
+tools/theme-chokepoint/source-identity-schema-v1.json -text
+tools/theme-chokepoint/source-identity-policy-v1.json -text
