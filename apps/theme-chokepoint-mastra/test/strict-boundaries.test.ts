@@ -113,3 +113,64 @@ it("validates artifact success strictly after a correlated authoritative status 
     "theme_chokepoint_get_artifacts",
   ]);
 });
+
+it("rejects schema-valid manifest semantic contradictions with zero replay", async () => {
+  const stage = (number: number) => ({
+    stage: number,
+    input_status: number === 1 ? null : "READY_FOR_SUPPLY_CHAIN",
+    output_status:
+      number === 1
+        ? "AWAITING_PRODUCT_CONFIRMATION"
+        : "SIGNAL_EXPORT_READY",
+    outcome: "completed",
+    artifact_ids: [],
+    completed_at: "2026-08-23T11:00:00+00:00",
+  });
+  const baseManifest = {
+    run_id: "python-1",
+    contract_id: "theme-chokepoint-scoring-v1.4",
+    executable_contract_id: "contract-v1",
+    executable_contract_sha256: "a".repeat(64),
+    stages: [stage(1)],
+    final_status: "SIGNAL_EXPORT_READY",
+    created_at: "2026-08-23T10:00:00+00:00",
+    updated_at: "2026-08-23T11:01:00+00:00",
+  };
+  const contradictions = [
+    { ...baseManifest, stages: [] },
+    { ...baseManifest, stages: [stage(1), stage(1)] },
+    { ...baseManifest, stages: [stage(2), stage(1)] },
+    { ...baseManifest, final_status: "MONITORING_READY" },
+  ];
+
+  for (const manifest of contradictions) {
+    const calls: string[] = [];
+    const service = new M0Service(
+      ports(async (tool) => {
+        calls.push(tool);
+        if (tool === "theme_chokepoint_get_run") {
+          return {
+            ok: true,
+            data: runData({ status: "SIGNAL_EXPORT_READY", next_stage: null }),
+          };
+        }
+        return { ok: true, data: manifest };
+      }),
+    );
+
+    await expect(
+      service.getM0Artifacts({ mastraRunId: "mastra-1" }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "MCP_RESPONSE_SCHEMA_MISMATCH",
+        message: "MCP response schema mismatch",
+        retryable: false,
+      },
+    });
+    expect(calls).toEqual([
+      "theme_chokepoint_get_run",
+      "theme_chokepoint_get_artifacts",
+    ]);
+  }
+});

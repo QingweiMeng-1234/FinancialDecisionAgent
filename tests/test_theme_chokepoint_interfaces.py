@@ -78,6 +78,60 @@ def test_get_run_projects_complete_durable_receipt_before_and_after_confirmation
     assert later["confirmed_at"] == receipt.confirmed_at.isoformat()
 
 
+def test_confirm_and_reopen_preserve_one_exact_receipt_order_for_reordered_selection(tmp_path):
+    """SELECT INVARIANT: direct and reconstructed receipts have identical durable order."""
+    database = tmp_path / "theme.db"
+    repository = ThemeChokepointRepository(database)
+    service = AssistedThemeFramingService(
+        repository,
+        RecordingFramer(repository, clear_frame()),
+        RecordingProposer(
+            [
+                anchor("large power transformers", 0.91),
+                anchor("UPS and switchgear", 0.84),
+            ]
+        ),
+    )
+    awaiting = service.start(request(run_id="ordered-receipt-run"))
+    proposal_order = [item.anchor_id for item in awaiting.product_anchors]
+    selected_order = list(reversed(proposal_order))
+    confirm = ThemeChokepointInterface(
+        repository,
+        product_service=None,
+        stage1=service,
+    ).tool_handlers()["theme_chokepoint_confirm_anchors"]
+
+    direct = confirm(
+        run_id=awaiting.run_id,
+        anchor_ids=selected_order,
+        confirmed_by="owner",
+    )
+    reconstructed = ThemeChokepointInterface(
+        ThemeChokepointRepository(database),
+        product_service=None,
+    ).tool_handlers()["theme_chokepoint_get_run"](run_id=awaiting.run_id)
+
+    assert direct["data"]["confirmed_anchor_ids"] == proposal_order
+    assert reconstructed["data"]["confirmed_anchor_ids"] == proposal_order
+    assert {
+        key: direct["data"][key]
+        for key in (
+            "run_id",
+            "confirmed_anchor_ids",
+            "confirmed_by",
+            "confirmed_at",
+        )
+    } == {
+        key: reconstructed["data"][key]
+        for key in (
+            "run_id",
+            "confirmed_anchor_ids",
+            "confirmed_by",
+            "confirmed_at",
+        )
+    }
+
+
 class _SnapshotRepository:
     def __init__(self, snapshot=None, error=None):
         self.snapshot = snapshot
@@ -165,8 +219,9 @@ def test_get_run_tool_fails_closed_for_every_contradictory_status_receipt_matrix
 
 
 class _LifecycleStage1:
-    def __init__(self, snapshot):
+    def __init__(self, snapshot, repository=None):
         self.snapshot = snapshot
+        self.repository = repository
         self.start_calls = []
         self.confirm_calls = []
 
@@ -176,12 +231,20 @@ class _LifecycleStage1:
 
     def confirm_product_anchors(self, run_id, *, anchor_ids, confirmed_by):
         self.confirm_calls.append((run_id, anchor_ids, confirmed_by))
+        confirmed_at = datetime(2026, 8, 23, 11, 0, tzinfo=timezone.utc)
+        if self.repository is not None:
+            self.repository.snapshot = _snapshot(
+                RunStatus.READY_FOR_SUPPLY_CHAIN,
+                ids=anchor_ids,
+                actor=confirmed_by,
+                confirmed_at=confirmed_at,
+            )
         return SimpleNamespace(
             run_id=run_id,
             status=RunStatus.READY_FOR_SUPPLY_CHAIN,
             confirmed_anchor_ids=anchor_ids,
             confirmed_by=confirmed_by,
-            confirmed_at=datetime(2026, 8, 23, 11, 0, tzinfo=timezone.utc),
+            confirmed_at=confirmed_at,
         )
 
 
@@ -202,10 +265,14 @@ class _LifecycleOrchestrator:
 def test_lifecycle_handlers_validate_and_delegate_only_to_python_authorities():
     """SELECT INVARIANT: lifecycle tools route only through Stage 1 and root authority."""
     snapshot = _snapshot(RunStatus.AWAITING_PRODUCT_CONFIRMATION)
-    stage1 = _LifecycleStage1(snapshot)
+    snapshot.product_anchors = (
+        SimpleNamespace(anchor_id="anchor-1", status="proposed"),
+    )
+    repository = _SnapshotRepository(snapshot)
+    stage1 = _LifecycleStage1(snapshot, repository)
     orchestrator = _LifecycleOrchestrator()
     interface = ThemeChokepointInterface(
-        _SnapshotRepository(snapshot), product_service=None
+        repository, product_service=None
     )
     interface.stage1 = stage1
     interface.orchestrator = orchestrator
@@ -243,6 +310,68 @@ def test_lifecycle_handlers_validate_and_delegate_only_to_python_authorities():
     assert artifacts["ok"] is True
     assert orchestrator.continue_calls == ["matrix-run"]
     assert orchestrator.manifest_calls == ["matrix-run"]
+
+
+def test_lifecycle_handlers_return_the_complete_stable_domain_error_matrix(tmp_path):
+    """SELECT INVARIANT: known lifecycle failures retain stable endpoint codes."""
+    database = tmp_path / "theme.db"
+    repository = ThemeChokepointRepository(database)
+    service = AssistedThemeFramingService(
+        repository,
+        RecordingFramer(repository, clear_frame()),
+        RecordingProposer([anchor("UPS", 0.9)]),
+    )
+    awaiting = service.start(request(run_id="error-matrix-run"))
+    selected = awaiting.product_anchors[0].anchor_id
+    handlers = ThemeChokepointInterface(
+        repository,
+        product_service=None,
+        stage1=service,
+        orchestrator=_LifecycleOrchestrator(),
+    ).tool_handlers()
+
+    results = [
+        handlers["theme_chokepoint_confirm_anchors"](
+            run_id=awaiting.run_id,
+            anchor_ids=[selected, selected],
+            confirmed_by="owner",
+        ),
+        handlers["theme_chokepoint_confirm_anchors"](
+            run_id=awaiting.run_id,
+            anchor_ids=["anchor-not-proposed"],
+            confirmed_by="owner",
+        ),
+        handlers["theme_chokepoint_continue"](run_id=awaiting.run_id),
+    ]
+    handlers["theme_chokepoint_confirm_anchors"](
+        run_id=awaiting.run_id,
+        anchor_ids=[selected],
+        confirmed_by="owner",
+    )
+    results.extend(
+        [
+            handlers["theme_chokepoint_get_pending_anchors"](
+                run_id=awaiting.run_id
+            ),
+            handlers["theme_chokepoint_confirm_anchors"](
+                run_id=awaiting.run_id,
+                anchor_ids=[selected],
+                confirmed_by="owner",
+            ),
+        ]
+    )
+
+    assert [
+        result.get("error", {}).get("code", "UNEXPECTED_SUCCESS")
+        for result in results
+    ] == [
+        "DUPLICATE_ANCHOR_ID",
+        "ANCHOR_NOT_PROPOSED_FOR_RUN",
+        "RUN_NOT_AWAITING_CONFIRMATION",
+        "RUN_NOT_AWAITING_CONFIRMATION",
+        "RUN_NOT_AWAITING_CONFIRMATION",
+    ]
+    assert all(result["error"]["retryable"] is False for result in results)
 
 
 def test_malformed_existing_manifest_is_schema_failure_not_run_not_found():

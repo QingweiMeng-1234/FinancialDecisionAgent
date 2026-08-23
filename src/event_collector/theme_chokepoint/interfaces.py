@@ -15,6 +15,7 @@ from event_collector.theme_chokepoint.contracts import (
 from event_collector.theme_chokepoint.orchestrator import (
     ContinueInProgressError,
     ManifestCorruptionError,
+    ManifestNotFoundError,
 )
 
 
@@ -42,6 +43,19 @@ class _ResponseSchemaError(ValueError):
 
 class _RuntimeNotConfigured(RuntimeError):
     pass
+
+
+class _LifecycleError(ValueError):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+_LIFECYCLE_ERROR_MESSAGES = {
+    "RUN_NOT_AWAITING_CONFIRMATION": "Run is not awaiting confirmation",
+    "ANCHOR_NOT_PROPOSED_FOR_RUN": "Anchor is not proposed for this run",
+    "DUPLICATE_ANCHOR_ID": "Anchor IDs must be unique",
+}
 
 
 class ThemeChokepointInterface:
@@ -100,11 +114,54 @@ class ThemeChokepointInterface:
         )
         return _jsonable(asdict(correction))
 
-    def start_run(self, **payload) -> dict:
+    def start_run(
+        self,
+        run_id: str,
+        theme: str,
+        trigger: str,
+        region: str,
+        as_of_date: str,
+        time_horizon_months: int,
+        analysis_goal: str,
+        seed_products: list[str],
+        seed_companies: list[str],
+        research_mode: str,
+        max_depth: int,
+        max_nodes: int,
+        max_iterations: int,
+        max_sources: int,
+        max_time_seconds: int,
+        max_cost_usd: float,
+        max_product_anchors: int,
+    ) -> dict:
         if self.stage1 is None:
             raise _RuntimeNotConfigured
+        payload = {
+            "run_id": run_id,
+            "theme": theme,
+            "trigger": trigger,
+            "region": region,
+            "as_of_date": as_of_date,
+            "time_horizon_months": time_horizon_months,
+            "analysis_goal": analysis_goal,
+            "seed_products": seed_products,
+            "seed_companies": seed_companies,
+            "research_mode": research_mode,
+            "max_depth": max_depth,
+            "max_nodes": max_nodes,
+            "max_iterations": max_iterations,
+            "max_sources": max_sources,
+            "max_time_seconds": max_time_seconds,
+            "max_cost_usd": max_cost_usd,
+            "max_product_anchors": max_product_anchors,
+        }
         request = _materialize_research_request(payload)
-        result = self.stage1.start(request)
+        orchestrator_start = getattr(self.orchestrator, "start", None)
+        result = (
+            orchestrator_start(request)
+            if callable(orchestrator_start)
+            else self.stage1.start(request)
+        )
         if result.run_id != request.run_id:
             raise _ResponseSchemaError("start response run mismatch")
         return self.get_run(request.run_id)
@@ -114,6 +171,8 @@ class ThemeChokepointInterface:
         run = self.repository.get_run(run_id)
         if run.run_id != run_id:
             raise _ResponseSchemaError("pending-anchor run mismatch")
+        if run.status is not RunStatus.AWAITING_PRODUCT_CONFIRMATION:
+            raise _LifecycleError("RUN_NOT_AWAITING_CONFIRMATION")
         return {
             "schema_version": "theme-chokepoint-mcp.v1",
             "run_id": run_id,
@@ -121,7 +180,9 @@ class ThemeChokepointInterface:
             "anchors": [_jsonable(asdict(anchor)) for anchor in run.product_anchors],
         }
 
-    def confirm_anchors(self, run_id: str, anchor_ids, confirmed_by: str) -> dict:
+    def confirm_anchors(
+        self, run_id: str, anchor_ids: list[str], confirmed_by: str
+    ) -> dict:
         if self.stage1 is None:
             raise _RuntimeNotConfigured
         normalized_run_id = _validate_run_id(run_id)
@@ -132,7 +193,19 @@ class ThemeChokepointInterface:
         if not normalized_ids:
             raise ValueError("at least one anchor is required")
         if len(normalized_ids) != len(set(normalized_ids)):
-            raise ValueError("duplicate anchor ID")
+            raise _LifecycleError("DUPLICATE_ANCHOR_ID")
+        before = self.repository.get_run(normalized_run_id)
+        if before.run_id != normalized_run_id:
+            raise _ResponseSchemaError("confirmation request run mismatch")
+        if before.status is not RunStatus.AWAITING_PRODUCT_CONFIRMATION:
+            raise _LifecycleError("RUN_NOT_AWAITING_CONFIRMATION")
+        proposed = {
+            anchor.anchor_id
+            for anchor in before.product_anchors
+            if anchor.status == "proposed"
+        }
+        if not set(normalized_ids) <= proposed:
+            raise _LifecycleError("ANCHOR_NOT_PROPOSED_FOR_RUN")
         receipt = self.stage1.confirm_product_anchors(
             normalized_run_id,
             anchor_ids=normalized_ids,
@@ -146,25 +219,44 @@ class ThemeChokepointInterface:
             or set(receipt_ids) != set(normalized_ids)
         ):
             raise _ResponseSchemaError("confirmation response correlation mismatch")
+        durable = self.get_run(normalized_run_id)
+        durable_ids = durable["confirmed_anchor_ids"]
+        if (
+            durable["status"] != RunStatus.READY_FOR_SUPPLY_CHAIN.value
+            or durable["confirmed_by"] != normalized_actor
+            or set(durable_ids) != set(normalized_ids)
+            or durable["confirmed_at"] != receipt.confirmed_at.isoformat()
+        ):
+            raise _ResponseSchemaError("durable confirmation receipt mismatch")
         return {
             "schema_version": "theme-chokepoint-mcp.v1",
-            "run_id": receipt.run_id,
-            "status": receipt.status.value,
-            "confirmed_anchor_ids": list(receipt_ids),
-            "confirmed_by": receipt.confirmed_by,
-            "confirmed_at": receipt.confirmed_at.isoformat(),
+            "run_id": durable["run_id"],
+            "status": durable["status"],
+            "confirmed_anchor_ids": list(durable_ids),
+            "confirmed_by": durable["confirmed_by"],
+            "confirmed_at": durable["confirmed_at"],
         }
 
     def continue_run(self, run_id: str) -> dict:
         if self.orchestrator is None:
             raise _RuntimeNotConfigured
-        result = self.orchestrator.continue_run(_validate_run_id(run_id))
+        normalized_run_id = _validate_run_id(run_id)
+        run = self.repository.get_run(normalized_run_id)
+        if run.run_id != normalized_run_id:
+            raise _ResponseSchemaError("continue request run mismatch")
+        if run.status in _UNCONFIRMED_STATUSES:
+            raise _LifecycleError("RUN_NOT_AWAITING_CONFIRMATION")
+        result = self.orchestrator.continue_run(normalized_run_id)
         return _jsonable(asdict(result) if is_dataclass(result) else vars(result))
 
     def get_artifacts(self, run_id: str) -> dict:
         if self.orchestrator is None:
             raise _RuntimeNotConfigured
-        result = self.orchestrator.get_manifest(_validate_run_id(run_id))
+        normalized_run_id = _validate_run_id(run_id)
+        run = self.repository.get_run(normalized_run_id)
+        if run.run_id != normalized_run_id:
+            raise _ResponseSchemaError("artifact request run mismatch")
+        result = self.orchestrator.get_manifest(normalized_run_id)
         return _jsonable(asdict(result) if is_dataclass(result) else vars(result))
 
     def tool_handlers(self) -> dict:
@@ -175,22 +267,21 @@ class ThemeChokepointInterface:
             "theme_chokepoint_compare_runs": self._safe_tool(self.compare_runs),
             "theme_chokepoint_record_feedback": self._safe_tool(self.record_feedback),
         }
-        if self.stage1 is not None or self.orchestrator is not None:
-            handlers.update(
-                {
-                    "theme_chokepoint_start": self._safe_tool(self.start_run),
-                    "theme_chokepoint_get_pending_anchors": self._safe_tool(
-                        self.get_pending_anchors
-                    ),
-                    "theme_chokepoint_confirm_anchors": self._safe_tool(
-                        self.confirm_anchors
-                    ),
-                    "theme_chokepoint_continue": self._safe_tool(self.continue_run),
-                    "theme_chokepoint_get_artifacts": self._safe_tool(
-                        self.get_artifacts
-                    ),
-                }
-            )
+        handlers.update(
+            {
+                "theme_chokepoint_start": self._safe_tool(self.start_run),
+                "theme_chokepoint_get_pending_anchors": self._safe_tool(
+                    self.get_pending_anchors
+                ),
+                "theme_chokepoint_confirm_anchors": self._safe_tool(
+                    self.confirm_anchors
+                ),
+                "theme_chokepoint_continue": self._safe_tool(self.continue_run),
+                "theme_chokepoint_get_artifacts": self._safe_tool(
+                    self.get_artifacts
+                ),
+            }
+        )
         return handlers
 
     @staticmethod
@@ -209,11 +300,18 @@ class ThemeChokepointInterface:
                     "MCP_RESPONSE_SCHEMA_MISMATCH",
                     "MCP response schema mismatch",
                 )
+            except ManifestNotFoundError:
+                return _error(
+                    "MCP_RESPONSE_SCHEMA_MISMATCH",
+                    "MCP response schema mismatch",
+                )
             except ContinueInProgressError:
                 return _error(
                     "CONCURRENT_OR_DUPLICATE_RESUME",
                     "Continue operation is already in progress",
                 )
+            except _LifecycleError as error:
+                return _error(error.code, _LIFECYCLE_ERROR_MESSAGES[error.code])
             except KeyError:
                 return _error("RUN_NOT_FOUND", "Run was not found")
             except _RuntimeNotConfigured:

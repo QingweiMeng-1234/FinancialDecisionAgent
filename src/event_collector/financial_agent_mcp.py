@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import importlib
 import json
 import inspect
 import os
@@ -55,6 +56,7 @@ from event_collector.watchlist_workflow import (
     run_refresh_then_watchlist_workflow,
     run_watchlist_triage_workflow,
 )
+from event_collector.theme_chokepoint.interfaces import ThemeChokepointInterface
 
 try:  # pragma: no cover - version-specific import
     from mcp.server.fastmcp import FastMCP as _FastMCP
@@ -203,6 +205,13 @@ class FinancialAgentRuntimeConfig:
     watchlist_retrieval_max_concurrency: int = 5
     refresh_retry_scheduler_enabled: bool = True
     refresh_retry_poll_interval_seconds: float = 30.0
+    theme_db_path: str = os.getenv(
+        "FINANCIAL_AGENT_THEME_DB_PATH",
+        os.path.join("data", "runtime", "theme_chokepoint.sqlite3"),
+    )
+    theme_runtime_factory: str | None = os.getenv(
+        "FINANCIAL_AGENT_THEME_RUNTIME_FACTORY"
+    )
 
 
 @dataclass(frozen=True)
@@ -299,7 +308,9 @@ class FinancialAgentMCPServer:
         self.model_policy = model_policy or ModelManagementPolicy()
         self.security_config = security_config or OpenClawSecurityConfig.default_for_mvp()
         self.route_policy = route_policy or OpenClawRoutePolicy.default_for_mvp()
-        self.theme_interface = theme_interface
+        self.theme_interface = theme_interface or _build_theme_interface(
+            self.runtime_config
+        )
         self.successor_generation_coordinator = (
             successor_generation_coordinator
             if successor_generation_coordinator is not None
@@ -1188,6 +1199,53 @@ def create_financial_agent_server(
         capabilities=capabilities,
         successor_generation_coordinator=successor_generation_coordinator,
         theme_interface=theme_interface,
+    )
+
+
+class _LazyThemeRepository:
+    """Delay creation of the Theme SQLite file until a lifecycle tool is used."""
+
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self._repository = None
+
+    def _get_repository(self):
+        if self._repository is None:
+            from event_collector.theme_chokepoint.repository import (
+                ThemeChokepointRepository,
+            )
+
+            self._repository = ThemeChokepointRepository(self.db_path)
+        return self._repository
+
+    def __getattr__(self, name):
+        return getattr(self._get_repository(), name)
+
+
+def _build_theme_interface(
+    runtime_config: FinancialAgentRuntimeConfig,
+) -> ThemeChokepointInterface:
+    """Compose the shipping Theme lifecycle boundary, optionally with full providers."""
+    if runtime_config.theme_runtime_factory:
+        module_name, separator, attribute = runtime_config.theme_runtime_factory.partition(
+            ":"
+        )
+        if not separator or not module_name or not attribute:
+            raise ValueError("theme runtime factory must use module:callable syntax")
+        factory = getattr(importlib.import_module(module_name), attribute)
+        runtime = factory(runtime_config)
+        required = ("repository", "stage1", "orchestrator", "stage5")
+        if any(getattr(runtime, name, None) is None for name in required):
+            raise ValueError("theme runtime factory returned an incomplete runtime")
+        return ThemeChokepointInterface(
+            runtime.repository,
+            product_service=runtime.stage5,
+            stage1=runtime.stage1,
+            orchestrator=runtime.orchestrator,
+        )
+    return ThemeChokepointInterface(
+        _LazyThemeRepository(runtime_config.theme_db_path),
+        product_service=None,
     )
 
 

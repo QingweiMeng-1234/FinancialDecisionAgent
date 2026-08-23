@@ -46,23 +46,53 @@ const stageSchema = z
   })
   .strict();
 
+export const manifestDataSchema = z
+  .object({
+    run_id: z.string().min(1),
+    contract_id: z.string().min(1),
+    executable_contract_id: z.string().min(1),
+    executable_contract_sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    stages: z.array(stageSchema),
+    final_status: z.string().min(1),
+    created_at: z.string().min(1),
+    updated_at: z.string().min(1),
+  })
+  .strict();
+
 export const manifestEnvelopeSchema = z
   .object({
     ok: z.literal(true),
-    data: z
-      .object({
-        run_id: z.string().min(1),
-        contract_id: z.string().min(1),
-        executable_contract_id: z.string().min(1),
-        executable_contract_sha256: z.string().regex(/^[a-f0-9]{64}$/),
-        stages: z.array(stageSchema),
-        final_status: z.string().min(1),
-        created_at: z.string().min(1),
-        updated_at: z.string().min(1),
-      })
-      .strict(),
+    data: manifestDataSchema,
   })
   .strict();
+
+export type ManifestData = z.infer<typeof manifestDataSchema>;
+
+export function manifestIsSemanticallyValid(
+  manifest: ManifestData,
+  expectedRunId: string,
+  expectedStatus?: PythonStatus,
+): boolean {
+  const stages = manifest.stages;
+  if (
+    manifest.run_id !== expectedRunId ||
+    stages.length === 0 ||
+    !KNOWN_PYTHON_STATUSES.includes(
+      manifest.final_status as PythonStatus,
+    ) ||
+    (expectedStatus !== undefined && manifest.final_status !== expectedStatus)
+  ) {
+    return false;
+  }
+  const stageNumbers = stages.map((stage) => stage.stage);
+  if (
+    stageNumbers.some((stage, index) => stage !== index + 1) ||
+    stages.at(-1)?.output_status !== manifest.final_status
+  ) {
+    return false;
+  }
+  return true;
+}
 
 const anchorSchema = z
   .object({
@@ -222,6 +252,8 @@ export function decodeFailureResponse(value: unknown): Failure | null {
   if (!knownFailureCodes.has(code)) return failure("MCP_TOOL_FAILURE");
   return failure(
     code,
-    code === "MCP_TOOL_FAILURE" && parsed.data.error.retryable,
+    new Set<StableErrorCode>(["MCP_TOOL_FAILURE", "STORAGE_FAILURE"]).has(
+      code,
+    ) && parsed.data.error.retryable,
   );
 }

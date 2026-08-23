@@ -82,4 +82,92 @@ describe("public facade failure envelopes", () => {
       expect(JSON.stringify(result)).not.toMatch(/secret|sqlite|token|raw/i);
     },
   );
+
+  it("classifies direct-confirm receipt persistence as retryable STORAGE_FAILURE", async () => {
+    const correlation = {
+      mastraRunId: "mastra-1",
+      pythonRunId: "python-1",
+      workflowId: "theme-chokepoint-m0",
+    };
+    const storageError = Object.assign(
+      new Error("C:/secret/state.sqlite token=raw"),
+      { code: "SQLITE_BUSY" },
+    );
+    const service = new M0Service({
+      store: {
+        async getCorrelation() { return correlation; },
+        async putConfirmation() { throw storageError; },
+      },
+      workflow: { async getSnapshot() { return correlation; } },
+      python: {
+        async call(tool: string) {
+          if (tool === "theme_chokepoint_get_run") {
+            return {
+              ok: true,
+              data: {
+                schema_version: "theme-chokepoint-mcp.v1",
+                run_id: "python-1",
+                status: "AWAITING_PRODUCT_CONFIRMATION",
+                next_stage: null,
+                confirmed_anchor_ids: [],
+                confirmed_by: null,
+                confirmed_at: null,
+              },
+            };
+          }
+          if (tool === "theme_chokepoint_get_pending_anchors") {
+            return {
+              ok: true,
+              data: {
+                schema_version: "theme-chokepoint-mcp.v1",
+                run_id: "python-1",
+                status: "AWAITING_PRODUCT_CONFIRMATION",
+                anchors: [{
+                  anchor_id: "anchor-1",
+                  product_name: "UPS",
+                  buyer_or_user: "operator",
+                  demand_variable: "MW",
+                  theme_link: "power",
+                  confidence: 0.9,
+                  supporting_evidence_ids: [],
+                  missing_evidence: [],
+                  status: "proposed",
+                }],
+              },
+            };
+          }
+          if (tool === "theme_chokepoint_confirm_anchors") {
+            return {
+              ok: true,
+              data: {
+                schema_version: "theme-chokepoint-mcp.v1",
+                run_id: "python-1",
+                status: "READY_FOR_SUPPLY_CHAIN",
+                confirmed_anchor_ids: ["anchor-1"],
+                confirmed_by: "owner",
+                confirmed_at: "2026-08-23T11:00:00+00:00",
+              },
+            };
+          }
+          throw new Error("continue must not be reached");
+        },
+      },
+    });
+
+    const result = await service.resumeM0({
+      mastraRunId: "mastra-1",
+      actor: "owner",
+      selectedAnchorIds: ["anchor-1"],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "STORAGE_FAILURE",
+        message: "Persistent storage operation failed",
+        retryable: true,
+      },
+    });
+    expect(JSON.stringify(result)).not.toMatch(/secret|sqlite|token|raw/i);
+  });
 });

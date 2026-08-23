@@ -214,7 +214,15 @@ class RootStageOrchestrator:
             raise ValueError(f"unsupported orchestrator run status: {status.value}")
 
     def get_manifest(self, run_id: str) -> Stage1To7RunManifest:
-        return self._load_manifest(run_id)
+        manifest = self._load_manifest(run_id)
+        run = self.repository.get_run(run_id)
+        if getattr(run, "run_id", run_id) != run_id or (
+            manifest.final_status is not run.status
+        ):
+            raise ManifestCorruptionError(
+                "run status contradicts the durable manifest"
+            )
+        return manifest
 
     @staticmethod
     def _reconcile_durable_receipts(run_id, status, receipts):
@@ -377,6 +385,24 @@ class RootStageOrchestrator:
                 )
             ):
                 raise ManifestCorruptionError
+            stage_numbers = [item.stage for item in manifest.stages]
+            if not stage_numbers or stage_numbers != list(
+                range(1, len(stage_numbers) + 1)
+            ):
+                raise ManifestCorruptionError(
+                    "manifest stages must be unique, ordered, and contiguous"
+                )
+            if manifest.stages[-1].output_status is not manifest.final_status:
+                raise ManifestCorruptionError(
+                    "manifest final status lacks a matching final receipt"
+                )
+            required = (1,) + _REQUIRED_STAGE_RECEIPTS_BY_STATUS.get(
+                manifest.final_status, ()
+            )
+            if any(stage not in stage_numbers for stage in required):
+                raise ManifestCorruptionError(
+                    "manifest is missing a required durable stage receipt"
+                )
             return manifest
         except ManifestCorruptionError:
             raise

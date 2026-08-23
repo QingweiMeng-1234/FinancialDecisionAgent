@@ -18,6 +18,7 @@ from event_collector.theme_chokepoint.contracts import (
 )
 from event_collector.theme_chokepoint.repository import ThemeChokepointRepository
 from event_collector.theme_chokepoint.orchestrator import (
+    ManifestCorruptionError,
     MonitoringStageOutcome,
     NoEventsMonitoringStage,
     RootStageOrchestrator,
@@ -48,7 +49,7 @@ CONTROLLED_OVERLAY_SHA256 = (
     "c7490b28fa12801c0a9e1aa6b054a676f2bb62265f5caac683d79e07d0491f03"
 )
 CONTROLLED_GOVERNANCE_BUNDLE_SHA256 = (
-    "de5e95275285132e9d147b3d586056fbf3b75de2617b5423d28a6bc320c59e63"
+    "7b3e523495a7970c3a3a71791eb6dacdd5ecf073c3d9972c22a3c5b28088c0b2"
 )
 
 
@@ -402,6 +403,53 @@ def test_root_orchestrator_fails_closed_when_stage_status_commits_before_receipt
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["final_status"] == "AWAITING_PRODUCT_CONFIRMATION"
     assert [item["stage"] for item in payload["stages"]] == [1]
+
+
+def test_manifest_semantics_reject_duplicate_unordered_missing_and_status_contradictions(
+    tmp_path,
+):
+    """SELECT INVARIANT: structurally valid contradictory manifests fail closed."""
+    repository = FakeRepository()
+    orchestrator = RootStageOrchestrator(
+        repository=repository,
+        stage1=FakeStage1(repository),
+        stage2=None,
+        stage3=None,
+        stage4=None,
+        stage5=None,
+        stage6=None,
+        stage7=None,
+        manifest_root=tmp_path / "manifests",
+        executable_contract_id=CONTROLLED_OVERLAY_ID,
+        executable_contract_sha256=CONTROLLED_OVERLAY_SHA256,
+    )
+    orchestrator.start(SimpleNamespace(run_id=repository.run_id))
+    manifest_path = (
+        tmp_path
+        / "manifests"
+        / repository.run_id
+        / "stage1-7-e2e-run-manifest.json"
+    )
+    valid = json.loads(manifest_path.read_text(encoding="utf-8"))
+    stage1 = valid["stages"][0]
+    contradictions = (
+        {**valid, "stages": [stage1, stage1]},
+        {
+            **valid,
+            "stages": [{**stage1, "stage": 2}, stage1],
+        },
+        {**valid, "final_status": "SIGNAL_EXPORT_READY"},
+    )
+
+    for payload in contradictions:
+        manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(ManifestCorruptionError):
+            orchestrator.get_manifest(repository.run_id)
+
+    manifest_path.write_text(json.dumps(valid), encoding="utf-8")
+    repository.status = RunStatus.READY_FOR_SUPPLY_CHAIN
+    with pytest.raises(ManifestCorruptionError):
+        orchestrator.get_manifest(repository.run_id)
 
 
 def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path):

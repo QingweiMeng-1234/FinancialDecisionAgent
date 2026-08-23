@@ -33,15 +33,23 @@ from event_collector.successor_generation_coordinator import (
 )
 
 
-def test_create_financial_agent_server_exposes_only_high_level_openclaw_tools_by_default():
+def test_create_financial_agent_server_composes_and_exposes_theme_lifecycle_by_default():
+    """SELECT INVARIANT: shipping composition owns the real Theme MCP interface."""
     server = create_financial_agent_server()
 
-    assert server.list_tool_names() == [
+    assert isinstance(server.theme_interface, ThemeChokepointInterface)
+    assert {
         "refresh_news",
         "run_watchlist_workflow",
         "read_watchlist_report",
         "read_watchlist_timeline",
-    ]
+        "theme_chokepoint_start",
+        "theme_chokepoint_get_run",
+        "theme_chokepoint_get_pending_anchors",
+        "theme_chokepoint_confirm_anchors",
+        "theme_chokepoint_continue",
+        "theme_chokepoint_get_artifacts",
+    } <= set(server.list_tool_names())
 
 
 def test_injected_theme_runtime_registers_lifecycle_tools_and_normalizes_missing_run():
@@ -181,7 +189,13 @@ def test_only_refresh_news_is_marked_as_mutating_tool():
         if metadata.mutates_state
     ]
 
-    assert mutating == ["refresh_news", "run_watchlist_workflow"]
+    assert mutating == [
+        "refresh_news",
+        "run_watchlist_workflow",
+        "theme_chokepoint_start",
+        "theme_chokepoint_confirm_anchors",
+        "theme_chokepoint_continue",
+    ]
 
 
 def test_refresh_news_fails_closed_without_verified_generation_proof(tmp_path, monkeypatch):
@@ -985,6 +999,15 @@ def test_http_transport_security_allows_localhost_and_docker_host(monkeypatch):
         "run_watchlist_workflow",
         "read_watchlist_report",
         "read_watchlist_timeline",
+        "theme_chokepoint_get_run",
+        "theme_chokepoint_finalize",
+        "theme_chokepoint_compare_runs",
+        "theme_chokepoint_record_feedback",
+        "theme_chokepoint_start",
+        "theme_chokepoint_get_pending_anchors",
+        "theme_chokepoint_confirm_anchors",
+        "theme_chokepoint_continue",
+        "theme_chokepoint_get_artifacts",
     ]
 
 

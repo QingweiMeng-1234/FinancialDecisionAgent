@@ -35,9 +35,23 @@ export class LibSqlM0StateStore {
         workflow_id TEXT NOT NULL,
         confirmation_json TEXT,
         continue_state TEXT NOT NULL DEFAULT 'idle'
-          CHECK (continue_state IN ('idle', 'claimed', 'complete'))
+          CHECK (continue_state IN ('idle', 'claimed', 'complete')),
+        continue_owner TEXT,
+        continue_lease_until_ms INTEGER
       )
     `);
+    const columns = await client.execute("PRAGMA table_info(m0_runs)");
+    const columnNames = new Set(
+      columns.rows.map((row) => String(row.name)),
+    );
+    if (!columnNames.has("continue_owner")) {
+      await client.execute("ALTER TABLE m0_runs ADD COLUMN continue_owner TEXT");
+    }
+    if (!columnNames.has("continue_lease_until_ms")) {
+      await client.execute(
+        "ALTER TABLE m0_runs ADD COLUMN continue_lease_until_ms INTEGER",
+      );
+    }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS m0_workflow_snapshots (
         mastra_run_id TEXT PRIMARY KEY,
@@ -155,36 +169,70 @@ export class LibSqlM0StateStore {
     return JSON.stringify(current) === serialized ? "same" : "conflict";
   }
 
-  async claimContinue(mastraRunId: string): Promise<boolean> {
+  async claimContinue(
+    mastraRunId: string,
+    owner = "legacy-owner",
+    nowMs = Date.now(),
+    leaseMs = 30_000,
+  ): Promise<boolean> {
+    if (!owner.trim() || !Number.isSafeInteger(nowMs) || leaseMs <= 0) {
+      throw new Error("invalid continue lease")
+    }
     const result = await this.client.execute({
       sql: `
-        UPDATE m0_runs SET continue_state = 'claimed'
-        WHERE mastra_run_id = ? AND continue_state = 'idle'
+        UPDATE m0_runs
+        SET continue_state = 'claimed', continue_owner = ?,
+            continue_lease_until_ms = ?
+        WHERE mastra_run_id = ?
           AND confirmation_json IS NOT NULL
+          AND (
+            continue_state = 'idle'
+            OR (
+              continue_state = 'claimed'
+              AND (
+                continue_lease_until_ms IS NULL
+                OR continue_lease_until_ms <= ?
+              )
+            )
+          )
       `,
-      args: [mastraRunId],
+      args: [owner, nowMs + leaseMs, mastraRunId, nowMs],
     });
     return result.rowsAffected === 1;
   }
 
-  async releaseContinue(mastraRunId: string): Promise<void> {
-    await this.client.execute({
+  async releaseContinue(
+    mastraRunId: string,
+    owner = "legacy-owner",
+  ): Promise<boolean> {
+    const result = await this.client.execute({
       sql: `
-        UPDATE m0_runs SET continue_state = 'idle'
+        UPDATE m0_runs
+        SET continue_state = 'idle', continue_owner = NULL,
+            continue_lease_until_ms = NULL
         WHERE mastra_run_id = ? AND continue_state = 'claimed'
+          AND continue_owner = ?
       `,
-      args: [mastraRunId],
+      args: [mastraRunId, owner],
     });
+    return result.rowsAffected === 1;
   }
 
-  async completeContinue(mastraRunId: string): Promise<void> {
-    await this.client.execute({
+  async completeContinue(
+    mastraRunId: string,
+    owner = "legacy-owner",
+  ): Promise<boolean> {
+    const result = await this.client.execute({
       sql: `
-        UPDATE m0_runs SET continue_state = 'complete'
+        UPDATE m0_runs
+        SET continue_state = 'complete', continue_owner = NULL,
+            continue_lease_until_ms = NULL
         WHERE mastra_run_id = ? AND continue_state = 'claimed'
+          AND continue_owner = ?
       `,
-      args: [mastraRunId],
+      args: [mastraRunId, owner],
     });
+    return result.rowsAffected === 1;
   }
 
   async close(): Promise<void> {

@@ -65,3 +65,47 @@ it("persists the independent Mastra workflow self-correlation snapshot across re
   await expect(reopened.getSnapshot("mastra-1")).resolves.toEqual(correlation);
   await reopened.close();
 });
+
+it("allows one expired continue lease takeover after owner process death", async () => {
+  const tempRoot = join(process.cwd(), ".tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const directory = await mkdtemp(join(tempRoot, "m0-lease-"));
+  const database = join(directory, "state.sqlite");
+  const first = await LibSqlM0StateStore.open(database);
+  const competing = await LibSqlM0StateStore.open(database);
+  await first.createCorrelation(correlation);
+  await first.putConfirmation("mastra-1", receipt);
+  type LeaseStore = {
+    claimContinue(
+      runId: string,
+      owner: string,
+      nowMs: number,
+      leaseMs: number,
+    ): Promise<boolean>;
+    completeContinue(runId: string, owner: string): Promise<boolean>;
+  };
+  const firstLease = first as unknown as LeaseStore;
+  const competingLease = competing as unknown as LeaseStore;
+
+  await expect(
+    firstLease.claimContinue("mastra-1", "dead-process", 1_000, 100),
+  ).resolves.toBe(true);
+  await expect(
+    competingLease.claimContinue("mastra-1", "live-process", 1_050, 100),
+  ).resolves.toBe(false);
+  await expect(
+    competingLease.claimContinue("mastra-1", "live-process", 1_101, 100),
+  ).resolves.toBe(true);
+  await expect(
+    firstLease.completeContinue("mastra-1", "dead-process"),
+  ).resolves.toBe(false);
+  await expect(
+    competingLease.completeContinue("mastra-1", "live-process"),
+  ).resolves.toBe(true);
+  await expect(
+    firstLease.claimContinue("mastra-1", "third-process", 2_000, 100),
+  ).resolves.toBe(false);
+
+  await first.close();
+  await competing.close();
+});

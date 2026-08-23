@@ -56,7 +56,20 @@ it("reconstructs a committed confirmation after response loss with zero reconfir
               contract_id: "theme-chokepoint-scoring-v1.4",
               executable_contract_id: "contract-v1",
               executable_contract_sha256: "a".repeat(64),
-              stages: [],
+              stages: Array.from({ length: 7 }, (_, index) => ({
+                stage: index + 1,
+                input_status:
+                  index === 0 ? null : "READY_FOR_SUPPLY_CHAIN",
+                output_status:
+                  index === 6
+                    ? "SIGNAL_EXPORT_READY"
+                    : index === 0
+                      ? "AWAITING_PRODUCT_CONFIRMATION"
+                      : "READY_FOR_SUPPLY_CHAIN",
+                outcome: "completed",
+                artifact_ids: [],
+                completed_at: "2026-08-23T11:00:00+00:00",
+              })),
               final_status: "SIGNAL_EXPORT_READY",
               created_at: "2026-08-23T10:00:00+00:00",
               updated_at: "2026-08-23T11:01:00+00:00",

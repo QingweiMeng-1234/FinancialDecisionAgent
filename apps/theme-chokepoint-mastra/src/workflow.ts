@@ -1,6 +1,8 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
+import type { Failure } from "./errors.js";
+
 const correlationSchema = z
   .object({
     mastraRunId: z.string().min(1),
@@ -29,6 +31,18 @@ const confirmationSuspendSchema = correlationSchema
 const confirmationResumeSchema = correlationSchema
   .extend({
     confirmation: confirmationReceiptSchema,
+  })
+  .strict();
+
+const continueSuspendSchema = correlationSchema
+  .extend({
+    error: z
+      .object({
+        code: z.string().min(1),
+        message: z.string().min(1),
+        retryable: z.boolean(),
+      })
+      .strict(),
   })
   .strict();
 
@@ -66,14 +80,28 @@ const suspendForConfirmation = createStep({
   },
 });
 
-const continuePythonRun = createStep({
-  id: "continue-python-run",
-  inputSchema: correlationSchema,
-  outputSchema: correlationSchema,
-  execute: async ({ inputData }) => inputData,
-});
-
-export function createM0Workflow() {
+export function createM0Workflow(options: {
+  continuePythonRun?: (
+    correlation: z.infer<typeof correlationSchema>,
+  ) => Promise<{ ok: true } | Failure>;
+} = {}) {
+  const dispatchContinue =
+    options.continuePythonRun ?? (async () => ({ ok: true as const }));
+  const continuePythonRun = createStep({
+    id: "continue-python-run",
+    inputSchema: correlationSchema,
+    outputSchema: correlationSchema,
+    suspendSchema: continueSuspendSchema,
+    resumeSchema: correlationSchema,
+    execute: async ({ inputData, resumeData, suspend }) => {
+      const correlation = resumeData ?? inputData;
+      const result = await dispatchContinue(correlation);
+      if (!result.ok) {
+        return suspend({ ...correlation, error: result.error });
+      }
+      return correlation;
+    },
+  });
   return createWorkflow({
     id: "theme-chokepoint-m0",
     inputSchema: correlationSchema,

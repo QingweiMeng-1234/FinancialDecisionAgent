@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import { failure, type Failure } from "./errors.js";
@@ -7,6 +9,7 @@ import {
   confirmEnvelopeSchema,
   KNOWN_PYTHON_STATUSES,
   manifestEnvelopeSchema,
+  manifestIsSemanticallyValid,
   pendingEnvelopeSchema,
   type DecodedRun,
   type Confirmation,
@@ -27,13 +30,29 @@ type ServicePorts = {
       mastraRunId: string,
       receipt: Confirmation,
     ): Promise<"stored" | "same" | "conflict">;
-    claimContinue?(mastraRunId: string): Promise<boolean>;
-    releaseContinue?(mastraRunId: string): Promise<void>;
-    completeContinue?(mastraRunId: string): Promise<void>;
+    claimContinue?(
+      mastraRunId: string,
+      owner?: string,
+      nowMs?: number,
+      leaseMs?: number,
+    ): Promise<boolean>;
+    releaseContinue?(
+      mastraRunId: string,
+      owner?: string,
+    ): Promise<boolean | void>;
+    completeContinue?(
+      mastraRunId: string,
+      owner?: string,
+    ): Promise<boolean | void>;
   };
   workflow: {
     getSnapshot(mastraRunId: string): Promise<Correlation | null>;
     createSnapshot?(correlation: Correlation): Promise<void>;
+    start?(correlation: Correlation): Promise<unknown>;
+    resume?(
+      correlation: Correlation,
+      confirmation: Confirmation,
+    ): Promise<unknown>;
   };
   python: {
     call(tool: string, input: Record<string, unknown>): Promise<unknown>;
@@ -70,6 +89,7 @@ export class M0Service {
     }
     if (
       !this.ports?.store.createCorrelation ||
+      !this.ports.workflow.start &&
       !this.ports.workflow.createSnapshot
     ) {
       return failure("RUNTIME_NOT_CONFIGURED");
@@ -95,7 +115,14 @@ export class M0Service {
         workflowId: "theme-chokepoint-m0",
       };
       try {
-        await this.ports.workflow.createSnapshot(correlation);
+        if (this.ports.workflow.start) {
+          const started = await this.ports.workflow.start(correlation);
+          if (!hasWorkflowStatus(started, "suspended")) {
+            return failure("PYTHON_STATUS_MISMATCH");
+          }
+        } else {
+          await this.ports.workflow.createSnapshot!(correlation);
+        }
         await this.ports.store.createCorrelation(correlation);
       } catch (error) {
         return storageFailure(error);
@@ -117,12 +144,14 @@ export class M0Service {
 
   async resumeM0(_input: unknown): Promise<unknown> {
     const parsed = resumeSchema.safeParse(_input);
-    if (
-      !parsed.success ||
-      new Set(parsed.data.selectedAnchorIds).size !==
-        parsed.data.selectedAnchorIds.length
-    ) {
+    if (!parsed.success) {
       return failure("INVALID_ARGUMENT");
+    }
+    if (
+      new Set(parsed.data.selectedAnchorIds).size !==
+      parsed.data.selectedAnchorIds.length
+    ) {
+      return failure("DUPLICATE_ANCHOR_ID");
     }
     try {
       const correlation = await this.correlatedRun(parsed.data.mastraRunId);
@@ -159,6 +188,8 @@ export class M0Service {
         "theme_chokepoint_get_pending_anchors",
         { run_id: correlation.pythonRunId },
       );
+      const pendingFailure = decodeFailureResponse(pendingRaw);
+      if (pendingFailure) return pendingFailure;
       const pending = pendingEnvelopeSchema.safeParse(pendingRaw);
       if (
         !pending.success ||
@@ -172,7 +203,7 @@ export class M0Service {
       if (
         parsed.data.selectedAnchorIds.some((anchorId) => !proposed.has(anchorId))
       ) {
-        return failure("INVALID_ARGUMENT");
+        return failure("ANCHOR_NOT_PROPOSED_FOR_RUN");
       }
       const confirmedRaw = await this.ports!.python.call(
         "theme_chokepoint_confirm_anchors",
@@ -182,6 +213,8 @@ export class M0Service {
           confirmed_by: parsed.data.actor,
         },
       );
+      const confirmationFailure = decodeFailureResponse(confirmedRaw);
+      if (confirmationFailure) return confirmationFailure;
       const confirmed = confirmEnvelopeSchema.safeParse(confirmedRaw);
       if (
         !confirmed.success ||
@@ -194,22 +227,14 @@ export class M0Service {
       ) {
         return failure("MCP_RESPONSE_SCHEMA_MISMATCH");
       }
-      if (!this.ports!.store.putConfirmation) {
-        return failure("RUNTIME_NOT_CONFIGURED");
-      }
       const receipt: Confirmation = {
         runId: confirmed.data.data.run_id,
         confirmedAnchorIds: [...confirmed.data.data.confirmed_anchor_ids],
         confirmedBy: confirmed.data.data.confirmed_by,
         confirmedAt: confirmed.data.data.confirmed_at,
       };
-      const stored = await this.ports!.store.putConfirmation(
-        correlation.mastraRunId,
-        receipt,
-      );
-      if (stored === "conflict") {
-        return failure("CONCURRENT_OR_DUPLICATE_RESUME");
-      }
+      const stored = await this.persistConfirmation(correlation, receipt);
+      if (stored) return stored;
       return this.continueFromReady(correlation, receipt);
     } catch (error) {
       return this.mapException(error);
@@ -256,10 +281,16 @@ export class M0Service {
         "theme_chokepoint_get_artifacts",
         { run_id: correlation.pythonRunId },
       );
+      const pythonFailure = decodeFailureResponse(raw);
+      if (pythonFailure) return pythonFailure;
       const manifest = manifestEnvelopeSchema.safeParse(raw);
       if (
         !manifest.success ||
-        manifest.data.data.run_id !== correlation.pythonRunId
+        !manifestIsSemanticallyValid(
+          manifest.data.data,
+          correlation.pythonRunId,
+          current.status,
+        )
       ) {
         return failure("MCP_RESPONSE_SCHEMA_MISMATCH");
       }
@@ -351,24 +382,51 @@ export class M0Service {
     if (!store.claimContinue || !store.completeContinue) {
       return failure("RUNTIME_NOT_CONFIGURED");
     }
+    const ownerToken = randomUUID();
     let owner: boolean;
     try {
-      owner = await store.claimContinue(correlation.mastraRunId);
+      owner = await store.claimContinue(
+        correlation.mastraRunId,
+        ownerToken,
+        Date.now(),
+        30_000,
+      );
     } catch (error) {
       return storageFailure(error);
     }
-    if (!owner) return failure("CONCURRENT_OR_DUPLICATE_RESUME");
+    if (!owner) {
+      const reconciled = await this.readPythonRun(correlation);
+      if (isFailure(reconciled)) return reconciled;
+      return reconciled.status === "READY_FOR_SUPPLY_CHAIN"
+        ? failure("CONCURRENT_OR_DUPLICATE_RESUME")
+        : this.readArtifacts(correlation, reconciled);
+    }
+    if (this.ports!.workflow.resume) {
+      return this.continueThroughWorkflow(
+        correlation,
+        receipt,
+        ownerToken,
+      );
+    }
     try {
       const raw = await this.ports!.python.call("theme_chokepoint_continue", {
         run_id: correlation.pythonRunId,
       });
+      const pythonFailure = decodeFailureResponse(raw);
+      if (pythonFailure) {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+        return pythonFailure;
+      }
       const manifest = manifestEnvelopeSchema.safeParse(raw);
       if (
         !manifest.success ||
-        manifest.data.data.run_id !== correlation.pythonRunId
+        !manifestIsSemanticallyValid(
+          manifest.data.data,
+          correlation.pythonRunId,
+        )
       ) {
         try {
-          await store.releaseContinue?.(correlation.mastraRunId);
+          await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
         } catch (error) {
           return storageFailure(error);
         }
@@ -385,7 +443,7 @@ export class M0Service {
         return failure("UNKNOWN_PYTHON_STATUS");
       }
       try {
-        await store.completeContinue(correlation.mastraRunId);
+        await store.completeContinue(correlation.mastraRunId, ownerToken);
       } catch (error) {
         return storageFailure(error);
       }
@@ -401,7 +459,54 @@ export class M0Service {
       };
     } catch (error) {
       try {
-        await store.releaseContinue?.(correlation.mastraRunId);
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+      } catch (storageError) {
+        return storageFailure(storageError);
+      }
+      return this.mapException(error);
+    }
+  }
+
+  private async continueThroughWorkflow(
+    correlation: Correlation,
+    receipt: Confirmation,
+    ownerToken: string,
+  ): Promise<unknown> {
+    const store = this.ports!.store;
+    try {
+      const result = await this.ports!.workflow.resume!(correlation, receipt);
+      const suspendedFailure = decodeWorkflowSuspension(result);
+      if (suspendedFailure) {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+        return suspendedFailure;
+      }
+      if (!hasWorkflowStatus(result, "success")) {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+        return failure("PYTHON_STATUS_MISMATCH");
+      }
+      const current = await this.readPythonRun(correlation);
+      if (isFailure(current)) {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+        return current;
+      }
+      if (current.status === "READY_FOR_SUPPLY_CHAIN") {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+        return failure("PYTHON_STATUS_MISMATCH");
+      }
+      const artifacts = await this.readArtifacts(correlation, current);
+      if (isFailureResponse(artifacts)) {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
+        return artifacts;
+      }
+      const completed = await store.completeContinue!(
+        correlation.mastraRunId,
+        ownerToken,
+      );
+      if (completed === false) return failure("STORAGE_FAILURE");
+      return artifacts;
+    } catch (error) {
+      try {
+        await store.releaseContinue?.(correlation.mastraRunId, ownerToken);
       } catch (storageError) {
         return storageFailure(storageError);
       }
@@ -417,11 +522,16 @@ export class M0Service {
       "theme_chokepoint_get_artifacts",
       { run_id: correlation.pythonRunId },
     );
+    const pythonFailure = decodeFailureResponse(raw);
+    if (pythonFailure) return pythonFailure;
     const manifest = manifestEnvelopeSchema.safeParse(raw);
     if (
       !manifest.success ||
-      manifest.data.data.run_id !== correlation.pythonRunId ||
-      manifest.data.data.final_status !== current.status
+      !manifestIsSemanticallyValid(
+        manifest.data.data,
+        correlation.pythonRunId,
+        current.status,
+      )
     ) {
       return failure("MCP_RESPONSE_SCHEMA_MISMATCH");
     }
@@ -466,6 +576,50 @@ export class M0Service {
 
 function isFailure(value: Correlation | DecodedRun | Failure): value is Failure {
   return "ok" in value && value.ok === false;
+}
+
+function isFailureResponse(value: unknown): value is Failure {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "ok" in value &&
+    value.ok === false
+  );
+}
+
+function hasWorkflowStatus(value: unknown, status: string): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "status" in value &&
+    value.status === status
+  );
+}
+
+function decodeWorkflowSuspension(value: unknown): Failure | null {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("status" in value) ||
+    value.status !== "suspended" ||
+    !("suspendPayload" in value) ||
+    typeof value.suspendPayload !== "object" ||
+    value.suspendPayload === null
+  ) {
+    return null;
+  }
+  const payload = (value.suspendPayload as Record<string, unknown>)[
+    "continue-python-run"
+  ];
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("error" in payload)
+  ) {
+    return failure("PYTHON_STATUS_MISMATCH");
+  }
+  return decodeFailureResponse({ ok: false, error: payload.error }) ??
+    failure("MCP_RESPONSE_SCHEMA_MISMATCH");
 }
 
 function confirmMatches(
