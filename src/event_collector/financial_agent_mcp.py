@@ -531,6 +531,7 @@ class FinancialAgentMCPServer:
                         "theme_chokepoint_start",
                         "theme_chokepoint_confirm_anchors",
                         "theme_chokepoint_continue",
+                        "theme_chokepoint_advance_stage",
                     },
                 )
         return registry

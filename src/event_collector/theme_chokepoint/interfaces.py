@@ -249,6 +249,36 @@ class ThemeChokepointInterface:
         result = self.orchestrator.continue_run(normalized_run_id)
         return _jsonable(asdict(result) if is_dataclass(result) else vars(result))
 
+    def advance_stage(
+        self,
+        run_id: str,
+        expected_stage: int,
+        expected_status: str,
+        idempotency_key: str,
+    ) -> dict:
+        if self.orchestrator is None:
+            raise _RuntimeNotConfigured
+        normalized_run_id = _validate_run_id(run_id)
+        normalized_key = _validate_text(idempotency_key, "idempotency_key")
+        if (
+            isinstance(expected_stage, bool)
+            or not isinstance(expected_stage, int)
+            or expected_stage not in range(2, 8)
+            or not isinstance(expected_status, str)
+        ):
+            raise ValueError("invalid expected stage/status")
+        normalized_status = RunStatus(expected_status)
+        run = self.repository.get_run(normalized_run_id)
+        if run.run_id != normalized_run_id:
+            raise _ResponseSchemaError("advance request run mismatch")
+        result = self.orchestrator.advance_one_stage(
+            normalized_run_id,
+            expected_stage=expected_stage,
+            expected_status=normalized_status,
+            idempotency_key=normalized_key,
+        )
+        return _jsonable(asdict(result) if is_dataclass(result) else vars(result))
+
     def get_artifacts(self, run_id: str) -> dict:
         if self.orchestrator is None:
             raise _RuntimeNotConfigured
@@ -258,6 +288,18 @@ class ThemeChokepointInterface:
             raise _ResponseSchemaError("artifact request run mismatch")
         result = self.orchestrator.get_manifest(normalized_run_id)
         return _jsonable(asdict(result) if is_dataclass(result) else vars(result))
+
+    def list_runs(self) -> dict:
+        run_ids = self.repository.list_run_ids()
+        if not isinstance(run_ids, (tuple, list)) or not all(
+            isinstance(run_id, str) and run_id.strip() == run_id and run_id
+            for run_id in run_ids
+        ):
+            raise _ResponseSchemaError("run listing response mismatch")
+        return {
+            "schema_version": "theme-chokepoint-mcp.v1",
+            "run_ids": list(run_ids),
+        }
 
     def tool_handlers(self) -> dict:
         """Handlers can be registered directly on a FastMCP-compatible server."""
@@ -277,9 +319,13 @@ class ThemeChokepointInterface:
                     self.confirm_anchors
                 ),
                 "theme_chokepoint_continue": self._safe_tool(self.continue_run),
+                "theme_chokepoint_advance_stage": self._safe_tool(
+                    self.advance_stage
+                ),
                 "theme_chokepoint_get_artifacts": self._safe_tool(
                     self.get_artifacts
                 ),
+                "theme_chokepoint_list_runs": self._safe_tool(self.list_runs),
             }
         )
         return handlers

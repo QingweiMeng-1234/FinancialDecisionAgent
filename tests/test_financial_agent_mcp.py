@@ -48,7 +48,9 @@ def test_create_financial_agent_server_composes_and_exposes_theme_lifecycle_by_d
         "theme_chokepoint_get_pending_anchors",
         "theme_chokepoint_confirm_anchors",
         "theme_chokepoint_continue",
+        "theme_chokepoint_advance_stage",
         "theme_chokepoint_get_artifacts",
+        "theme_chokepoint_list_runs",
     } <= set(server.list_tool_names())
 
 
@@ -73,7 +75,9 @@ def test_injected_theme_runtime_registers_lifecycle_tools_and_normalizes_missing
         "theme_chokepoint_get_pending_anchors",
         "theme_chokepoint_confirm_anchors",
         "theme_chokepoint_continue",
+        "theme_chokepoint_advance_stage",
         "theme_chokepoint_get_artifacts",
+        "theme_chokepoint_list_runs",
     } <= set(server.list_tool_names())
     result = server.call_tool("theme_chokepoint_get_run", run_id="missing")
     assert result == {
@@ -195,6 +199,7 @@ def test_only_refresh_news_is_marked_as_mutating_tool():
         "theme_chokepoint_start",
         "theme_chokepoint_confirm_anchors",
         "theme_chokepoint_continue",
+        "theme_chokepoint_advance_stage",
     ]
 
 
@@ -1005,10 +1010,12 @@ def test_http_transport_security_allows_localhost_and_docker_host(monkeypatch):
         "theme_chokepoint_record_feedback",
         "theme_chokepoint_start",
         "theme_chokepoint_get_pending_anchors",
-        "theme_chokepoint_confirm_anchors",
-        "theme_chokepoint_continue",
-        "theme_chokepoint_get_artifacts",
-    ]
+            "theme_chokepoint_confirm_anchors",
+            "theme_chokepoint_continue",
+            "theme_chokepoint_advance_stage",
+            "theme_chokepoint_get_artifacts",
+            "theme_chokepoint_list_runs",
+        ]
 
 
 def test_small_parameter_surface_uses_shared_defaults(tmp_path, monkeypatch):

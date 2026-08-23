@@ -144,6 +144,9 @@ class _SnapshotRepository:
             raise self.error
         return self.snapshot
 
+    def list_run_ids(self):
+        return ("matrix-run", "older-run")
+
 
 def _snapshot(status, *, ids=(), actor=None, confirmed_at=None):
     anchors = tuple(
@@ -251,11 +254,19 @@ class _LifecycleStage1:
 class _LifecycleOrchestrator:
     def __init__(self):
         self.continue_calls = []
+        self.advance_calls = []
         self.manifest_calls = []
 
     def continue_run(self, run_id):
         self.continue_calls.append(run_id)
         return SimpleNamespace(run_id=run_id, final_status=RunStatus.SIGNAL_EXPORT_READY)
+
+    def advance_one_stage(self, run_id, **kwargs):
+        self.advance_calls.append((run_id, kwargs))
+        return SimpleNamespace(
+            run_id=run_id,
+            final_status=RunStatus.SUPPLY_CHAIN_GRAPH_READY,
+        )
 
     def get_manifest(self, run_id):
         self.manifest_calls.append(run_id)
@@ -283,7 +294,9 @@ def test_lifecycle_handlers_validate_and_delegate_only_to_python_authorities():
         "theme_chokepoint_get_pending_anchors",
         "theme_chokepoint_confirm_anchors",
         "theme_chokepoint_continue",
+        "theme_chokepoint_advance_stage",
         "theme_chokepoint_get_artifacts",
+        "theme_chokepoint_list_runs",
     } <= set(handlers)
 
     start_payload = asdict(request(run_id="matrix-run"))
@@ -305,10 +318,35 @@ def test_lifecycle_handlers_validate_and_delegate_only_to_python_authorities():
     )
     assert confirmed["data"]["confirmed_anchor_ids"] == ["anchor-1"]
     continued = handlers["theme_chokepoint_continue"](run_id="matrix-run")
+    advanced = handlers["theme_chokepoint_advance_stage"](
+        run_id="matrix-run",
+        expected_stage=2,
+        expected_status="READY_FOR_SUPPLY_CHAIN",
+        idempotency_key="mastra-run:stage-2",
+    )
     artifacts = handlers["theme_chokepoint_get_artifacts"](run_id="matrix-run")
+    listed = handlers["theme_chokepoint_list_runs"]()
     assert continued["ok"] is True
+    assert advanced["ok"] is True
     assert artifacts["ok"] is True
+    assert listed == {
+        "ok": True,
+        "data": {
+            "schema_version": "theme-chokepoint-mcp.v1",
+            "run_ids": ["matrix-run", "older-run"],
+        },
+    }
     assert orchestrator.continue_calls == ["matrix-run"]
+    assert orchestrator.advance_calls == [
+        (
+            "matrix-run",
+            {
+                "expected_stage": 2,
+                "expected_status": RunStatus.READY_FOR_SUPPLY_CHAIN,
+                "idempotency_key": "mastra-run:stage-2",
+            },
+        )
+    ]
     assert orchestrator.manifest_calls == ["matrix-run"]
 
 

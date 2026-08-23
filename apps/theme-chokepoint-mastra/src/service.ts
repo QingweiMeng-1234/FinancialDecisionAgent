@@ -57,6 +57,9 @@ type ServicePorts = {
   python: {
     call(tool: string, input: Record<string, unknown>): Promise<unknown>;
   };
+  importer?: {
+    importRuns(pythonRunIds?: readonly string[]): Promise<unknown>;
+  };
 };
 
 const runId = z.string().trim().min(1);
@@ -74,6 +77,9 @@ const resumeSchema = z
   })
   .strict();
 const querySchema = z.object({ mastraRunId: runId }).strict();
+const importSchema = z
+  .object({ pythonRunIds: z.array(runId).optional() })
+  .strict();
 
 export class M0Service {
   constructor(private readonly ports?: ServicePorts) {}
@@ -344,6 +350,23 @@ export class M0Service {
           manifest: manifest.data.data,
         },
       };
+    } catch (error) {
+      return this.mapException(error);
+    }
+  }
+
+  async importHistoricalRuns(_input: unknown): Promise<unknown> {
+    const parsed = importSchema.safeParse(_input);
+    if (
+      !parsed.success ||
+      (parsed.data.pythonRunIds !== undefined &&
+        parsed.data.pythonRunIds.length !== new Set(parsed.data.pythonRunIds).size)
+    ) {
+      return failure("INVALID_ARGUMENT");
+    }
+    if (!this.ports?.importer) return failure("RUNTIME_NOT_CONFIGURED");
+    try {
+      return await this.ports.importer.importRuns(parsed.data.pythonRunIds);
     } catch (error) {
       return this.mapException(error);
     }
@@ -648,9 +671,10 @@ function decodeWorkflowSuspension(value: unknown): Failure | null {
   ) {
     return null;
   }
-  const payload = (value.suspendPayload as Record<string, unknown>)[
-    "continue-python-run"
-  ];
+  const entries = Object.entries(
+    value.suspendPayload as Record<string, unknown>,
+  );
+  const payload = entries.find(([step]) => /^stage-[2-7]-/.test(step))?.[1];
   if (
     typeof payload !== "object" ||
     payload === null ||

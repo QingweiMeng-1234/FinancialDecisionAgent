@@ -22,6 +22,14 @@ _REQUIRED_STAGE_RECEIPTS_BY_STATUS = {
     RunStatus.SIGNAL_EXPORT_READY: (2, 3, 4, 5, 6, 7),
 }
 
+_TERMINAL_OR_PAUSED_STATUSES = {
+    RunStatus.NEEDS_CLARIFICATION,
+    RunStatus.AWAITING_PRODUCT_CONFIRMATION,
+    RunStatus.INCOMPLETE_BUDGET_EXHAUSTED,
+    RunStatus.COMPANY_ASSESSMENT_INCOMPLETE,
+    RunStatus.SIGNAL_EXPORT_READY,
+}
+
 
 @dataclass(frozen=True)
 class MonitoringStageOutcome:
@@ -153,65 +161,136 @@ class RootStageOrchestrator:
             return self._continue_run_owned(run_id)
 
     def _continue_run_owned(self, run_id: str) -> Stage1To7RunManifest:
-        manifest = self._load_manifest(run_id)
-        completed_stages = {item.stage for item in manifest.stages}
-        receipts = list(manifest.stages)
-
         while True:
+            manifest = self._load_manifest(run_id)
             status = self.repository.get_run(run_id).status
+            receipts = list(manifest.stages)
             self._reconcile_durable_receipts(run_id, status, receipts)
-            if status in {
-                RunStatus.NEEDS_CLARIFICATION,
-                RunStatus.AWAITING_PRODUCT_CONFIRMATION,
-                RunStatus.INCOMPLETE_BUDGET_EXHAUSTED,
-                RunStatus.COMPANY_ASSESSMENT_INCOMPLETE,
-                RunStatus.SIGNAL_EXPORT_READY,
-            }:
+            if status in _TERMINAL_OR_PAUSED_STATUSES:
                 return self._finish(manifest, receipts, status)
+            stage = self._next_stage(status, receipts)
+            self._advance_one_stage_owned(
+                run_id,
+                expected_stage=stage,
+                expected_status=status,
+                idempotency_key=f"legacy-continue:{run_id}:stage-{stage}",
+            )
 
-            if status is RunStatus.READY_FOR_SUPPLY_CHAIN:
-                self._run_stage(
-                    receipts, 2, status, self.stage2.build, run_id,
-                    {RunStatus.SUPPLY_CHAIN_GRAPH_READY},
-                )
-                continue
-            if status is RunStatus.SUPPLY_CHAIN_GRAPH_READY:
-                self._run_stage(
-                    receipts, 3, status, self.stage3.run, run_id,
-                    {
-                        RunStatus.CHOKEPOINT_ASSESSMENT_READY,
-                        RunStatus.INCOMPLETE_BUDGET_EXHAUSTED,
-                    },
-                )
-                continue
-            if status is RunStatus.CHOKEPOINT_ASSESSMENT_READY:
-                self._run_stage(
-                    receipts, 4, status, self.stage4.run, run_id,
-                    {
-                        RunStatus.COMPANY_ASSESSMENT_READY,
-                        RunStatus.COMPANY_ASSESSMENT_INCOMPLETE,
-                    },
-                )
-                continue
-            if status is RunStatus.COMPANY_ASSESSMENT_READY:
-                self._run_stage(
-                    receipts, 5, status, self.stage5.finalize, run_id,
-                    {RunStatus.PERSISTENT_RESEARCH_READY},
-                )
-                continue
-            if status in {RunStatus.PERSISTENT_RESEARCH_READY, RunStatus.MONITORING_READY}:
-                if 6 not in completed_stages and not any(item.stage == 6 for item in receipts):
-                    self._run_stage(
-                        receipts, 6, status, self.stage6.run, run_id,
-                        {RunStatus.PERSISTENT_RESEARCH_READY, RunStatus.MONITORING_READY},
-                    )
-                    continue
-                self._run_stage(
-                    receipts, 7, status, self.stage7.export, run_id,
-                    {RunStatus.SIGNAL_EXPORT_READY},
-                )
-                continue
-            raise ValueError(f"unsupported orchestrator run status: {status.value}")
+    def advance_one_stage(
+        self,
+        run_id: str,
+        *,
+        expected_stage: int,
+        expected_status: RunStatus,
+        idempotency_key: str,
+    ) -> Stage1To7RunManifest:
+        """Advance one authoritative Python stage for a correlated wrapper step."""
+        if (
+            isinstance(expected_stage, bool)
+            or not isinstance(expected_stage, int)
+            or expected_stage not in range(2, 8)
+            or not isinstance(expected_status, RunStatus)
+            or not isinstance(idempotency_key, str)
+            or not idempotency_key.strip()
+        ):
+            raise ValueError("invalid one-stage advance request")
+        with _continue_owner(self._manifest_path(run_id).with_name(".continue.lock")):
+            return self._advance_one_stage_owned(
+                run_id,
+                expected_stage=expected_stage,
+                expected_status=expected_status,
+                idempotency_key=idempotency_key,
+            )
+
+    def _advance_one_stage_owned(
+        self,
+        run_id,
+        *,
+        expected_stage,
+        expected_status,
+        idempotency_key,
+    ):
+        # The key is validated at the public boundary. Durable stage receipts are
+        # the idempotency authority, so retries remain safe across processes.
+        del idempotency_key
+        manifest = self._load_manifest(run_id)
+        receipts = list(manifest.stages)
+        status = self.repository.get_run(run_id).status
+        self._reconcile_durable_receipts(run_id, status, receipts)
+
+        existing = next(
+            (item for item in receipts if item.stage == expected_stage), None
+        )
+        if existing is not None:
+            if existing.input_status is not expected_status:
+                raise ValueError("expected stage/status mismatch")
+            return manifest
+
+        if status in _TERMINAL_OR_PAUSED_STATUSES:
+            if status is not expected_status:
+                raise ValueError("expected stage/status mismatch")
+            return manifest
+
+        actual_stage = self._next_stage(status, receipts)
+        if status is not expected_status or actual_stage != expected_stage:
+            raise ValueError("expected stage/status mismatch")
+
+        handler, allowed_statuses = self._stage_dispatch(expected_stage)
+        self._run_stage(
+            receipts,
+            expected_stage,
+            status,
+            handler,
+            run_id,
+            allowed_statuses,
+        )
+        return self._load_manifest(run_id)
+
+    @staticmethod
+    def _next_stage(status, receipts):
+        if status is RunStatus.READY_FOR_SUPPLY_CHAIN:
+            return 2
+        if status is RunStatus.SUPPLY_CHAIN_GRAPH_READY:
+            return 3
+        if status is RunStatus.CHOKEPOINT_ASSESSMENT_READY:
+            return 4
+        if status is RunStatus.COMPANY_ASSESSMENT_READY:
+            return 5
+        if status is RunStatus.PERSISTENT_RESEARCH_READY:
+            return 7 if any(item.stage == 6 for item in receipts) else 6
+        if status is RunStatus.MONITORING_READY:
+            return 7
+        raise ValueError(f"unsupported orchestrator run status: {status.value}")
+
+    def _stage_dispatch(self, stage):
+        if stage == 2:
+            return self.stage2.build, {RunStatus.SUPPLY_CHAIN_GRAPH_READY}
+        if stage == 3:
+            return (
+                self.stage3.run,
+                {
+                    RunStatus.CHOKEPOINT_ASSESSMENT_READY,
+                    RunStatus.INCOMPLETE_BUDGET_EXHAUSTED,
+                },
+            )
+        if stage == 4:
+            return (
+                self.stage4.run,
+                {
+                    RunStatus.COMPANY_ASSESSMENT_READY,
+                    RunStatus.COMPANY_ASSESSMENT_INCOMPLETE,
+                },
+            )
+        if stage == 5:
+            return self.stage5.finalize, {RunStatus.PERSISTENT_RESEARCH_READY}
+        if stage == 6:
+            return (
+                self.stage6.run,
+                {RunStatus.PERSISTENT_RESEARCH_READY, RunStatus.MONITORING_READY},
+            )
+        if stage == 7:
+            return self.stage7.export, {RunStatus.SIGNAL_EXPORT_READY}
+        raise ValueError(f"unsupported stage: {stage}")
 
     def get_manifest(self, run_id: str) -> Stage1To7RunManifest:
         manifest = self._load_manifest(run_id)

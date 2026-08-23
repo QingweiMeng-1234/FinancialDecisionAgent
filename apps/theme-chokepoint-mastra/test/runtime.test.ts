@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
 
 import { createM0Runtime } from "../src/runtime.js";
+import { historicalProjectionRunId } from "../src/historical-import.js";
 
 async function freePort(): Promise<number> {
   const server = createServer();
@@ -38,13 +39,22 @@ it("composes Mastra, LibSQL, the fixed workflow, service, and production MCP cli
     mcpUrl: "http://127.0.0.1:1/mcp",
     mcpTimeoutMs: 120_000,
   })) as {
-    mastra: { getWorkflow(name: string): { id: string } };
+    mastra: {
+      getWorkflow(name: string): { id: string };
+      getAgent(name: string): { id: string };
+    };
     service: unknown;
     close(): Promise<void>;
   };
 
   expect(runtime.mastra.getWorkflow("themeChokepointM0").id).toBe(
     "theme-chokepoint-m0",
+  );
+  expect(
+    runtime.mastra.getWorkflow("themeChokepointHistoricalProjection").id,
+  ).toBe("theme-chokepoint-historical-projection");
+  expect(runtime.mastra.getAgent("themeChokepointOperator").id).toBe(
+    "theme-chokepoint-operator",
   );
   expect(runtime.service).toBeDefined();
   await runtime.close();
@@ -139,6 +149,37 @@ it("drives the registered durable Mastra run through facade suspend and resume",
     await expect(
       workflow.getWorkflowRunById("mastra-production-1"),
     ).resolves.toMatchObject({ status: "success" });
+    await expect(runtime.service.importHistoricalRuns({
+      pythonRunIds: ["python-production-1"],
+    })).resolves.toMatchObject({
+      ok: true,
+      data: {
+        imported: [{
+          pythonRunId: "python-production-1",
+          imported: true,
+        }],
+      },
+    });
+    await expect(
+      runtime.mastra
+        .getWorkflow("themeChokepointHistoricalProjection")
+        .getWorkflowRunById(historicalProjectionRunId("python-production-1")),
+    ).resolves.toMatchObject({
+      status: "success",
+      result: {
+        imported: true,
+        pythonRunId: "python-production-1",
+        stageResults: [
+          { stage: 1, state: "completed" },
+          { stage: 2, state: "completed" },
+          { stage: 3, state: "completed" },
+          { stage: 4, state: "completed" },
+          { stage: 5, state: "completed" },
+          { stage: 6, state: "completed" },
+          { stage: 7, state: "completed" },
+        ],
+      },
+    });
   } finally {
     await runtime?.close();
     child.kill();

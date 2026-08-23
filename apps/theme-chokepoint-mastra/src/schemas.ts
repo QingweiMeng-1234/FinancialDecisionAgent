@@ -66,6 +66,18 @@ export const manifestEnvelopeSchema = z
   })
   .strict();
 
+export const runListEnvelopeSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        schema_version: z.literal("theme-chokepoint-mcp.v1"),
+        run_ids: z.array(z.string().trim().min(1)),
+      })
+      .strict(),
+  })
+  .strict();
+
 export type ManifestData = z.infer<typeof manifestDataSchema>;
 
 export function manifestIsSemanticallyValid(

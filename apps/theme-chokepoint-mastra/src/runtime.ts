@@ -2,14 +2,14 @@ import { Mastra } from "@mastra/core";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 
-import { failure, type Failure } from "./errors.js";
-import { MastraMcpPythonClient } from "./mcp-client.js";
+import { createThemeChokepointAgent } from "./agent.js";
 import {
-  decodeFailureResponse,
-  decodeRunResponse,
-  manifestEnvelopeSchema,
-  manifestIsSemanticallyValid,
-} from "./schemas.js";
+  importHistoricalRuns,
+  type HistoricalProjectionWorkflowPort,
+} from "./historical-import.js";
+import { createHistoricalProjectionWorkflow } from "./historical-workflow.js";
+import { MastraMcpPythonClient } from "./mcp-client.js";
+import { projectPythonStage } from "./projection.js";
 import { M0Service } from "./service.js";
 import { LibSqlM0StateStore } from "./state.js";
 import { createM0Workflow } from "./workflow.js";
@@ -19,6 +19,7 @@ const optionsSchema = z
     databasePath: z.string().min(1),
     mcpUrl: z.string().url(),
     mcpTimeoutMs: z.number().int().min(1_000).max(1_800_000).default(5_000),
+    autoImportHistoricalRuns: z.boolean().default(false),
   })
   .strict();
 
@@ -35,12 +36,17 @@ export async function createM0Runtime(options: unknown) {
     timeoutMs: parsed.mcpTimeoutMs,
   });
   const workflow = createM0Workflow({
-    continuePythonRun: (correlation) =>
-      reconcileAndContinuePython(python, correlation),
+    projectStage1: (correlation) => projectPythonStage(python, correlation, 1),
+    advancePythonStage: (correlation, stage) =>
+      projectPythonStage(python, correlation, stage),
   });
+  const historicalWorkflow = createHistoricalProjectionWorkflow();
   const mastra = new Mastra({
     storage: mastraStorage,
-    workflows: { themeChokepointM0: workflow },
+    workflows: {
+      themeChokepointM0: workflow,
+      themeChokepointHistoricalProjection: historicalWorkflow,
+    },
   });
   const workflowPort = new MastraWorkflowPort(
     mastra.getWorkflow("themeChokepointM0"),
@@ -49,10 +55,28 @@ export async function createM0Runtime(options: unknown) {
     store: state,
     workflow: workflowPort,
     python,
+    importer: {
+      importRuns: (runIds) =>
+        importHistoricalRuns(
+          python,
+          new MastraHistoricalProjectionPort(
+            mastra.getWorkflow("themeChokepointHistoricalProjection"),
+          ),
+          runIds,
+        ),
+    },
   });
+  mastra.addAgent(
+    createThemeChokepointAgent(service),
+    "themeChokepointOperator",
+  );
+  const startupHistoricalImport = parsed.autoImportHistoricalRuns
+    ? await service.importHistoricalRuns({})
+    : null;
   return {
     mastra,
     service,
+    startupHistoricalImport,
     async close() {
       await python.close();
       await state.close();
@@ -144,9 +168,10 @@ class MastraWorkflowPort {
         },
       });
     }
-    if (suspendedSteps.includes("continue-python-run")) {
+    const stage = suspendedSteps.find((step) => /^stage-[2-7]-/.test(step));
+    if (stage) {
       return run.resume({
-        step: "continue-python-run",
+        step: stage,
         resumeData: {
           mastraRunId: correlation.mastraRunId,
           pythonRunId: correlation.pythonRunId,
@@ -157,53 +182,24 @@ class MastraWorkflowPort {
   }
 }
 
-async function reconcileAndContinuePython(
-  python: MastraMcpPythonClient,
-  correlation: { mastraRunId: string; pythonRunId: string },
-): Promise<{ ok: true } | Failure> {
-  try {
-    const runRaw = await python.call("theme_chokepoint_get_run", {
-      run_id: correlation.pythonRunId,
-    });
-    const runFailure = decodeFailureResponse(runRaw);
-    if (runFailure) return runFailure;
-    const run = decodeRunResponse(runRaw, correlation.pythonRunId);
-    if (run.kind === "unknown-status") return failure("UNKNOWN_PYTHON_STATUS");
-    if (run.kind === "schema-mismatch") {
-      return failure("MCP_RESPONSE_SCHEMA_MISMATCH");
+class MastraHistoricalProjectionPort
+  implements HistoricalProjectionWorkflowPort
+{
+  constructor(private readonly workflow: RegisteredWorkflow) {}
+
+  async get(mastraRunId: string): Promise<unknown | null> {
+    const state = await this.workflow.getWorkflowRunById(mastraRunId);
+    if (!state) return null;
+    return state.result ?? state.payload ?? null;
+  }
+
+  async create(mastraRunId: string, input: import("./workflow.js").WorkflowProjectionState) {
+    const existing = await this.workflow.getWorkflowRunById(mastraRunId);
+    if (existing) return;
+    const run = await this.workflow.createRun({ runId: mastraRunId });
+    const result = await run.start({ inputData: input });
+    if (result.status !== "success") {
+      throw new Error("historical projection workflow failed");
     }
-    if (run.data.confirmation === null) {
-      return failure("PYTHON_STATUS_MISMATCH");
-    }
-    const tool =
-      run.data.status === "READY_FOR_SUPPLY_CHAIN"
-        ? "theme_chokepoint_continue"
-        : "theme_chokepoint_get_artifacts";
-    const raw = await python.call(tool, { run_id: correlation.pythonRunId });
-    const pythonFailure = decodeFailureResponse(raw);
-    if (pythonFailure) return pythonFailure;
-    const manifest = manifestEnvelopeSchema.safeParse(raw);
-    if (
-      !manifest.success ||
-      !manifestIsSemanticallyValid(
-        manifest.data.data,
-        correlation.pythonRunId,
-        tool === "theme_chokepoint_get_artifacts"
-          ? run.data.status
-          : undefined,
-      )
-    ) {
-      return failure("MCP_RESPONSE_SCHEMA_MISMATCH");
-    }
-    return { ok: true };
-  } catch (error) {
-    const retryable =
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "MCP_TOOL_FAILURE" &&
-      "retryable" in error &&
-      error.retryable === true;
-    return failure("MCP_TOOL_FAILURE", retryable);
   }
 }

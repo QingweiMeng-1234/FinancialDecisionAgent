@@ -113,6 +113,119 @@ class FakeMonitoringStage:
         )
 
 
+def _fake_orchestrator(tmp_path, *, stage3_status=RunStatus.CHOKEPOINT_ASSESSMENT_READY):
+    repository = FakeRepository()
+    stages = {
+        2: AdvancingStage(
+            repository, "build", RunStatus.SUPPLY_CHAIN_GRAPH_READY, "run_id"
+        ),
+        3: AdvancingStage(repository, "run", stage3_status, "run_id"),
+        4: AdvancingStage(
+            repository, "run", RunStatus.COMPANY_ASSESSMENT_READY, "run_id"
+        ),
+        5: AdvancingStage(
+            repository, "finalize", RunStatus.PERSISTENT_RESEARCH_READY, "run_id"
+        ),
+        6: FakeMonitoringStage(repository),
+        7: AdvancingStage(
+            repository, "export", RunStatus.SIGNAL_EXPORT_READY, "run_id"
+        ),
+    }
+    orchestrator = RootStageOrchestrator(
+        repository=repository,
+        stage1=FakeStage1(repository),
+        stage2=stages[2],
+        stage3=stages[3],
+        stage4=stages[4],
+        stage5=stages[5],
+        stage6=stages[6],
+        stage7=stages[7],
+        manifest_root=tmp_path / "one-stage-manifests",
+        executable_contract_id=CONTROLLED_OVERLAY_ID,
+        executable_contract_sha256=CONTROLLED_OVERLAY_SHA256,
+    )
+    orchestrator.start(SimpleNamespace(run_id=repository.run_id))
+    repository.status = RunStatus.READY_FOR_SUPPLY_CHAIN
+    return orchestrator, repository, stages
+
+
+def test_advance_one_stage_executes_exactly_one_stage_and_retries_idempotently(tmp_path):
+    """SELECT INVARIANT: one wrapper call dispatches at most one durable Python stage."""
+    orchestrator, repository, stages = _fake_orchestrator(tmp_path)
+
+    first = orchestrator.advance_one_stage(
+        repository.run_id,
+        expected_stage=2,
+        expected_status=RunStatus.READY_FOR_SUPPLY_CHAIN,
+        idempotency_key="mastra-run:stage-2",
+    )
+    repeated = orchestrator.advance_one_stage(
+        repository.run_id,
+        expected_stage=2,
+        expected_status=RunStatus.READY_FOR_SUPPLY_CHAIN,
+        idempotency_key="mastra-run:stage-2",
+    )
+
+    assert first == repeated
+    assert first.final_status is RunStatus.SUPPLY_CHAIN_GRAPH_READY
+    assert [item.stage for item in first.stages] == [1, 2]
+    assert stages[2].calls == [repository.run_id]
+    assert stages[3].calls == []
+
+
+def test_advance_one_stage_rejects_expected_stage_or_status_mismatch(tmp_path):
+    """SELECT INVARIANT: a stale or misrouted wrapper cannot choose Python's next stage."""
+    orchestrator, repository, stages = _fake_orchestrator(tmp_path)
+
+    with pytest.raises(ValueError, match="expected stage/status mismatch"):
+        orchestrator.advance_one_stage(
+            repository.run_id,
+            expected_stage=3,
+            expected_status=RunStatus.READY_FOR_SUPPLY_CHAIN,
+            idempotency_key="wrong-stage",
+        )
+    with pytest.raises(ValueError, match="expected stage/status mismatch"):
+        orchestrator.advance_one_stage(
+            repository.run_id,
+            expected_stage=2,
+            expected_status=RunStatus.SUPPLY_CHAIN_GRAPH_READY,
+            idempotency_key="wrong-status",
+        )
+
+    assert stages[2].calls == []
+
+
+def test_advance_one_stage_returns_terminal_manifest_without_dispatch(tmp_path):
+    """SELECT INVARIANT: an accepted terminal outcome never falls through to a later stage."""
+    orchestrator, repository, stages = _fake_orchestrator(
+        tmp_path, stage3_status=RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
+    )
+    orchestrator.advance_one_stage(
+        repository.run_id,
+        expected_stage=2,
+        expected_status=RunStatus.READY_FOR_SUPPLY_CHAIN,
+        idempotency_key="stage-2",
+    )
+    terminal = orchestrator.advance_one_stage(
+        repository.run_id,
+        expected_stage=3,
+        expected_status=RunStatus.SUPPLY_CHAIN_GRAPH_READY,
+        idempotency_key="stage-3",
+    )
+
+    returned = orchestrator.advance_one_stage(
+        repository.run_id,
+        expected_stage=4,
+        expected_status=RunStatus.INCOMPLETE_BUDGET_EXHAUSTED,
+        idempotency_key="terminal-readback",
+    )
+
+    assert returned == terminal
+    assert returned.final_status is RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
+    assert [item.stage for item in returned.stages] == [1, 2, 3]
+    assert stages[4].calls == []
+
+
 def test_continue_has_one_durable_owner_across_two_orchestrator_instances(tmp_path):
     """SELECT INVARIANT: two runtimes can dispatch the current Stage only once."""
     repository = FakeRepository()
