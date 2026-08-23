@@ -549,6 +549,42 @@ def test_segment_scorer_repair_explains_exact_basis_null_and_enum_contract():
     assert "natural_cap, direct_upper_bound, or contract_exclusivity" in repair
 
 
+def test_segment_scorer_repair_explains_exact_four_natural_cap_contract():
+    """REGRESSION: exact 4 repair gives the complete frozen Bound Basis tuple."""
+    claim, card = _claim_and_card()
+    corrected = _demand_exact_two_payload()
+    corrected["dimensions"][0].update(rating_min=4, rating_max=4)
+    corrected["dimensions"][0]["bound_basis"].update(
+        floor_anchor=4,
+        ceiling_anchor=4,
+        exact_basis="natural_cap",
+        excluded_higher_anchors=[],
+    )
+    invalid = json.loads(json.dumps(corrected))
+    invalid["dimensions"][0]["bound_basis"]["exact_basis"] = (
+        "direct_upper_bound"
+    )
+    client = SequencedClient([invalid, corrected])
+    scorer = DeepSeekV14SegmentScorer(client=client, model="test-model")
+
+    draft = scorer.assess(
+        _node(),
+        claims=(claim,),
+        evidence_cards=(card,),
+        request=_request(),
+        contract_version="theme-chokepoint-scoring-v1.4",
+    )
+
+    repair = client.chat.completions.calls[1]["messages"][-1]["content"]
+    demand = draft.dimensions[0]
+    assert (demand.rating_min, demand.rating_max) == (4, 4)
+    assert demand.bound_basis.exact_basis == "natural_cap"
+    assert "exact rating 4" in repair
+    assert "floor_anchor=4 and ceiling_anchor=4" in repair
+    assert "exact_basis=natural_cap" in repair
+    assert "excluded_higher_anchors=[]" in repair
+
+
 def test_segment_scorer_rejects_model_generated_total_score():
     """SELECT INVARIANT: the model may return ordinals only, never derived conclusions."""
     claim, card = _claim_and_card()

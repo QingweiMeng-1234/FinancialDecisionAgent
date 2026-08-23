@@ -539,7 +539,15 @@ Do not add evidence, loosen a bound, infer missing facts, or include commentary.
 
 def _repair_prompt(violation_code: str) -> str:
     guidance = ""
-    if "bound_basis.exact_basis:literal_error" in violation_code:
+    if violation_code == "exact 4 requires natural_cap":
+        guidance = (
+            "\nFor exact rating 4, use floor_anchor=4 and ceiling_anchor=4, "
+            "exact_basis=natural_cap, unresolved_higher_anchors=[], and "
+            "excluded_higher_anchors=[]. This is only a representation repair: "
+            "if the supplied evidence does not support exact 4, return a supported "
+            "lower bound or the canonical unknown object instead."
+        )
+    elif "bound_basis.exact_basis:literal_error" in violation_code:
         guidance = (
             "\nexact_basis must be JSON null unless bound_type is exact. "
             "For exact, use only natural_cap, direct_upper_bound, or "
