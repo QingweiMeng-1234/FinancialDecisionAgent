@@ -541,9 +541,10 @@ def _repair_prompt(violation_code: str) -> str:
     guidance = ""
     if violation_code == "exact 4 requires natural_cap":
         guidance = (
-            "\nFor exact rating 4, use floor_anchor=4 and ceiling_anchor=4, "
-            "exact_basis=natural_cap, unresolved_higher_anchors=[], and "
-            "excluded_higher_anchors=[]. This is only a representation repair: "
+            "\nFor exact rating 4, the bound_basis object must be exactly "
+            '{"floor_anchor": 4, "ceiling_anchor": 4, '
+            '"exact_basis": "natural_cap", "unresolved_higher_anchors": [], '
+            '"excluded_higher_anchors": []}. This is only a representation repair: '
             "if the supplied evidence does not support exact 4, return a supported "
             "lower bound or the canonical unknown object instead."
         )
@@ -610,6 +611,11 @@ evidence. A 0 requires explicit failure, non-impact, adequate coverage, or anoth
 negative fact. An exact rating needs both a supported floor and a supported ceiling. Missing a
 higher predicate creates a lower bound, not exact. One atomic fact has only one primary high-grade
 dimension; floor_only cannot support ratings above 2 and context_only cannot change a bound.
+For exact rating 4, the bound_basis object must be exactly
+{"floor_anchor": 4, "ceiling_anchor": 4, "exact_basis": "natural_cap",
+ "unresolved_higher_anchors": [], "excluded_higher_anchors": []} because 4 is the natural cap.
+If the complete anchor-4 predicate is not supported, return a supported lower bound or unknown;
+never relabel weaker evidence as exact 4.
 
 Frozen anchors:
 - demand_pressure: 0 no growth/decline/no transmission; 1 >0% and <5%; 2 >=5% and <10%;

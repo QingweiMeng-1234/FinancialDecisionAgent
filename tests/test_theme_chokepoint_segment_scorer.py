@@ -330,6 +330,7 @@ def test_segment_scorer_maps_valid_ledger_evidence_and_derives_flags_mechanicall
     assert call["response_format"] == {"type": "json_object"}
     assert call["temperature"] == 0
     assert "same-scope comparable denominator" in call["messages"][0]["content"]
+    assert '"exact_basis": "natural_cap"' in call["messages"][0]["content"]
     assert '"dimensions": [' in call["messages"][0]["content"]
     assert '"bound_basis": {' in call["messages"][0]["content"]
     assert '"missing_material_questions": []' in call["messages"][0]["content"]
@@ -580,9 +581,10 @@ def test_segment_scorer_repair_explains_exact_four_natural_cap_contract():
     assert (demand.rating_min, demand.rating_max) == (4, 4)
     assert demand.bound_basis.exact_basis == "natural_cap"
     assert "exact rating 4" in repair
-    assert "floor_anchor=4 and ceiling_anchor=4" in repair
-    assert "exact_basis=natural_cap" in repair
-    assert "excluded_higher_anchors=[]" in repair
+    assert '"floor_anchor": 4' in repair
+    assert '"ceiling_anchor": 4' in repair
+    assert '"exact_basis": "natural_cap"' in repair
+    assert '"excluded_higher_anchors": []' in repair
 
 
 def test_segment_scorer_rejects_model_generated_total_score():
