@@ -1,0 +1,81 @@
+{
+  "release_id": "theme-chokepoint-v1.6.8-staging-shadow",
+  "release_version": "v1.6.8",
+  "created_on": "2026-08-24",
+  "release_status": "staging_shadow_ready",
+  "source_base_commit": "819fad0b84fe5d6d4c985a82b99cc291bfe72894",
+  "deployment_state": {
+    "local_release_checks": "passed",
+    "ci_workflow": "configured_not_yet_run_on_github",
+    "staging": "configuration_ready_not_externally_deployed",
+    "production": "not_deployed"
+  },
+  "runtime_boundary": {
+    "staging_v1_6_scope": "isolated deterministic scoring and shadow evaluation",
+    "production_stage3_contract": "theme-chokepoint-scoring-v1.4",
+    "production_v1_6_traffic_percentage": 0
+  },
+  "release_assets": [
+    {
+      "path": ".gitattributes",
+      "sha256": "359899136d7f9556cc01d8f083a19e8cb8257e5b83cf27d9a97a616bc14979f9"
+    },
+    {
+      "path": ".github/workflows/theme-chokepoint-v1.6.8-freeze.yml",
+      "sha256": "d00771850cec6120f7c35b30cbc1322c696608e755eaafc542717c01c9d8f2d3"
+    },
+    {
+      "path": "config/theme_chokepoint_release_v1.6.8.json",
+      "sha256": "3cc3d8112b53247a3e2586e39d6a5205a37ec854da1eeddd2722b2c4e24a0780"
+    },
+    {
+      "path": "config/theme_chokepoint_shadow_pool_policy_v1.json",
+      "sha256": "68d9d005ec1266103c1130b9f49bfba5c2b83248932a5b928624c45a7534c4f1"
+    },
+    {
+      "path": "tools/theme-chokepoint/verify-release-v1.6.8.mjs",
+      "sha256": "4443bc14a47b1dc75476a5dab9797a714628c8e01d8c5523d7e5e514fbf669e3"
+    },
+    {
+      "path": "tools/theme-chokepoint/smoke-staging-v1.6.8.py",
+      "sha256": "c931c18415ee0ee6871ce22500aab1139763309c5f610c07877f61e78d5a099c"
+    },
+    {
+      "path": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/shadow-pool/index-v1.6.8.json",
+      "sha256": "3de79d7a829791a09d4fc16c8480816528a99022aa91e1efb493b6784a156cba"
+    },
+    {
+      "path": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/final-evaluation-manifest-v1.6.8.json",
+      "sha256": "49ac3ba2168522d859dd75655390a67baed631615f86fdd96d6fa26854bacaf4"
+    },
+    {
+      "path": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/freeze-manifest-v1.6.8.json",
+      "sha256": "845cca17498bd2749ecebdd6eb37af4b87c04ca730481869639fdf2aa9286513"
+    }
+  ],
+  "local_verification": {
+    "freeze_verifier": {
+      "exit_code": 0,
+      "locked_assets_verified": 21,
+      "freeze_authorized": true
+    },
+    "release_verifier": {
+      "exit_code": 0,
+      "staging_shadow_enabled": true,
+      "production_enabled": false,
+      "shadow_pool_entries": 0
+    },
+    "v1_6_regression": {
+      "command": "python -m pytest tests/test_theme_chokepoint_scoring_v16.py -q",
+      "exit_code": 0,
+      "tests_passed": 16
+    },
+    "staging_smoke": {
+      "command": "python tools/theme-chokepoint/smoke-staging-v1.6.8.py",
+      "exit_code": 0,
+      "qualification_smoke": [4, 4]
+    }
+  },
+  "next_authorized_action": "Run the GitHub CI workflow and collect staging shadow observations. Production activation remains unauthorized.",
+  "proof_boundary": "This manifest proves local release-package integrity and Staging Shadow readiness. It does not prove GitHub CI execution, an external Staging deployment, production runtime integration, or production traffic."
+}

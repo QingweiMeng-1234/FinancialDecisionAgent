@@ -1,0 +1,67 @@
+{
+  "release_id": "theme-chokepoint-v1.6.8-staging-shadow",
+  "status": "staging_shadow_authorized",
+  "effective_on": "2026-08-24",
+  "frozen_evaluation": {
+    "evaluation_id": "theme-chokepoint-v1.6-r7-evaluation-20260823-001",
+    "final_manifest_path": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/final-evaluation-manifest-v1.6.8.json",
+    "final_manifest_sha256": "49ac3ba2168522d859dd75655390a67baed631615f86fdd96d6fa26854bacaf4",
+    "freeze_manifest_path": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/freeze-manifest-v1.6.8.json",
+    "freeze_manifest_sha256": "845cca17498bd2749ecebdd6eb37af4b87c04ca730481869639fdf2aa9286513"
+  },
+  "environments": {
+    "staging": {
+      "enabled": true,
+      "execution_mode": "shadow",
+      "mirrored_input_percentage": 100,
+      "externally_served_output_percentage": 0,
+      "decision_writes_enabled": false,
+      "scoring_contract": "theme-chokepoint-scoring-v1.6+human-inference-overlay-v1.6.1",
+      "runtime_scope": "isolated_v1.6_scoring_and_evaluation",
+      "stage3_integration_status": "not_integrated"
+    },
+    "production": {
+      "enabled": false,
+      "traffic_percentage": 0,
+      "runtime_contract": "theme-chokepoint-scoring-v1.4",
+      "activation_requires": [
+        "v1.6 Stage 3 runtime integration with RED/GREEN evidence",
+        "staging shadow exit report",
+        "production canary authorization in a new release policy"
+      ]
+    }
+  },
+  "rollout_stages": [
+    {
+      "stage": "staging_shadow",
+      "traffic_percentage": 0,
+      "mirrored_input_percentage": 100,
+      "authorized": true
+    },
+    {
+      "stage": "production_canary_5",
+      "traffic_percentage": 5,
+      "authorized": false
+    },
+    {
+      "stage": "production_canary_25",
+      "traffic_percentage": 25,
+      "authorized": false
+    },
+    {
+      "stage": "production_general_100",
+      "traffic_percentage": 100,
+      "authorized": false
+    }
+  ],
+  "rollback": {
+    "production_runtime_remains": "theme-chokepoint-scoring-v1.4",
+    "automatic_stop_conditions": [
+      "frozen asset hash mismatch",
+      "schema or mechanical validation failure",
+      "holdout secrecy violation",
+      "high-risk boundary disagreements exceed active policy"
+    ]
+  },
+  "claim_boundary": "This policy authorizes isolated v1.6.8 staging shadow evaluation only. It does not claim that the production Stage 3 runtime serves v1.6.8."
+}

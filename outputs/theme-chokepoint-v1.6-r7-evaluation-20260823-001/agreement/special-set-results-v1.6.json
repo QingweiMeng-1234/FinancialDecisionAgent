@@ -1,0 +1,16 @@
+{
+  "time_cutoff": {
+    "count": 8,
+    "exact_match_rate": 1,
+    "mismatch_item_ids": []
+  },
+  "insufficient_evidence": {
+    "count": 10,
+    "exact_match_rate": 0.7,
+    "mismatch_item_ids": [
+      "I16R7-02",
+      "I16R7-05",
+      "I16R7-09"
+    ]
+  }
+}

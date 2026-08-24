@@ -1,0 +1,749 @@
+{
+  "task_id": "theme-chokepoint-calibration-post-adjudication-r7-v1.6.1",
+  "contract_id": "theme-chokepoint-scoring-v1.6+human-inference-overlay-v1.6.1",
+  "evidence_pack_id": "theme-chokepoint-calibration-r7-v1.6",
+  "annotator_id": "human-owner-adjudicated-gold-v1.6.1",
+  "annotator_role": "human_business_owner_adjudicated_gold",
+  "annotation_started_at": "2026-08-23T12:27:31.2039791+08:00",
+  "annotation_completed_at": "2026-08-23T16:42:27.4707985+08:00",
+  "independent_work_attestation": false,
+  "source_results": [
+    "../../theme-chokepoint-v1.6-r6-20260823-001/annotation-work/formal-results-v1.6/golden/annotator-result-v1.6.json",
+    "../../theme-chokepoint-v1.6-r6-20260823-001/annotation-work/formal-results-v1.6/holdout/annotator-result-v1.6.json"
+  ],
+  "ordinal": [
+    {
+      "item_id": "G16R6-O01-01",
+      "evidence_state": "unknown",
+      "bound_type": "none",
+      "rating_min": 0,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": "same_scope_annual_hbm4_net_demand_unresolved",
+      "rationale": "G16R6-E03提供HBM4爬坡和收入事实，但年度百分比属于服务器或整体DRAM口径；G16R6-E07同时找到AI支出放缓担忧、HBM4出货延迟、扩产过剩风险以及客户继续要求更多AI内存供应的相反事实。两者均未提供当前原子Scope内HBM4/HBM4E年度净需求增长率，无法映射Demand Pressure档位，因此人工确认为unknown [0,4]。",
+      "bound_derivation": "unresolved"
+    },
+    {
+      "item_id": "G16R6-O01-02",
+      "evidence_state": "supported",
+      "bound_type": "exact",
+      "rating_min": 4,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": 4,
+        "ceiling_anchor": 4,
+        "exact_basis": "natural_cap",
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E01将HBM4E明确描述为AI数据中心的关键产品，G16R6-E02说明AI系统性能在架构上依赖内存子系统的性能与容量。在永久移除当前Scope全部合格HBM4/HBM4E、且结构测试不允许技术替代或平台重新设计的条件下，目标AI加速器平台无法达到关键性能，构成structural_hard_block，因此人工确认为exact 4。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "G16R6-O01-03",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E01"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          2,
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E01显示全球HBM供应由SK Hynix、Samsung和Micron三家构成，所列份额合计100%，因此有效供应商数量至多为3，且Top1份额至少为三分之一，可形成整体1档保守floor。披露的是整体HBM市场份额而非当前HBM4/HBM4E Scope的合格有效产出份额，且未解析良率、客户分配和90天合格未占用Failover产能，故较高档仍未关闭，人工确认为lower_bound [1,4]。",
+      "bound_derivation": "human_inferred"
+    },
+    {
+      "item_id": "G16R6-O01-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E01"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          2,
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E01明确说明Samsung的HBM4E需要成功完成客户qualification process，满足v1.6无精确时长路径中的formal_requirement，因此至少形成1档floor。文中的three months是HBM4开始出货至HBM4E送样的产品节奏，不能作为认证时长；原文也未明确列出两个连续认证步骤、客户特定现场验证或可计算总时长，故2至4档仍未解析，人工确认为lower_bound [1,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "G16R6-O01-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E02",
+        "G16R6-E07"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          2,
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E02说明HBM扩产受到先进工艺复杂度、洁净室空间、绿地晶圆厂及先进封装等物理约束，且Micron新加坡设施要到2027年上半年才开始对HBM封装产能作出有意义贡献；相对2026-08-23明确超过三个月，可排除0档并形成1档floor。G16R6-E07提供SK Hynix提高资本开支与潜在过剩风险的反证，但没有给出新增合格HBM4/HBM4E产出时间、90天未占用产能或完整冲击缺口覆盖率，故2至4档仍未关闭，人工确认为lower_bound [1,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "G16R6-O01-06",
+      "evidence_state": "unknown",
+      "bound_type": "none",
+      "rating_min": 0,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": "different_route_substitute_coverage_unresolved",
+      "rationale": "G16R6-E01只识别SK Hynix、Samsung和Micron之间的同路线HBM供应竞争，不能作为不同技术路线替代；G16R6-E02说明AI系统依赖内存子系统性能与容量，但不能证明系统只能使用HBM4/HBM4E。已完成的counter-search没有识别出可评分的不同产品、材料、工艺或架构路线，也未取得资格状态、Ready时间、产量和同Scope覆盖率；无搜索命中不能证明覆盖率为零，因此人工确认为unknown [0,4]。",
+      "bound_derivation": "unresolved"
+    },
+    {
+      "item_id": "G16R6-O02-01",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "按人工确认的代理口径，G16R6-E04披露ASML计划在未来两年每年将EUV相关产能提高30%，明确归因于extremely strong客户需求，且扩增至2027年的EUV能力几乎全部预订，可为当前Scope需求形成3档保守floor。30%是产能增长而非经库存和backlog调整的同口径净需求增长；G16R6-E05中的出货目标及理论产能是相关反证和背景，但同样不是规范净需求序列，因此4档仍未解析，人工确认为lower_bound [3,4]。",
+      "bound_derivation": "human_inferred"
+    },
+    {
+      "item_id": "G16R6-O02-02",
+      "evidence_state": "supported",
+      "bound_type": "exact",
+      "rating_min": 4,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 4,
+        "ceiling_anchor": 4,
+        "exact_basis": "natural_cap",
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E04明确说明ASML是全球唯一EUV设备制造商，且EUV设备是制造先进逻辑和存储芯片纳米级电路所必需的工具。在永久移除整个EUV Segment、且结构测试不允许技术替代或重新设计的条件下，当前Scope内的先进AI逻辑和存储芯片无法按所需工艺制造，构成structural_hard_block，因此人工确认为exact 4。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "G16R6-O02-03",
+      "evidence_state": "supported",
+      "bound_type": "exact",
+      "rating_min": 4,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 4,
+        "ceiling_anchor": 4,
+        "exact_basis": "natural_cap",
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E04明确说明ASML是全球唯一EUV设备制造商，因此当前Scope内有效供应商数量为1、Top1有效份额为100%；移除Top1后不存在其他EUV制造商可提供90天合格增量Failover。ASML自身理论产能、旧设备升级和更快安装不能在Top1被移除测试中作为另一供应商。N_eff、Top1与Failover均落入4档并满足Top1=4及Failover=4的强制规则，人工确认为exact 4。",
+      "bound_derivation": "direct_measurement"
+    },
+    {
+      "item_id": "G16R6-O02-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E06明确说明High-NA EUV requires qualification，且公开观察到芯片制造商测试High-NA、随后进入首批memory/logic产品曝光及交付的多阶段采用流程，满足v1.6 process-only路径的multi_step_process，因此形成2档floor。该证据仅直接适用于High-NA子类型，未披露完整认证起止日期或所有EUV客户一致流程；within months是首批芯片交付预期而非完整认证时长，故3至4档仍未解析，人工确认为lower_bound [2,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "G16R6-O02-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E05说明每台EUV设备约需一年制造，加上合同要求的连续三个月稳定输出，物理时钟约15个月，形成3档floor；G16R6-E04又说明扩增至2027年的EUV产能几乎全部预订，不能视为未占用冲击补充产能。G16R6-E05中的90至110台理论产量、旧设备升级、更快组装安装及长周期零部件准备属于真实缓解反证，但没有证明可在90天内弥补唯一供应商产出损失的全部缺口。about a year并非精确时长，完整关键路径DAG及多类物理约束也未完全验证，故人工确认为lower_bound [3,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "G16R6-O02-06",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          2,
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "G16R6-E04明确说明EUV是制造先进逻辑与存储芯片纳米级电路所需工具且ASML为唯一制造商；G16R6-E06显示TSMC现实缓解方案仍是使用ASML当前EUV并通过设计延缓更小线宽需求，而不是已量产的非EUV路线。两轮反证检索未发现具备Ready/Production状态、资格认证、可用产量及至少30%同Scope覆盖率的权威不同路线证据，因此保守排除0档并形成1档floor。无搜索命中不能证明覆盖为零，非EUV路线注册表及覆盖率仍未完全解析，故人工确认为lower_bound [1,4]。",
+      "bound_derivation": "human_inferred"
+    },
+    {
+      "item_id": "H16R6-O01-01",
+      "evidence_state": "supported",
+      "bound_type": "interval",
+      "rating_min": 2,
+      "rating_max": 3,
+      "primary_evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": 3,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          3
+        ],
+        "excluded_higher_anchors": [
+          4
+        ]
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E01披露美国GSU需求在2019至2025年增长274%、变电站电力变压器需求增长116%。按六年CAGR计算分别为24.59%和13.70%，对应3档与2档；两类产品均属于当前Scope，但未披露组合权重，无法确定唯一档位。H16R6-E05保留清洁能源需求下行风险及2030年供需缺口收窄反证，同时明确总体需求仍强。两组规范CAGR均不超过30%，可排除4档，人工确认为interval [2,3]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O01-02",
+      "evidence_state": "supported",
+      "bound_type": "exact",
+      "rating_min": 4,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E01"
+      ],
+      "bound_basis": {
+        "floor_anchor": 4,
+        "ceiling_anchor": 4,
+        "exact_basis": "natural_cap",
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E01明确说明变压器长交付周期通常决定整个电网项目进度，开发商若未能取得变压器，已完成的输电线路也会闲置。在永久移除当前Scope全部合格GSU及高容量电力变压器、且结构测试不允许设备替代或项目重新设计的条件下，相关发电接入、变电站及大型负载连接项目无法投入运行，构成structural_hard_block，因此人工确认为exact 4。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O01-03",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "按人工裁决，H16R6-E01所示最高四年排队、H16R6-E02所示GSU交付期超过160周及项目提前五年采购、H16R6-E05所示2025年GSU需求约比供应高100%，共同支持当前Scope在90天内不存在足以形成有效缓冲的合格未占用产能，因此为功能性供应集中形成2档保守floor。多家厂商扩产与diversifying sourcing是真实缓解事实，但厂商有效份额、良率、美国Scope分配及精确90天Failover数量仍未披露，无法判定3或4档及Exact，人工确认为lower_bound [2,4]。",
+      "bound_derivation": "human_inferred"
+    },
+    {
+      "item_id": "H16R6-O01-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E04公开展示采购规格及IEEE/IEC要求、Factory Acceptance Test、certified test report、买方出货前批准、失败后的整改重测、现场组装、field commissioning及最终验收流程。该流程同时满足多阶段以及客户特定/现场验证信号，因此按v1.6 process-only路径形成3档floor。原文未披露完整流程的准确持续月数，也未证明所有美国买方完全一致，故4档未解析，人工确认为lower_bound [3,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O01-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E01显示部分高容量设备排队最长四年，H16R6-E02显示GSU交付期超过160周且大型项目提前三至五年采购，H16R6-E05将长交付期归因于制造能力不足并预计供需缺口到2030年才显著收窄，公开物理供应时钟显著超过18个月，形成3档floor。新工厂、组件扩产及多家厂商投资是真实缓解反证，但未证明90天内产生足以覆盖冲击缺口的稳定新增合格产出；完整产能关键路径DAG和多类约束持续时间未完全验证，故人工确认为lower_bound [3,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O01-06",
+      "evidence_state": "supported",
+      "bound_type": "upper_bound",
+      "rating_min": 0,
+      "rating_max": 2,
+      "primary_evidence_ids": [
+        "H16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": 2,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": [
+          3,
+          4
+        ]
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E02明确说明utilities and developers正在refurbishing older transformers，证明旧设备翻新至少是一条credible且实际采用的不同供给路线，因此可排除完全没有可用路线的3至4档并形成2档ceiling。Diversifying sourcing仍是同类新变压器供应商切换，提前采购和预付款也不是替代路线。原文未披露翻新路线在GSU及高容量Scope内的资格状态、互斥合格产量和总需求覆盖率，无法区分覆盖至少30%、10%至30%或小于10%，人工确认为upper_bound [0,2]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O02-01",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E03披露美国燃气轮机订单管线从2020年7 GW增至2025年44 GW，五年CAGR为44.45%，超过30%的4档增长锚点；美国规划或在建燃气发电容量在2025年增长超过三倍，NRG也已预留2.4 GW GE Vernova轮机产能。未来12个月增加15 GW制造能力及1.2 GW燃气发动机订单属于供给与替代反证，但不否定当前订单增长。由于44 GW尚未完全拆分为仅大型、仅数据中心项目的库存和取消调整后净需求，人工保守确认为lower_bound [3,4]而非exact 4。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O02-02",
+      "evidence_state": "supported",
+      "bound_type": "exact",
+      "rating_min": 4,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": 4,
+        "ceiling_anchor": 4,
+        "exact_basis": "natural_cap",
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E03说明NRG已为具体规划项目预留2.4 GW GE Vernova燃气轮机产能，相关项目预计2029至2030年上线。大型燃气轮机是按当前设计建设的轮机电站核心发电设备；在永久移除当前Segment且结构测试不允许改用燃气发动机或重新设计电站的条件下，相关项目无法投入运行，构成structural_hard_block。燃气发动机替代在Substitute Weakness中另行评分，人工确认为exact 4。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O02-03",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          3,
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "按与大型变压器一致的人工裁决口径，H16R6-E03所示大型燃气轮机超过五年交付期、组件与技术劳动力瓶颈、NRG预留产能到2029至2030年才上线，支持当前Scope在90天内不存在足以形成有效缓冲的同路线合格闲置产能，因此形成2档保守floor。未来12个月增加15 GW制造能力是真实缓解事实，但部分可能供应美国以外市场；厂商有效份额、良率、美国数据中心分配及精确90天Failover仍未披露，无法判定3或4档及Exact，人工确认为lower_bound [2,4]。",
+      "bound_derivation": "human_inferred"
+    },
+    {
+      "item_id": "H16R6-O02-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E06公开展示客户特定软件与物理模型、控制逻辑验证、故障和扰动场景、Software Witness Demonstration、客户HMI/I/O操作、保护及闭环控制验证、现场commissioning和变更后重新验证的连续流程，满足v1.6客户特定/现场验证路径，形成3档floor。原文9至15个月是构建模拟模型时间、three months是软件交付后模拟器典型交付时间，均不是完整供应商切换认证持续期，因此4档和Exact仍未解析，人工确认为lower_bound [3,4]。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O02-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [
+          4
+        ],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E03说明大型燃气轮机交付期超过五年，NRG预留2.4 GW产能到2029至2030年上线，且扩产受组件与技术劳动力瓶颈限制；即使排除客户认证时间，公开物理供应时钟仍显著超过18个月，形成3档floor。未来12个月增加15 GW及2030年70至80 GW产能属于真实缓解反证，但未证明全部属于大型轮机、分配给美国数据中心项目、未被预订或可在90天内稳定输出。组件和劳动力在同一关键路径中的先后与持续时间未披露，故人工确认为lower_bound [3,4]而非exact 4。",
+      "bound_derivation": "rule_derived"
+    },
+    {
+      "item_id": "H16R6-O02-06",
+      "evidence_state": "supported",
+      "bound_type": "upper_bound",
+      "rating_min": 0,
+      "rating_max": 2,
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": 2,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": [
+          3,
+          4
+        ]
+      },
+      "withheld_reason": null,
+      "rationale": "H16R6-E03明确说明大型燃气轮机长交付期已推动燃气发动机发电需求，Wärtsilä自2025年7月以来取得三笔大型美国发动机订单、合计1.2 GW并计划自2026年末交付，证明燃气发动机是credible且进入订单/生产路径的不同技术路线，可排除完全没有现实替代路线的3至4档。44 GW燃气轮机订单与1.2 GW发动机订单并非同Scope分子分母，且资格状态、项目去重和数据中心需求覆盖率未解析，无法区分0至2档，人工确认为upper_bound [0,2]。",
+      "bound_derivation": "rule_derived"
+    }
+  ],
+  "hard_gate": [
+    {
+      "item_id": "G16R6-H01-01",
+      "label": "unknown",
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02",
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "rationale": "Downstream Criticality达到exact 4且存在直接供应证据，但现有年度数字属于整体DRAM、服务器或AI内存口径，缺少同Scope的HBM4/HBM4E直接年度净需求证据；Concentration、Qualification和Capacity的已确认floor均只有1，Substitute仍为Unknown，没有供应维度达到最低2档floor。因此当前既不能Pass，也没有明确反证支持Fail，人工确认为unknown。"
+    },
+    {
+      "item_id": "G16R6-H01-02",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E07"
+      ],
+      "rationale": "六类规定反证均已检索，并完成两轮收敛搜索；相关Reuters命中已保留，未解析边界也已明确记录。Pass仅表示counter-search流程完成，不表示不存在反证，也不改变各维度的Unknown或Bound。人工确认为Pass。"
+    },
+    {
+      "item_id": "G16R6-H01-03",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02",
+        "G16R6-E07"
+      ],
+      "rationale": "G16R6-E01支持有限HBM供应商结构及HBM4E客户认证约束；G16R6-E02支持先进工艺、洁净室、绿地晶圆厂和先进封装形成的独立物理扩产约束，因此独立供应约束计数达到2。Reuters与Micron关键来源质量为High，G16R6-E07中的AI支出放缓担忧、扩产与潜在过剩风险是真实反证，但未直接否定上述两类约束，不构成mandatory conflict。人工确认为Pass；该Gate只判断Strong-candidate证据质量，不表示最终Strong Candidate状态已经成立。"
+    },
+    {
+      "item_id": "G16R6-H02-01",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E04"
+      ],
+      "rationale": "G16R6-E04将未来两年每年30%的扩产明确归因于extremely strong客户需求，形成直接需求证据；同一原文说明ASML是全球唯一EUV制造商并且EUV是先进逻辑和存储芯片所需工具，形成直接供应证据与Criticality支持。已确认Demand floor为3、Criticality为4，且多个供应维度floor至少为2，故Segment Discovery Gate全部机械条件满足，人工确认为Pass。"
+    },
+    {
+      "item_id": "G16R6-H02-02",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E05",
+        "G16R6-E06"
+      ],
+      "rationale": "需求放缓或取消、库存或闲置产能、快速认证、90天合格Failover、不同路线替代及新增有效产能六类反证均已检索，并完成两轮收敛搜索。G16R6-E05保留理论产量、旧设备升级、更快组装安装及长周期零部件等产能缓解事实；G16R6-E06保留High-NA成本、测试认证及TSMC继续使用当前EUV的事实。未解析边界已明确记录，人工确认为Pass；Pass只表示搜索流程完成。"
+    },
+    {
+      "item_id": "G16R6-H02-03",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05"
+      ],
+      "rationale": "G16R6-E04支持两类独立供应约束：ASML作为全球唯一EUV制造商形成sole-source manufacturing route；扩增至2027年的EUV产能几乎全部预订形成committed expanded capacity约束。G16R6-E05补充约一年制造周期、长周期零部件以及产能缓解事实。理论90至110台产量、升级与更快安装没有创造第二供应商，也未证明存在未占用合格产能，因此不构成mandatory conflict。关键Reuters来源质量为High，人工确认为Pass。"
+    },
+    {
+      "item_id": "H16R6-H01-01",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "rationale": "H16R6-E01提供GSU和变电站变压器直接需求增长、供应受限及最长四年排队事实；已确认Demand floor为2、Criticality为4，且Concentration、Qualification和Capacity供应维度floor均至少为2。直接需求与直接供应证据同时存在，Segment Discovery Gate所有机械条件满足，人工确认为Pass。"
+    },
+    {
+      "item_id": "H16R6-H01-02",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "rationale": "需求放缓或取消、库存或闲置产能、快速认证、90天合格Failover、不同路线替代及新增有效产能六类反证均已检索，并完成两轮收敛查询。H16R6-E02保留多元采购与旧设备翻新，H16R6-E05保留新工厂、供需缺口收窄及清洁能源需求下行风险，H16R6-E04保留买方特定认证验收流程。未解析边界已明确记录，人工确认为Pass；Pass只表示搜索流程完成。"
+    },
+    {
+      "item_id": "H16R6-H01-03",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "rationale": "H16R6-E01与H16R6-E02建立多年GSU及大型变压器交付约束；H16R6-E04独立建立工厂测试、买方报告批准、整改重测、现场调试和最终验收组成的purchaser-specific acceptance tollgates，因此独立供应约束计数达到2。Reuters/Reuters Events及NETA World/Doble关键来源质量为High。新工厂投资和2030年供需缺口收窄是真实缓解反证，但不否定截至2026年的多年交付约束或买方验收流程，不构成mandatory conflict，人工确认为Pass。"
+    },
+    {
+      "item_id": "H16R6-H02-01",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "rationale": "H16R6-E03提供美国燃气轮机订单管线增长、规划及在建燃气容量增长、大型轮机超过五年交付期以及组件与技术劳动力瓶颈。已确认Demand floor为3、Criticality为4，且Concentration、Qualification与Capacity供应维度floor均至少为2；直接需求和直接供应证据同时存在，因此Segment Discovery Gate所有机械条件满足，人工确认为Pass。"
+    },
+    {
+      "item_id": "H16R6-H02-02",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "rationale": "需求放缓或取消、库存或闲置产能、快速认证、90天合格Failover、不同路线替代及新增有效产能六类反证均已检索，并完成两轮收敛查询。H16R6-E03保留未来12个月增加15 GW制造能力、2030年70至80 GW产能及1.2 GW燃气发动机不同路线订单；H16R6-E06保留客户特定验证与commissioning流程。未解析边界已明确记录，人工确认为Pass；Pass只表示搜索流程完成。"
+    },
+    {
+      "item_id": "H16R6-H02-03",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "rationale": "H16R6-E03建立大型燃气轮机超过五年的整机制造及交付约束，并识别组件瓶颈和技术劳动力短缺；H16R6-E06独立建立客户特定软件、控制逻辑验证、Software Witness Demonstration及commissioning流程，因此独立供应约束计数达到2。Reuters Events及GE Vernova关键来源质量为High。未来12个月增加15 GW产能及1.2 GW燃气发动机替代是真实缓解反证，但未否定同路线多年交付或客户特定验证约束，不构成mandatory conflict，人工确认为Pass。"
+    }
+  ],
+  "state": [
+    {
+      "item_id": "G16R6-S01",
+      "primary_state": null,
+      "achieved_hard_gates": [
+        "G16R6-H01-02",
+        "G16R6-H01-03"
+      ],
+      "derived_metrics": {
+        "score_min": 31.2,
+        "score_max": 100,
+        "presence_coverage": 0.65,
+        "resolved_coverage": 0.65,
+        "decision_coverage": 0.3125
+      },
+      "withheld_reason": "insufficient_evidence",
+      "rationale": "HBM4/HBM4E六维机械派生分数区间为[31.2,100]，presence与resolved coverage均为0.65，decision coverage为0.3125。Counter-search Completion及Strong-candidate Evidence Quality通过，但Segment Discovery仍为Unknown：Demand Pressure与Substitute Weakness未解析，且供应维度已确认floor均未达到2。当前既不能进入watch或candidate，也没有形成明确Hard Fail，人工确认primary_state暂不生成并以insufficient_evidence withheld。"
+    },
+    {
+      "item_id": "G16R6-S02",
+      "primary_state": "candidate_chokepoint",
+      "achieved_hard_gates": [
+        "G16R6-H02-01",
+        "G16R6-H02-02",
+        "G16R6-H02-03"
+      ],
+      "derived_metrics": {
+        "score_min": 70,
+        "score_max": 100,
+        "presence_coverage": 1,
+        "resolved_coverage": 1,
+        "decision_coverage": 0.7
+      },
+      "withheld_reason": null,
+      "rationale": "ASML EUV六维机械派生分数区间为[70,100]，presence与resolved coverage均为1，decision coverage为0.7。Discovery、Counter-search Completion及Strong-candidate Evidence Quality三个Gate全部通过；score_min至少65、decision coverage至少0.65、Demand和Criticality floor至少2、直接需求与供应证据存在且无mandatory conflict，因此进入candidate_chokepoint。由于score_min未达到80且decision coverage未达到0.80，不能进入strong_candidate_chokepoint，人工确认该派生状态。"
+    },
+    {
+      "item_id": "H16R6-S01",
+      "primary_state": "watch_segment",
+      "achieved_hard_gates": [
+        "H16R6-H01-01",
+        "H16R6-H01-02",
+        "H16R6-H01-03"
+      ],
+      "derived_metrics": {
+        "score_min": 57.5,
+        "score_max": 86.2,
+        "presence_coverage": 1,
+        "resolved_coverage": 1,
+        "decision_coverage": 0.7125
+      },
+      "withheld_reason": null,
+      "rationale": "美国GSU及高容量电力变压器六维机械派生分数区间经确定性评分器一位小数舍入为[57.5,86.2]，presence与resolved coverage均为1，decision coverage为0.7125。Discovery、Counter-search Completion及Strong-candidate Evidence Quality三个Gate全部通过，满足Watch的Discovery、coverage和score_max条件；但score_min低于Candidate所需65，主要受Substitute Weakness [0,2]及其他宽区间影响，因此人工确认primary_state为watch_segment。"
+    },
+    {
+      "item_id": "H16R6-S02",
+      "primary_state": "watch_segment",
+      "achieved_hard_gates": [
+        "H16R6-H02-01",
+        "H16R6-H02-02",
+        "H16R6-H02-03"
+      ],
+      "derived_metrics": {
+        "score_min": 61.2,
+        "score_max": 90,
+        "presence_coverage": 1,
+        "resolved_coverage": 1,
+        "decision_coverage": 0.7125
+      },
+      "withheld_reason": null,
+      "rationale": "美国数据中心驱动大型燃气轮机六维机械派生分数区间经确定性评分器一位小数舍入为[61.2,90]，presence与resolved coverage均为1，decision coverage为0.7125。Discovery、Counter-search Completion及Strong-candidate Evidence Quality三个Gate全部通过，满足Watch条件；Candidate的其他条件已满足，但score_min仍低于65，主要受燃气发动机替代使Substitute Weakness保持[0,2]影响，因此人工确认primary_state为watch_segment。"
+    }
+  ],
+  "annotation_mode": "human_owner_adjudication",
+  "adjudication_receipt": "human-owner-adjudication-v1.6.1.json",
+  "policy_overlay_sha256": "9565dfaa89af26aa25605b445e43530f6652a08e0d78ff2d25f947268ebac5e6"
+}

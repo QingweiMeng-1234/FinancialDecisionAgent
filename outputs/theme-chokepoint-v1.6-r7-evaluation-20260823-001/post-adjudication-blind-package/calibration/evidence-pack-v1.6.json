@@ -1,0 +1,758 @@
+{
+  "evidence_pack_id": "theme-chokepoint-calibration-r7-v1.6",
+  "contract_id": "theme-chokepoint-scoring-v1.6+human-inference-overlay-v1.6.1",
+  "pack_type": "real_source_golden_calibration",
+  "assessment_window": {
+    "start": "2025-08-23",
+    "end": "2026-08-23"
+  },
+  "source_lineage": [
+    "theme-chokepoint-golden-r6-v1.6",
+    "theme-chokepoint-holdout-r6-v1.6"
+  ],
+  "evidence": [
+    {
+      "evidence_id": "G16R6-E01",
+      "original_publisher": "Reuters",
+      "distribution_publisher": "AOL",
+      "publisher": "Reuters",
+      "publication_date": "2026-05-29",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Samsung Electronics ships faster HBM4E chip samples to customers; shares jump",
+      "source_type": "authoritative_secondary_news_syndicated_copy",
+      "original_url": "https://www.reuters.com/world/asia-pacific/samsung-electronics-ships-hbm4e-chip-samples-global-customers-2026-05-28/",
+      "distribution_url": "https://www.aol.com/articles/samsung-electronics-ships-faster-hbm4e-023021000.html",
+      "url": "https://www.aol.com/articles/samsung-electronics-ships-faster-hbm4e-023021000.html",
+      "source_lineage": {
+        "lineage_id": "reuters-2026-05-29-samsung-hbm4e",
+        "original_publisher": "Reuters",
+        "distribution_publisher": "AOL",
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: launch, qualification and market-share paragraphs",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "57%",
+        "22%",
+        "21%",
+        "20%",
+        "three months",
+        "12-layer"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "effective_supply_concentration",
+        "qualification_barrier"
+      ],
+      "exact_quote": "SK Hynix led the global HBM market with a 57% share in the fourth quarter of 2025, followed by Samsung at 22% and Micron at 21%, according to Counterpoint Research.",
+      "quote_context": "SEOUL, May 29 (Reuters) - Samsung Electronics on Friday said it started shipping samples of its latest high-bandwidth memory (HBM) chip to customers, pulling ahead of rivals in distributing a new version of the product critical to AI data centers and sending its shares higher.\n\nThe South Korean tech company said the new chip, the 12-layer HBM4E, is more than 20% faster than its previous-generation HBM4 products. The move also comes just three months after Samsung began shipping its HBM4 chips to customers in February, showcasing the company's efforts to strengthen its position in the next-generation AI memory market by supplying samples of its latest products.\n\n\"In the HBM market, early movers tend to secure the bulk of orders, so gaining market share in the initial stages is critical,\" said Jeff Kim, head of research at KB Securities-Jefferies. Kim noted that Samsung had entered the HBM3 and HBM3E markets later than rivals, which limited the volume of orders it was able to secure.\n\n\"But if Samsung successfully completes the qualification process for HBM4E, the HBM vendor structure, which has largely centred on SK Hynix and Micron, that could shift toward SK Hynix and Samsung, considering Samsung's manufacturing capacity,\" Kim added.\n\nSK Hynix led the global HBM market with a 57% share in the fourth quarter of 2025, followed by Samsung at 22% and Micron at 21%, according to Counterpoint Research.",
+      "content_sha256": "b8a8aee9a940f8c55c4d96f0e3fc8c996351e52c46057245338c84bcb775e638",
+      "document_sha256": null,
+      "access_notes": "Reuters original publication verified through a complete AOL syndication copy; AOL is distribution only and is not an independent source.",
+      "limitations": "The article proves a formal customer qualification requirement for HBM4E but reports no qualification duration or additional sequential steps. Under v1.6 this supports the process-only formal-requirement path, not an exact duration score. Shares remain vendor market shares rather than effective qualified output."
+    },
+    {
+      "evidence_id": "G16R6-E02",
+      "original_publisher": "Micron Technology",
+      "distribution_publisher": null,
+      "publisher": "Micron Technology",
+      "publication_date": "2026-06-24",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Fiscal Q3 2026 Earnings Call Prepared Remarks",
+      "source_type": "company_prepared_earnings_remarks",
+      "original_url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "distribution_url": null,
+      "url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "source_lineage": {
+        "lineage_id": "micron-fy2026-q3-prepared-remarks",
+        "original_publisher": "Micron Technology",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "PDF pages 3-4 and 6",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "first half of calendar year 2027"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "downstream_criticality",
+        "capacity_inelasticity"
+      ],
+      "exact_quote": "However, they all share one important characteristic — AI system performance is architecturally dependent on memory subsystem performance and capacity.",
+      "quote_context": "Meanwhile, memory process technology, which is among the most advanced to develop and manufacture in semiconductors, is getting more complex with every new node. Technology transitions are driving slower bit growth over time, wafer growth needs are significantly increasing cleanroom space and greenfield fab requirements, and HBM’s growth and increasing trade ratio with every new generation further pressures non-HBM supply. These factors taken together mean supply is structurally constrained in its growth and ability to meet industry demand, despite our comprehensive efforts to increase supply.\n\nAI systems are powered by GPU, ASIC and CPU designs from an increasingly broad set of suppliers. However, they all share one important characteristic — AI system performance is architecturally dependent on memory subsystem performance and capacity.\n\nComplementing our advanced packaging capabilities in Taiwan, our Singapore site will become another center of excellence for advanced packaging. We expect this facility will contribute meaningfully to Micron’s HBM packaging capacity beginning in the first half of calendar year 2027.",
+      "content_sha256": "2b0d12847a1bdcb1c5c9191a7cad568490221685e9f22b0c7cc6c0b3b46fcd3c",
+      "document_sha256": "a3ce62b84a059e35fae80c2bfd5c89f9af334193fd6aceff698fc3008e7d4c27",
+      "access_notes": null,
+      "limitations": "The dependency statement establishes architectural criticality but does not quantify the 90-day Top1-loss impact fraction. The 2027 packaging milestone is Micron-specific and does not by itself cover the full global HBM increment required after a Top1 shock."
+    },
+    {
+      "evidence_id": "G16R6-E03",
+      "original_publisher": "Micron Technology",
+      "distribution_publisher": null,
+      "publisher": "Micron Technology",
+      "publication_date": "2026-06-24",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Fiscal Q3 2026 Earnings Call Prepared Remarks",
+      "source_type": "company_prepared_earnings_remarks",
+      "original_url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "distribution_url": null,
+      "url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "source_lineage": {
+        "lineage_id": "micron-fy2026-q3-prepared-remarks",
+        "original_publisher": "Micron Technology",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "PDF pages 4-6",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "twice as fast",
+        "$1 billion",
+        "more than double",
+        "high-teens",
+        "low- to mid-20s"
+      ],
+      "evidence_use": "context_only",
+      "supported_dimensions": [
+        "demand_pressure"
+      ],
+      "exact_quote": "HBM4 12-high volume ramp is tracking twice as fast as HBM3E 12-high, and we have already shipped over $1 billion in HBM4 revenue.",
+      "quote_context": "HBM4 12-high volume ramp is tracking twice as fast as HBM3E 12-high, and we have already shipped over $1 billion in HBM4 revenue. We expect to reach mature yields on HBM4 12-high significantly faster than HBM3E 12-high.\n\nAI is driving unprecedented growth in data centers, with industry data center DRAM and NAND bit shipments in calendar 2026 expected to more than double from two years ago. We now expect calendar 2026 industry server units to grow high-teens percent, driven by mid-teens growth in traditional servers and even stronger growth in servers with AI accelerators.\n\nIn DRAM, we expect industry DRAM bit shipments in calendar 2026 to grow in the low- to mid-20s percentage range.",
+      "content_sha256": "41a4fb070ccd41cbec6a15c79a121e86e438e56aad9f3384128a1670363dcb29",
+      "document_sha256": "a3ce62b84a059e35fae80c2bfd5c89f9af334193fd6aceff698fc3008e7d4c27",
+      "access_notes": null,
+      "limitations": "The annual percentages cover server units or aggregate DRAM, not HBM4 net demand. HBM4 revenue and ramp speed are not a canonical same-scope annual net-demand series, so this item must not set the Demand Pressure bound."
+    },
+    {
+      "evidence_id": "G16R6-E04",
+      "original_publisher": "Reuters",
+      "distribution_publisher": "Euronext",
+      "publisher": "Reuters",
+      "publication_date": "2026-07-15",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "ASML capacity upgrade soothes AI chip bottleneck fears",
+      "source_type": "authoritative_secondary_news_syndicated_copy",
+      "original_url": "https://www.reuters.com/business/asml-tops-q2-estimates-ai-chip-demand-2026-07-15/",
+      "distribution_url": "https://live.euronext.com/en/financial-news/asml-capacity-upgrade-soothes-ai-chip-bottleneck-fears",
+      "url": "https://live.euronext.com/en/financial-news/asml-capacity-upgrade-soothes-ai-chip-bottleneck-fears",
+      "source_lineage": {
+        "lineage_id": "reuters-2026-07-15-asml-capacity",
+        "original_publisher": "Reuters",
+        "distribution_publisher": "Euronext",
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: capacity, bottleneck and bookings paragraphs",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "30%",
+        "two years",
+        "through 2027",
+        "only maker"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "effective_supply_concentration",
+        "capacity_inelasticity"
+      ],
+      "exact_quote": "The Dutch company is the world's only maker of extreme ultraviolet lithography (EUV) tools, which are needed to create the nanometre-scale circuitry of advanced logic and memory chips that go into data centres built by Google and Amazon and run the models built by OpenAI and Anthropic.",
+      "quote_context": "ASML said it would increase capacity by 30% in each of the coming two years to meet what CEO Christophe Fouquet described as \"extremely strong\" customer demand for its lithography \"chip-printing\" tools required to make advanced AI chips.\n\nThe Dutch company is the world's only maker of extreme ultraviolet lithography (EUV) tools, which are needed to create the nanometre-scale circuitry of advanced logic and memory chips that go into data centres built by Google and Amazon and run the models built by OpenAI and Anthropic.\n\nASML said it intended to expand capacity by nearly a third per year for its flagship EUV tools, though Fouquet said nearly all of its expanded EUV capacity through 2027 is already fully booked.",
+      "content_sha256": "a386dadeadc5e631ac835ad3af35d088ae4273cc05d747a1d36fb84201445129",
+      "document_sha256": null,
+      "access_notes": "Reuters original publication verified through the complete Euronext syndication copy; Euronext is distribution only.",
+      "limitations": "The 30% capacity increase, explicit attribution to extremely strong customer demand, and near-full booking through 2027 are admitted as direct demand evidence for discovery. The 30% figure remains a demand proxy rather than a canonical inventory-adjusted net-demand series, so it supports a conservative bound but not an exact demand rating. 'Only maker' establishes product-route concentration but failover output remains unquantified. Fully booked capacity does not prove finished-goods inventory is zero."
+    },
+    {
+      "evidence_id": "G16R6-E05",
+      "original_publisher": "Reuters",
+      "distribution_publisher": null,
+      "publisher": "Reuters",
+      "publication_date": "2026-07-14",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Chip toolmaker ASML expected to shine light on capacity, China challenges",
+      "source_type": "authoritative_secondary_news",
+      "original_url": "https://www.reuters.com/world/china/chip-toolmaker-asml-expected-shine-light-capacity-china-challenges-2026-07-14/",
+      "distribution_url": null,
+      "url": "https://www.reuters.com/world/china/chip-toolmaker-asml-expected-shine-light-capacity-china-challenges-2026-07-14/",
+      "source_lineage": {
+        "lineage_id": "reuters-2026-07-14-asml-capacity-preview",
+        "original_publisher": "Reuters",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article result excerpt retained with source URL",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "60",
+        "80",
+        "90",
+        "110"
+      ],
+      "evidence_use": "counter_evidence_and_context",
+      "supported_dimensions": [
+        "demand_pressure",
+        "capacity_inelasticity"
+      ],
+      "exact_quote": "ASML, which aims to ship 60 EUV tools this year and 80 next year, has said it could theoretically ship up to 90 without adding physical capacity.",
+      "quote_context": "ASML is the only maker of EUV lithography systems, the huge $300 million machines needed to produce the tiny circuitry on cutting-edge chips. Each takes about a year to build, one of the factors that limit how quickly AI infrastructure can expand.\n\nASML, which aims to ship 60 EUV tools this year and 80 next year, has said it could theoretically ship up to 90 without adding physical capacity, though JPMorgan analysts have said they believe it could make as many as 110.\n\n\"Beyond the 90 we are looking at creative ways to help customers,\" ASML said in a statement to Reuters. Options include upgrades to older tools, faster machine assembly and quicker installation.\n\nASML says it has also secured extra supplies of parts that take a long time to produce, including lenses and mirrors from German supplier Zeiss and high-power lasers from Germany's Trumpf.\n\n\"We are fully prepared to meet ASML's EUV demand over the next three years,\" said Trumpf spokesperson Manuel Thoma.",
+      "content_sha256": "87339410e46f90c9396169fac823f31f5e97cba133e0f53d0c2c9c1061ad3924",
+      "document_sha256": null,
+      "access_notes": null,
+      "limitations": "Theoretical output and mitigation options are genuine counter-evidence to a claim of zero headroom, but they do not establish qualified, uncommitted, same-scope 90-day failover output. The one-year build statement is a physical manufacturing clock, not a customer qualification duration."
+    },
+    {
+      "evidence_id": "G16R6-E06",
+      "original_publisher": "Reuters",
+      "distribution_publisher": null,
+      "publisher": "Reuters",
+      "publication_date": "2026-05-19",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "ASML says first chips made with High-NA machines to arrive in months",
+      "source_type": "authoritative_secondary_news",
+      "original_url": "https://www.reuters.com/business/asml-says-first-chips-new-high-na-machines-arrive-months-2026-05-19/",
+      "distribution_url": null,
+      "url": "https://www.reuters.com/business/asml-says-first-chips-new-high-na-machines-arrive-months-2026-05-19/",
+      "source_lineage": {
+        "lineage_id": "reuters-2026-05-19-asml-high-na-qualification",
+        "original_publisher": "Reuters",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: first-product, qualification and customer-testing paragraphs",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "within months",
+        "$400 million",
+        "next few months",
+        "66% smaller"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "qualification_barrier"
+      ],
+      "exact_quote": "\"Those technologies are expensive. They are requiring qualification. But they are always designed with the idea that over time they will lower the cost of patterning,\" Fouquet said.",
+      "quote_context": "ASML expects the first chips made with its next-generation High-NA EUV machines to be delivered within months, Chief Executive Christophe Fouquet said on Tuesday, as the Dutch company addresses concerns about the new technology's costs.\n\nThe computer chip equipment maker's top customer TSMC said last month High-NA machines, which can cost up to $400 million each, were too expensive to use for now. Fouquet, however, expressed confidence in the technology's adoption.\n\n\"In the next few months, we will be looking at the first few products, in memory, in logic, being exposed on the High-NA system\", he told a conference organised by research firm imec in Antwerp.\n\n\"Those technologies are expensive. They are requiring qualification. But they are always designed with the idea that over time they will lower the cost of patterning,\" Fouquet said.\n\nDemand from advanced chipmakers for ASML's EUV, or extreme ultraviolet, lithography tools used to print tiny chip circuits, has helped the Dutch manufacturer become Europe's most valuable company. Chipmakers are now testing the High NA, or high numerical aperture, version of the tool, which will be able to produce features up to 66% smaller - similar to having a better focus on a camera.\n\nIntel has been the most aggressive in preparing to adopt ASML's High-NA tool, in an attempt to leapfrog competitors TSMC and Samsung. Memory chip makers including SK Hynix have also said they intend to use the new technology.\n\nTSMC has not ruled it out, but executive Kevin Zhang said it will stick with ASML's current EUV product for the next several generations of chips as the company keeps squeezing out advances through innovative chip designs that don't require smaller lines.",
+      "content_sha256": "f20ca37e964981aa2d3c8f77bf7410d3770f0cbd9138bff39ef90efe466a795e",
+      "document_sha256": null,
+      "access_notes": "Complete Reuters article body directly verified on 2026-08-22.",
+      "limitations": "This evidence applies to the High-NA subtype. It proves testing and a formal qualification requirement, followed by expected first product exposures; under v1.6 it can support a multi-step process bound, but it reports neither a completed duration nor customer-specific production qualification for all EUV systems."
+    },
+    {
+      "evidence_id": "G16R6-E07",
+      "original_publisher": "Reuters",
+      "distribution_publisher": null,
+      "publisher": "Reuters",
+      "publication_date": "2026-07-29",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "SK Hynix's record profit misses forecasts, shares slump 10% despite robust AI chip demand",
+      "source_type": "authoritative_secondary_news",
+      "original_url": "https://www.reuters.com/world/asia-pacific/sk-hynix-q2-profit-jumps-557-ai-chip-demand-misses-forecasts-2026-07-28/",
+      "distribution_url": null,
+      "url": "https://www.reuters.com/world/asia-pacific/sk-hynix-q2-profit-jumps-557-ai-chip-demand-misses-forecasts-2026-07-28/",
+      "source_lineage": {
+        "lineage_id": "reuters-2026-07-29-sk-hynix-demand-capacity",
+        "original_publisher": "Reuters",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: opening, demand-remains-strong and investment paragraphs",
+      "retrieval_method": "counter_search_then_manual_full_context_verification",
+      "numeric_tokens": [
+        "9.6%",
+        "five years",
+        "10",
+        "$27.6 billion",
+        "30.2 trillion won"
+      ],
+      "evidence_use": "counter_evidence",
+      "supported_dimensions": [
+        "demand_pressure",
+        "capacity_inelasticity"
+      ],
+      "exact_quote": "The company downplayed concerns that its capacity expansion could lead to oversupply, saying it would adjust investments in line with market demand.",
+      "quote_context": "SEOUL, July 29 (Reuters) - South Korean chipmaker SK Hynix reported bumper quarterly results on Wednesday but fell short of lofty investor expectations, heightening market concerns about slower AI spending by big tech firms.\n\nShares in SK Hynix closed down 9.6% on Wednesday, as the weaker-than-expected earnings reinforced jitters about the sustainability of aggressive AI spending by tech firms. \"There are concerns that tech firms will take a breather in infrastructure spending,\" Lee Min-hee, an analyst at BNK Investment & Securities, said.\n\nDEMAND REMAINS STRONG\n\nDespite the market selloff, SK Hynix said demand for AI memory chips remained strong. \"Major customers are still requesting more memory supply,\" SK Hynix President Song Hyun-jong said on an earnings call, adding that it was seeking more long-term supply agreements to better manage chip price volatility.\n\nThe move underscores how chipmakers are trying to convert today's AI-driven boom into longer-term demand certainty amid concerns that spending on AI infrastructure could eventually cool. Long-term agreements, which SK Hynix said are typically for five years, include financial safeguards such as deposits to ensure contract implementation. The company has concluded talks on around 10 such deals and is continuing discussions with other major industry players, it said.\n\nReflecting its confidence in future demand, SK Hynix said it plans to raise capital spending to the high-40 trillion won ($27.6 billion) range this year from 30.2 trillion won in 2025. The company downplayed concerns that its capacity expansion could lead to oversupply, saying it would adjust investments in line with market demand.\n\nAnalysts said the earnings miss reflected slower-than-expected HBM4 shipments, delaying revenue recognition during the quarter.",
+      "content_sha256": "9cef44c6ed1cb7e353b3375dc29a4a329febdc51f28a58c824168a7430953608",
+      "document_sha256": null,
+      "access_notes": "Complete Reuters article body directly verified on 2026-08-23.",
+      "limitations": "The article contains both contrary and confirming facts: slower-spending concern, HBM4 shipment delays and oversupply risk, but also continued customer requests and higher capex. It covers AI memory/HBM at company level and does not provide a same-scope annual HBM4 net-demand rate or 90-day qualified failover."
+    },
+    {
+      "evidence_id": "H16R6-E01",
+      "original_publisher": "Reuters Events",
+      "distribution_publisher": "Kitco",
+      "publisher": "Reuters Events",
+      "publication_date": "2026-05-11",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "US power transformer buyers scramble for imports, factory slots",
+      "source_type": "authoritative_secondary_industry_news_syndicated_copy",
+      "original_url": "https://www.reuters.com/business/energy/us-power-transformer-buyers-scramble-imports-factory-slots--reeii-2026-05-11/",
+      "distribution_url": "https://www.kitco.com/news/off-the-wire/2026-05-11/us-power-transformer-buyers-scramble-imports-factory-slots",
+      "url": "https://www.kitco.com/news/off-the-wire/2026-05-11/us-power-transformer-buyers-scramble-imports-factory-slots",
+      "source_lineage": {
+        "lineage_id": "reuters-events-2026-05-11-us-transformers",
+        "original_publisher": "Reuters Events",
+        "distribution_publisher": "Kitco",
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: demand, delays, imports and factory expansion sections",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "274%",
+        "116%",
+        "2019",
+        "2025",
+        "four years"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "capacity_inelasticity"
+      ],
+      "exact_quote": "U.S. demand for generator step-up (GSU) transformers hiked by 274% between 2019 and 2025 and demand for substation power transformers rose by 116%, according to Wood Mackenzie.",
+      "quote_context": "New data centers, factories, electric vehicles and renewable energy projects, combined with grid modernisation, are driving up demand. U.S. demand for generator step-up (GSU) transformers hiked by 274% between 2019 and 2025 and demand for substation power transformers rose by 116%, according to Wood Mackenzie.\n\nA high volume of grid applications combined with the constrained supply of transformers and other equipment are delaying crucial expansions to power grids. Queues for transformers are stretching up to four years for some high-capacity units. Long lead times for transformers typically dictate the overall project schedule of grid projects.\n\nDevelopers must secure transformers early in development or they run the risk of creating stranded assets, such as having transmission lines completed but sitting idle while waiting on transformers.",
+      "content_sha256": "b849015b5c489dd5c699694b24f16f165b2802045e780d70b624ed51599b4021",
+      "document_sha256": null,
+      "access_notes": "Reuters Events original publication verified through a complete Kitco copy; Kitco is distribution only.",
+      "limitations": "The demand figures cover 2019-2025 and require an explicitly recorded CAGR derivation rather than treating 274% as a one-year rate. The article does not provide manufacturer effective shares or 90-day qualified failover."
+    },
+    {
+      "evidence_id": "H16R6-E02",
+      "original_publisher": "Reuters",
+      "distribution_publisher": "AOL",
+      "publisher": "Reuters",
+      "publication_date": "2026-07-09",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "US power companies scramble to secure equipment as surging data center demand strains supplies",
+      "source_type": "authoritative_secondary_news_syndicated_copy",
+      "original_url": "https://www.reuters.com/business/energy/us-power-companies-scramble-secure-equipment-surging-data-center-demand-strains-2026-07-09/",
+      "distribution_url": "https://www.aol.com/articles/us-power-companies-scramble-secure-093646000.html",
+      "url": "https://www.aol.com/articles/us-power-companies-scramble-secure-093646000.html",
+      "source_lineage": {
+        "lineage_id": "reuters-2026-07-09-us-grid-equipment",
+        "original_publisher": "Reuters",
+        "distribution_publisher": "AOL",
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: lead-time and mitigation sections",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "160 weeks",
+        "143 weeks",
+        "three-year",
+        "five years"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "exact_quote": "Generator step-up transformer lead times surpassed 160 weeks by the first quarter of 2026, compared with an average of 143 weeks in 2024.",
+      "quote_context": "Lead times, or the time taken between an initial order and its delivery, for some high-voltage transformers have increased to multiple years from around a year in 2020 and 2021.\n\nGenerator step-up transformer lead times surpassed 160 weeks by the first quarter of 2026, compared with an average of 143 weeks in 2024.\n\nUtilities and developers have responded by purchasing equipment well in advance, refurbishing older transformers, asking customers to pre-pay for equipment that has long lead times, and diversifying sourcing. With large transformers for substations pushing past a three-year waiting time, Roseville Electric Utility is buying equipment for projects that it knows are coming five years in advance.",
+      "content_sha256": "b9f0e37adc9f48f393b7284a54ff6e367e4bd885408cfecc967f224d6f51bd1a",
+      "document_sha256": null,
+      "access_notes": "Reuters original publication verified through a complete AOL syndication copy; AOL is distribution only.",
+      "limitations": "Refurbishment is a different supply route, but its mutually exclusive qualified output and demand coverage are not quantified; it can constrain an upper bound but cannot establish exact substitute coverage."
+    },
+    {
+      "evidence_id": "H16R6-E03",
+      "original_publisher": "Reuters Events",
+      "distribution_publisher": null,
+      "publisher": "Reuters Events",
+      "publication_date": "2026-03-02",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Power developers adapt gas turbine strategies to mitigate tight supply",
+      "source_type": "authoritative_secondary_industry_news",
+      "original_url": "https://www.reuters.com/business/energy/power-developers-adapt-gas-turbine-strategies-mitigate-tight-supply--reeii-2026-03-02/",
+      "distribution_url": null,
+      "url": "https://www.reuters.com/business/energy/power-developers-adapt-gas-turbine-strategies-mitigate-tight-supply--reeii-2026-03-02/",
+      "source_lineage": {
+        "lineage_id": "reuters-events-2026-03-02-us-gas-turbines",
+        "original_publisher": "Reuters Events",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: pipeline, lead-time, manufacturing and alternatives sections",
+      "retrieval_method": "numeric_scope_match_then_manual_context_expansion",
+      "numeric_tokens": [
+        "7 GW",
+        "44 GW",
+        "five years",
+        "18 to 36 months",
+        "2.4 GW",
+        "2029",
+        "2030",
+        "1.2 GW"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "exact_quote": "The U.S. order pipeline for gas turbines soared from 7 GW in 2020 to 44 GW in 2025, according to Wood Mackenzie estimates.",
+      "quote_context": "U.S. gas-fired power capacity planned or under development more than tripled in 2025 to 252 gigawatts (GW), according to Global Energy Monitor. U.S. gas turbine manufacturing capacity is forecast to rise by 15 GW over the next 12 months - up from current estimates of around 20 to 30 GW - and capacity could reach 70 to 80 GW by 2030. Some of this capacity is expected to supply markets outside the U.S. and gas plant developers could also be limited by component bottlenecks and technical labor shortages.\n\nThe U.S. order pipeline for gas turbines soared from 7 GW in 2020 to 44 GW in 2025, according to Wood Mackenzie estimates. Lead times for large gas turbines are exceeding five years. Lead times for small gas turbines are currently 18 to 36 months, but those seem to be getting longer as well.\n\nNRG has reserved 2.4 GW of planned capacity for turbines powered by GE Vernova, expected to come online in 2029 and 2030. Long lead times have increased demand for gas-engine-based generation. Wärtsilä has received three large U.S. engine orders since July 2025 totaling 1.2 GW, with deliveries planned to start in late 2026 and continue into 2027.",
+      "content_sha256": "2247342a3e6e948ad8a456af8716343b89a71774dfaadff7151b0561d8291629",
+      "document_sha256": null,
+      "access_notes": null,
+      "limitations": "The 7-to-44 GW demand series requires a CAGR derivation. Named manufacturers do not establish effective shares. Gas engines are a production alternative, but the 1.2 GW order volume must be compared with the exact same-scope demand denominator and deduplicated from mixed technology projects before substitute coverage is scored."
+    },
+    {
+      "evidence_id": "H16R6-E04",
+      "original_publisher": "NETA World / Doble Engineering",
+      "distribution_publisher": null,
+      "publisher": "NETA World / Doble Engineering",
+      "publication_date": "2026-02-07",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Improving Connections: Transformer Factory Acceptance and Field Commissioning Tests",
+      "source_type": "authoritative_industry_technical_secondary",
+      "original_url": "https://netaworldjournal.org/2026/02/johnjfoschia/features/improving-connections-transformer-factory-acceptance-and-field-commissioning-tests/",
+      "distribution_url": null,
+      "url": "https://netaworldjournal.org/2026/02/johnjfoschia/features/improving-connections-transformer-factory-acceptance-and-field-commissioning-tests/",
+      "source_lineage": {
+        "lineage_id": "neta-doble-2026-02-transformer-acceptance",
+        "original_publisher": "NETA World / Doble Engineering",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: introduction, Factory Acceptance Testing, failed-test remediation, shipment and field-acceptance sections",
+      "retrieval_method": "counter_search_then_manual_full_context_verification",
+      "numeric_tokens": [],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "qualification_barrier"
+      ],
+      "exact_quote": "For distribution- and power-class transformers built in accordance with IEEE Std. C57.12.00, the manufacturer should provide certified test reports to the purchaser, and many purchasers condition the shipment of the transformer on the approval of the transformer’s certified test report.",
+      "quote_context": "It is often observed that discontinuities exist between factory acceptance and field commissioning tests of power transformers. Ideally, the two test sessions are well-coordinated, allowing measurements captured at the transformer manufacturer to be easily replicated once the transformer is prepared for service.\n\nThis article discusses observations of the gaps between these two test sessions and provides recommendations to improve the communication of expectations and results throughout this process. It is intended for technicians, engineers, procurement personnel, and asset managers involved in developing transformer purchasing specifications, factory acceptance testing, field commissioning testing, and final acceptance of the transformer.\n\nFactory-performed tests of transformers and bushings are driven by industry standards such as IEEE and IEC, as well as company purchasing specifications. A significant effort is focused on developing and enhancing these requirements based on experience and technology improvement.\n\nFor distribution- and power-class transformers built in accordance with IEEE Std. C57.12.00, the manufacturer should provide certified test reports to the purchaser, and many purchasers condition the shipment of the transformer on the approval of the transformer’s certified test report. This report gives the purchaser an opportunity to identify any concerns with the test records and request remedial action, if warranted. While all transformers should be manufactured with the same attention to detail, the additional tollgate of test-report approval necessitates that the manufacturer properly audit the test records.\n\nWhen a transformer fails a factory acceptance test, some level of investigation and repair/replacement activity is undertaken to remediate the condition before repeating the tests. Best practice is to involve the transformer purchaser and their subject matter experts in this process to ensure that appropriate repairs are made and an acceptable retest plan is prescribed.\n\nThe steps in preparing a transformer for shipment depend largely on its dimensions, weight, transportation permitting restrictions, and purchasing specifications. A distribution transformer may be cleaned and packaged for local transportation after completing the factory acceptance tests without requiring significant attention. On the other hand, transporting a large power transformer to its destination may require the removal of its insulating liquid and partial disassembly.\n\nOnce the transformer is placed onto its permanent or temporary foundation, assembly efforts are often required to bring it into operational condition.\n\nThe objective of the factory and field commissioning tests is to ensure that the transformer will operate reliably and that there have been no unintended changes throughout its early life.",
+      "content_sha256": "430ce746d171c2de1b0099153bcecfded527d6d3fae9f07d36ff1d084433799e",
+      "document_sha256": null,
+      "access_notes": "Complete relevant sections directly verified on 2026-08-23. Author is a Doble principal engineer and IEEE transformer working-group participant; publisher is the International Electrical Testing Association journal.",
+      "limitations": "The article establishes an observable purchaser-specific sequence—purchasing specification, FAT, purchaser report approval before shipment, remediation/retest, field commissioning and final acceptance—but does not state total elapsed qualification duration or prove that every U.S. purchaser uses identical steps."
+    },
+    {
+      "evidence_id": "H16R6-E05",
+      "original_publisher": "Reuters Events",
+      "distribution_publisher": null,
+      "publisher": "Reuters Events",
+      "publication_date": "2025-12-02",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Grid equipment makers invest in US to ease supply shortage",
+      "source_type": "authoritative_secondary_industry_news",
+      "original_url": "https://www.reuters.com/business/energy/grid-equipment-makers-invest-us-ease-supply-shortage--reeii-2025-12-02/",
+      "distribution_url": null,
+      "url": "https://www.reuters.com/business/energy/grid-equipment-makers-invest-us-ease-supply-shortage--reeii-2025-12-02/",
+      "source_lineage": {
+        "lineage_id": "reuters-events-2025-12-02-us-grid-capacity",
+        "original_publisher": "Reuters Events",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: investment and supply-catches-up sections",
+      "retrieval_method": "counter_search_then_manual_full_context_verification",
+      "numeric_tokens": [
+        "$1 billion",
+        "143 weeks",
+        "128 weeks",
+        "$457 million",
+        "$150 million",
+        "one third",
+        "100%",
+        "below 10%",
+        "2030"
+      ],
+      "evidence_use": "counter_evidence",
+      "supported_dimensions": [
+        "demand_pressure",
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "exact_quote": "Wood Mackenzie estimates the demand for GSUs will be around 100% higher than supply in 2025 but predicts this will fall to below 10% by 2030 as new capacity comes online.",
+      "quote_context": "December 1 - Surging demand for U.S. power transmission equipment has boosted the outlook for suppliers and led to a wave of investments in new factories. In September, Hitachi Energy announced more than $1 billion of investments in U.S. manufacturing infrastructure for grid components. Power infrastructure suppliers Siemens, GE, Hyosung HICO and WEG have also announced significant investments.\n\nLarge power transformers that are typically used between generation and transmission substations are in particularly high demand and a lack of manufacturing capacity has led to long lead times for developers. Average delivery times in the U.S. were 143 weeks for GSUs and 128 weeks for power transformers in the second quarter of 2025, according to Wood Mackenzie.\n\nHitachi’s planned investments include $457 million for a new large power transformer facility in South Boston and $106 million in transformer component manufacturing in Alamo, Tennessee. Hitachi will also invest $70 million to expand production of high-voltage components in and around Mount Pleasant, Pennsylvania, and $22.5 million to expand transformer manufacturing in Virginia.\n\nSiemens, GE, Hyosung HICO and WEG are also investing in transformer manufacturing. Siemens is building a $150 million transformer factory in Charlotte, North Carolina, which is due for completion in early 2026. Meanwhile, Hyosung HICO said on November 12 that it would spend $157 million in expanding its transformer plant in Memphis, Tennessee and WEG plans to invest $77 million in its Specialty Transformer manufacturing facility in Washington, Missouri.\n\nWhile wider demand for transformers will remain strong, policies in President Trump’s One Big Beautiful Bill Act that aim to curtail clean power growth have introduced some “downside risk” to transformer demand from clean power projects, Christoffersen noted.\n\nThe pledged investments in U.S. transformer manufacturing represent around one third of global growth over the next three years, Christoffersen said, narrowing the gap between supply and demand.\n\nWood Mackenzie estimates the demand for GSUs will be around 100% higher than supply in 2025 but predicts this will fall to below 10% by 2030 as new capacity comes online.",
+      "content_sha256": "d68ed8e187d8448ee012ea045342721eded690db490b329d667f4de770ff07a1",
+      "document_sha256": null,
+      "access_notes": "Complete Reuters Events article directly verified on 2026-08-23.",
+      "limitations": "The investments and 2030 gap forecast are genuine relief evidence, but they do not establish qualified, uncommitted 90-day failover as of 2026-08-23. Some listed investments cover components or specialty transformers rather than the full GSU/high-capacity scope."
+    },
+    {
+      "evidence_id": "H16R6-E06",
+      "original_publisher": "GE Vernova",
+      "distribution_publisher": null,
+      "publisher": "GE Vernova",
+      "publication_date": "2026-08-18",
+      "publication_date_precision": "day",
+      "retrieved_at": "2026-08-23",
+      "title": "Bridging the gap: Transforming power plant reliability with high-fidelity simulation",
+      "source_type": "company_primary_technical_article",
+      "original_url": "https://www.gevernova.com/gas-power/resources/articles/2026/plant-control-simulation-high-fidelity-reliability",
+      "distribution_url": null,
+      "url": "https://www.gevernova.com/gas-power/resources/articles/2026/plant-control-simulation-high-fidelity-reliability",
+      "source_lineage": {
+        "lineage_id": "ge-vernova-2026-08-18-plant-simulation",
+        "original_publisher": "GE Vernova",
+        "distribution_publisher": null,
+        "duplicate_counting_rule": "All copies in this lineage count as one source."
+      },
+      "location": "Article body: commissioning, customer witness demonstration, validation and timing sections",
+      "retrieval_method": "counter_search_then_manual_full_context_verification",
+      "numeric_tokens": [
+        "three months",
+        "9 to 15 months"
+      ],
+      "evidence_use": "scoring_evidence",
+      "supported_dimensions": [
+        "qualification_barrier"
+      ],
+      "exact_quote": "Before commissioning begins, we invite our customers to interact with their actual application software, HMI screens, and I/O configurations, hosted on GE Vernova simulators.",
+      "quote_context": "The power generation world can be high-stakes, and the transition from design intent to real-world performance is often the most critical phase of a project. Historically, engineering meets reality in the commissioning phase, a period of intense pressure, potential risk, and high costs.\n\nIn a recent on-demand webinar, GE Vernova experts explored why simulation matters and how Software Witness Demonstration (SWD) showcases customer-specific software in action, from startup and shutdown procedures to protective actions and operator station functionality.\n\nFor systems such as gas turbine flange-to-flange, steam turbine, integrated carbon capture, or gasification cycles, which define the plant’s performance, we deploy high-fidelity, first-principles, physics-driven modeling for high accuracy and complex, integrated plant dynamics.\n\nBefore commissioning begins, we invite our customers to interact with their actual application software, HMI screens, and I/O configurations, hosted on GE Vernova simulators. Beyond being a demonstration, it’s also a trial run. By validating protection logic, closed-loop control, and operator station functionality in a virtual environment, we reduce any surprises that have historically plagued site startups.\n\nInitial simulation models are developed in parallel with control software development and are primarily used to validate controls logic. Once control strategy development is complete, the platform is enhanced to include malfunctions, plant upsets, and training scenarios. At that point, the simulator is ready to be shipped to site as an operator training simulator, typically around three months after software delivery for commissioning. The total time to fully build a simulation model generally ranges from 9 to 15 months, depending on the complexity of the plant configuration and setup.\n\nThe simulator is often available during commissioning, and if control logic or control structure changes are needed, those can be validated on the simulator before being introduced back into the real plant.",
+      "content_sha256": "45aba296727e9b3fe13b04b6febea04f08d566112a3dc4fd8fb26a43407c2127",
+      "document_sha256": null,
+      "access_notes": "Complete relevant sections directly verified on 2026-08-23.",
+      "limitations": "The source is an OEM account of customer-specific controls validation and commissioning for power plants, including gas-turbine systems. It proves an observable multi-step, customer-specific validation process. The 9–15 months refers to building the plant simulation model, not necessarily the full supplier-switch qualification duration, so it must not be used as an exact duration anchor."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "G16R6-C01",
+      "case_type": "direct_recent_product_scope_model_assisted",
+      "industry": "ai_accelerator_memory",
+      "admission_status": "admitted",
+      "candidate_bound_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "effective_supply_concentration",
+        "qualification_barrier",
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "admission_notes": "R6 adds a formal-process Qualification bound and completed counter-search. HBM4 same-scope demand, effective output shares, 90-day failover and different-route substitutes remain unresolved and must stay bounded.",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "global_hbm4_hbm4e_for_2026_ai_accelerators",
+        "segment_id": "seg_global_hbm4_ai_accelerators_2026",
+        "customer_or_platform_scope": "Global HBM4/HBM4E qualified output for 2026 AI accelerator platforms; do not substitute aggregate DRAM or server-unit demand",
+        "geography": "Global unless a narrower geography is stated in product_id",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02",
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "state_context": {
+        "demand_direct_evidence": false,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 2,
+        "independent_supply_constraints": [
+          {
+            "constraint_id": "limited_hbm_vendor_structure_and_qualification",
+            "evidence_ids": [
+              "G16R6-E01"
+            ],
+            "basis": "Only three HBM vendors are identified and HBM4E customer qualification remains required."
+          },
+          {
+            "constraint_id": "structural_fab_cleanroom_and_packaging_clock",
+            "evidence_ids": [
+              "G16R6-E02"
+            ],
+            "basis": "Advanced-node, cleanroom, greenfield-fab and packaging milestones physically constrain expansion."
+          }
+        ],
+        "key_source_quality_high": true,
+        "counter_search_receipt_ids": [
+          "R6-CS-G01"
+        ]
+      }
+    },
+    {
+      "case_id": "G16R6-C02",
+      "case_type": "direct_recent_product_scope_model_assisted",
+      "industry": "semiconductor_lithography",
+      "admission_status": "admitted",
+      "candidate_bound_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "effective_supply_concentration",
+        "qualification_barrier",
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "admission_notes": "R6 retains direct demand and sole-source evidence, expands the full capacity-relief context, applies the process-only Qualification path, and completes the required counter-search.",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "global_asml_euv_systems_for_leading_edge_ai_logic_and_memory",
+        "segment_id": "seg_global_euv_leading_edge_ai_2026",
+        "customer_or_platform_scope": "ASML EUV systems required for leading-edge AI logic and memory; subtype-specific facts must remain tagged low-NA or High-NA",
+        "geography": "Global unless a narrower geography is stated in product_id",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05",
+        "G16R6-E06"
+      ],
+      "state_context": {
+        "demand_direct_evidence": true,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 2,
+        "independent_supply_constraints": [
+          {
+            "constraint_id": "sole_source_manufacturing_route",
+            "evidence_ids": [
+              "G16R6-E04"
+            ],
+            "basis": "ASML is the world's only maker of EUV tools."
+          },
+          {
+            "constraint_id": "committed_expanded_capacity_through_2027",
+            "evidence_ids": [
+              "G16R6-E04"
+            ],
+            "basis": "Nearly all expanded EUV capacity through 2027 is already fully booked."
+          }
+        ],
+        "key_source_quality_high": true,
+        "counter_search_receipt_ids": [
+          "R6-CS-G02"
+        ]
+      }
+    },
+    {
+      "case_id": "H16R6-C01",
+      "case_type": "direct_recent_product_scope_model_assisted",
+      "industry": "electric_grid_equipment",
+      "admission_status": "admitted",
+      "candidate_bound_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "effective_supply_concentration",
+        "qualification_barrier",
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "admission_notes": "R6 adds a purchaser-specific FAT-to-field-acceptance process and explicit new-capacity/downside counter-evidence. Effective shares and 90-day qualified failover remain unresolved.",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "us_generator_step_up_large_power_transformers",
+        "segment_id": "seg_us_gsu_large_power_transformers_2026",
+        "customer_or_platform_scope": "U.S. generator step-up and high-capacity power transformers for new generation, substations and large-load connections",
+        "geography": "Global unless a narrower geography is stated in product_id",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "state_context": {
+        "demand_direct_evidence": true,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 2,
+        "independent_supply_constraints": [
+          {
+            "constraint_id": "multi_year_gsu_and_large_transformer_delivery_constraint",
+            "evidence_ids": [
+              "H16R6-E01",
+              "H16R6-E02"
+            ],
+            "basis": "Lead times extend beyond three years and can strand otherwise completed grid assets."
+          },
+          {
+            "constraint_id": "purchaser_specific_acceptance_tollgates",
+            "evidence_ids": [
+              "H16R6-E04"
+            ],
+            "basis": "FAT, purchaser report approval, remediation/retest and field commissioning are observable tollgates."
+          }
+        ],
+        "key_source_quality_high": true,
+        "counter_search_receipt_ids": [
+          "R6-CS-H01"
+        ]
+      }
+    },
+    {
+      "case_id": "H16R6-C02",
+      "case_type": "direct_recent_product_scope_model_assisted",
+      "industry": "data_center_power_generation",
+      "admission_status": "admitted",
+      "candidate_bound_dimensions": [
+        "demand_pressure",
+        "downstream_criticality",
+        "effective_supply_concentration",
+        "qualification_barrier",
+        "capacity_inelasticity",
+        "substitute_weakness"
+      ],
+      "admission_notes": "R6 adds customer-specific controls validation and commissioning evidence and completes counter-search across capacity expansion, demand reversal, 90-day failover and different-route gas-engine substitution.",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "us_large_gas_turbines_for_data_center_power_projects",
+        "segment_id": "seg_us_large_gas_turbines_data_center_power_2026",
+        "customer_or_platform_scope": "Large gas turbines allocated to U.S. data-center-driven gas power projects; gas engines are a different-route substitute",
+        "geography": "Global unless a narrower geography is stated in product_id",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "state_context": {
+        "demand_direct_evidence": true,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 2,
+        "independent_supply_constraints": [
+          {
+            "constraint_id": "large_turbine_multi_year_delivery_constraint",
+            "evidence_ids": [
+              "H16R6-E03"
+            ],
+            "basis": "Large gas turbine lead times exceed five years."
+          },
+          {
+            "constraint_id": "component_labor_and_customer_commissioning_constraint",
+            "evidence_ids": [
+              "H16R6-E03",
+              "H16R6-E06"
+            ],
+            "basis": "Component/labor bottlenecks and customer-specific validation/commissioning are separately observable."
+          }
+        ],
+        "key_source_quality_high": true,
+        "counter_search_receipt_ids": [
+          "R6-CS-H02"
+        ]
+      }
+    }
+  ],
+  "proof_boundary": "Real-source Calibration evidence only. Expected labels remain outside this blind package."
+}
