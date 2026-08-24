@@ -22,7 +22,7 @@
     },
     {
       "path": ".github/workflows/theme-chokepoint-v1.6.8-freeze.yml",
-      "sha256": "3646c923ce8a270ee5a03bd4a50e130bfe8a7ec29ab14b2e3b58b63a7aa88ff5"
+      "sha256": "61bbf1cbb58f0f98282bc7f4bf27b784e3a7a17e552d35a793314cc1699a28eb"
     },
     {
       "path": "config/theme_chokepoint_release_v1.6.8.json",

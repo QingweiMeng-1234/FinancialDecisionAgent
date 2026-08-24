@@ -49,7 +49,7 @@ jobs:
           touch .ci-python/event_collector/__init__.py
           touch .ci-python/event_collector/theme_chokepoint/__init__.py
       - name: Run v1.6 deterministic scoring regression
-        run: python -m pytest tests/test_theme_chokepoint_scoring_v16.py -q
+        run: python -m pytest --noconftest tests/test_theme_chokepoint_scoring_v16.py -q
         env:
           PYTHONPATH: .ci-python
       - name: Run isolated Staging Shadow smoke
