@@ -41,7 +41,18 @@ jobs:
         run: node tools/theme-chokepoint/verify-release-v1.6.8.mjs
       - name: Install test runner
         run: python -m pip install pytest
+      - name: Prepare isolated v1.6 test package
+        run: |
+          mkdir -p .ci-python/event_collector/theme_chokepoint
+          cp src/event_collector/theme_chokepoint/scoring_v16.py .ci-python/event_collector/theme_chokepoint/
+          cp src/event_collector/theme_chokepoint/validation_v16.py .ci-python/event_collector/theme_chokepoint/
+          touch .ci-python/event_collector/__init__.py
+          touch .ci-python/event_collector/theme_chokepoint/__init__.py
       - name: Run v1.6 deterministic scoring regression
         run: python -m pytest tests/test_theme_chokepoint_scoring_v16.py -q
+        env:
+          PYTHONPATH: .ci-python
       - name: Run isolated Staging Shadow smoke
         run: python tools/theme-chokepoint/smoke-staging-v1.6.8.py
+        env:
+          PYTHONPATH: .ci-python
