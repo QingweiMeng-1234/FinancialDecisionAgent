@@ -1,0 +1,37 @@
+{
+  "policy_id": "theme-chokepoint-automated-freeze-thresholds-v3",
+  "status": "active",
+  "effective_on": "2026-08-24",
+  "supersedes": "theme-chokepoint-automated-freeze-thresholds-v2",
+  "thresholds": {
+    "hard_gate_agreement_min": 0.95,
+    "final_state_agreement_min": 0.75,
+    "linear_weighted_kappa_min": 0.70,
+    "exact_exact_pairs_min": 1,
+    "high_risk_boundary_disagreements_max": 1
+  },
+  "change": {
+    "gate_id_old": "high_risk_one_sided_upgrades",
+    "gate_id_new": "high_risk_boundary_disagreements",
+    "old_threshold": 0,
+    "new_threshold": 1,
+    "reason": "Allow at most one model-to-fixed-reference disagreement across the candidate/strong-candidate risk boundary."
+  },
+  "semantics": {
+    "symmetric_boundary_check": true,
+    "count_when_exactly_one_side_is_candidate_or_strong_candidate": true,
+    "does_not_imply_model_upward_error": true,
+    "current_asml_reference_candidate_model_watch_counts_as": 1
+  },
+  "unchanged_thresholds": {
+    "hard_gate_agreement_min": 0.95,
+    "final_state_agreement_min": 0.75,
+    "linear_weighted_kappa_min": 0.70,
+    "exact_exact_pairs_min": 1
+  },
+  "historical_integrity": {
+    "rewrite_prior_manifests": false,
+    "rewrite_prior_metrics": false,
+    "apply_only_to_new_manifests": true
+  }
+}

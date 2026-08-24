@@ -1,0 +1,128 @@
+{
+  "evaluation_id": "theme-chokepoint-v1.6-r7-evaluation-20260823-001",
+  "manifest_version": "v1.6.7",
+  "base_manifest": "final-evaluation-manifest-v1.6.6.json",
+  "finalized_on": "2026-08-23",
+  "status": "automated_policy_active_not_frozen",
+  "contract_id": "theme-chokepoint-scoring-v1.6+human-inference-overlay-v1.6.1",
+  "governance": {
+    "policy_id": "theme-chokepoint-no-mandatory-human-gates-v1",
+    "policy_path": "../../config/theme_chokepoint_human_gate_policy_v1.json",
+    "policy_sha256": "852d722d0d725a6ce6352063f6db61c621508e3f0703e64e5fb964f0bf24a419",
+    "policy_status": "active_permanent",
+    "mandatory_human_gates": false,
+    "optional_advisory_artifacts_affect_pass_fail": false
+  },
+  "removed_mandatory_gates": [
+    "second independent Human annotation",
+    "Human identity or signature receipt",
+    "Human double-blind agreement",
+    "Human adjudication",
+    "Human Golden/Holdout approval",
+    "Human Top-10 approval"
+  ],
+  "historical_artifacts": {
+    "preserved": true,
+    "base_v1_6_2_manifest_sha256": "ef5ba0838aaa7fee2924c92e77e7b95efdd9126ed4a17b1588ed317c2ea9c5fd",
+    "interpretation": "Historical Human-related artifacts remain auditable but are optional and non-blocking under the active policy."
+  },
+  "metric_semantics": {
+    "comparison_name": "model_to_fixed_reference",
+    "human_reliability_claimed": false,
+    "inter_rater_reliability_claimed": false
+  },
+  "required_automated_freeze_gates": [
+    {
+      "gate_id": "schema_and_semantic_validation",
+      "status": "pass",
+      "observed": {
+        "valid": true,
+        "errors": []
+      },
+      "source": "agreement/post-adjudication-calibration-agreement-v1.6.1.json"
+    },
+    {
+      "gate_id": "input_and_artifact_hash_integrity",
+      "status": "pass",
+      "observed_errors": [],
+      "source": "artifact-manifest-v1.6.2.json"
+    },
+    {
+      "gate_id": "hard_gate_agreement",
+      "status": "pass",
+      "observed": 1,
+      "threshold": 0.95,
+      "source": "agreement/post-adjudication-calibration-agreement-v1.6.1.json"
+    },
+    {
+      "gate_id": "final_state_agreement",
+      "status": "pass",
+      "observed": 0.75,
+      "threshold": 0.75,
+      "source": "agreement/post-adjudication-calibration-agreement-v1.6.1.json"
+    },
+    {
+      "gate_id": "linear_weighted_kappa",
+      "status": "pass",
+      "observed": 1,
+      "threshold": 0.7,
+      "exact_exact_pairs": 1,
+      "minimum_exact_exact_pairs": 1,
+      "source": "agreement/post-adjudication-calibration-agreement-v1.6.1.json",
+      "sample_quality": "low_sample_size",
+      "disclosure": "Gate may pass under the active policy, but the Kappa estimate is not statistically robust."
+    },
+    {
+      "gate_id": "high_risk_one_sided_upgrades",
+      "status": "fail",
+      "observed": 1,
+      "threshold": 0,
+      "source": "agreement/post-adjudication-calibration-agreement-v1.6.1.json"
+    },
+    {
+      "gate_id": "repeatability_and_special_sets",
+      "status": "pass",
+      "observed": {
+        "high_risk_repeat_runs": 5,
+        "time_cutoff_exact_match_rate": 1,
+        "insufficient_evidence_exact_match_rate": 0.7
+      },
+      "source": "final-evaluation-manifest-v1.6.1.json"
+    },
+    {
+      "gate_id": "badcase_artifact_completeness",
+      "status": "pass",
+      "observed": true,
+      "source": "final-evaluation-manifest-v1.6.1.json"
+    },
+    {
+      "gate_id": "holdout_secrecy",
+      "status": "pass",
+      "observed": "pass",
+      "source": "final-evaluation-manifest-v1.6.1.json"
+    }
+  ],
+  "failed_automated_gates": [
+    "high_risk_one_sided_upgrades"
+  ],
+  "freeze_authorized": false,
+  "proof_boundary": "Final State threshold is 0.75 and Kappa requires at least one exact/exact pair under the active amendment. The observed Kappa passes with low-sample disclosure. The evaluation remains not frozen solely because the unchanged high-risk one-sided-upgrade gate fails.",
+  "threshold_policy": {
+    "policy_id": "theme-chokepoint-automated-freeze-thresholds-v2",
+    "policy_path": "../../config/theme_chokepoint_automated_freeze_thresholds_v2.json",
+    "policy_sha256": "63486c7f6ba81a0fd329a8491ab579b00817ecb94ace30fa168790a9050f0b9d",
+    "changes": [
+      {
+        "gate_id": "final_state_agreement",
+        "old_threshold": 0.9,
+        "new_threshold": 0.75
+      },
+      {
+        "gate_id": "linear_weighted_kappa",
+        "field": "exact_exact_pairs_min",
+        "old_threshold": 10,
+        "new_threshold": 1
+      }
+    ]
+  }
+}

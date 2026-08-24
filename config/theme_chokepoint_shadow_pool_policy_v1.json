@@ -1,0 +1,42 @@
+{
+  "policy_id": "theme-chokepoint-rolling-shadow-pool-v1",
+  "status": "active",
+  "effective_on": "2026-08-24",
+  "pool_index_path": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/shadow-pool/index-v1.6.8.json",
+  "mode": "append_only",
+  "mandatory_human_review": false,
+  "accepted_sources": [
+    "staging_shadow_failure",
+    "production_canary_failure",
+    "post_release_regression",
+    "new_boundary_case"
+  ],
+  "required_entry_fields": [
+    "case_id",
+    "sequence",
+    "source",
+    "observed_at",
+    "input_sha256",
+    "contract_sha256",
+    "failure_category",
+    "artifact_path",
+    "artifact_sha256"
+  ],
+  "separation_rules": {
+    "holdout_items_forbidden": true,
+    "gold_answers_forbidden": true,
+    "evaluation_before_promotion_required": true,
+    "promotion_creates_new_version": true,
+    "frozen_v1_6_8_assets_must_not_be_modified": true
+  },
+  "deduplication_key": [
+    "input_sha256",
+    "contract_sha256",
+    "failure_category"
+  ],
+  "retention": {
+    "preserve_original_bytes": true,
+    "preserve_first_seen_timestamp": true,
+    "preserve_source_release_id": true
+  }
+}
