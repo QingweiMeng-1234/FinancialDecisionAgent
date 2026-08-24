@@ -1,0 +1,75 @@
+{
+  "policy_id": "theme-chokepoint-no-mandatory-human-gates-v1",
+  "status": "active_permanent",
+  "effective_on": "2026-08-23",
+  "owner_decision": "Permanently remove mandatory Human participation from Theme Chokepoint evaluation, freeze, and CI release gates.",
+  "mandatory_human_gates": false,
+  "applies_to": {
+    "future_evaluations": true,
+    "calibration_and_golden_generation": true,
+    "holdout_evaluation": true,
+    "badcase_review_completion": true,
+    "freeze_decisions": true,
+    "ci_release_gates": true
+  },
+  "precedence": {
+    "rule": "For evaluations finalized on or after the effective date, this policy overrides any earlier requirement for Human annotation, Human signatures, Human double-blind receipts, Human adjudication, or Human Top-10 approval as a pass/fail prerequisite.",
+    "does_not_rewrite_historical_artifacts": true,
+    "does_not_change_scoring_semantics": true
+  },
+  "required_automated_gates": [
+    {
+      "gate_id": "schema_and_semantic_validation",
+      "requirement": "All submissions and derived states pass the versioned schema and mechanical validator."
+    },
+    {
+      "gate_id": "input_and_artifact_hash_integrity",
+      "requirement": "Contract, task, evidence, prompt, validator, result, manifest, and holdout hashes match their sealed receipts."
+    },
+    {
+      "gate_id": "hard_gate_agreement",
+      "threshold": ">=0.95",
+      "comparison": "independent model run versus fixed reference"
+    },
+    {
+      "gate_id": "final_state_agreement",
+      "threshold": ">=0.90",
+      "comparison": "independent model run versus fixed reference"
+    },
+    {
+      "gate_id": "linear_weighted_kappa",
+      "threshold": ">=0.70 with at least 10 exact/exact pairs",
+      "comparison": "independent model run versus fixed reference"
+    },
+    {
+      "gate_id": "high_risk_one_sided_upgrades",
+      "threshold": "=0"
+    },
+    {
+      "gate_id": "repeatability_and_special_sets",
+      "requirement": "Versioned repeatability, insufficient-evidence, and time-cutoff suites pass their declared automated thresholds."
+    },
+    {
+      "gate_id": "badcase_artifact_completeness",
+      "requirement": "Top-risk failures are deterministically ranked and persisted with evidence, root-cause category, and remediation status; no manual approval is required."
+    },
+    {
+      "gate_id": "holdout_secrecy",
+      "requirement": "Holdout inputs and expected outputs remain sealed from evaluated runs."
+    }
+  ],
+  "human_artifacts": {
+    "allowed": true,
+    "classification": "optional_advisory_only",
+    "effect_on_pass_fail": "none",
+    "missing_or_unsigned_behavior": "do_not_block",
+    "disagreement_behavior": "record_as_diagnostic_without_changing_automated_gate_results"
+  },
+  "reporting_rules": {
+    "do_not_claim_human_validated_without_separate_evidence": true,
+    "do_not_claim_inter_rater_reliability_without_two_eligible_raters": true,
+    "label_required_metrics_as_model_to_fixed_reference": true,
+    "keep_optional_human_diagnostics_separate": true
+  },
+  "rollback_or_change_rule": "A future policy may add advisory processes but must not restore a mandatory Human pass/fail gate unless the Owner explicitly revokes or supersedes this policy in a new machine-readable policy version."
+}
