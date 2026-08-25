@@ -350,6 +350,30 @@ def test_lifecycle_handlers_validate_and_delegate_only_to_python_authorities():
     assert orchestrator.manifest_calls == ["matrix-run"]
 
 
+def test_legacy_research_request_payload_receives_new_budget_defaults():
+    """SELECT INVARIANT: persisted/legacy callers need not send additive budgets."""
+    from event_collector.theme_chokepoint.interfaces import (
+        _materialize_research_request,
+    )
+
+    payload = asdict(request(run_id="legacy-budget-run"))
+    payload["as_of_date"] = payload["as_of_date"].isoformat()
+    for field in (
+        "max_evidence_cards",
+        "max_cards_per_source",
+        "min_sources_per_dimension",
+        "max_sources_per_dimension_per_iteration",
+    ):
+        payload.pop(field)
+
+    materialized = _materialize_research_request(payload)
+
+    assert materialized.max_evidence_cards == 240
+    assert materialized.max_cards_per_source == 6
+    assert materialized.min_sources_per_dimension == 2
+    assert materialized.max_sources_per_dimension_per_iteration == 2
+
+
 def test_lifecycle_handlers_return_the_complete_stable_domain_error_matrix(tmp_path):
     """SELECT INVARIANT: known lifecycle failures retain stable endpoint codes."""
     database = tmp_path / "theme.db"

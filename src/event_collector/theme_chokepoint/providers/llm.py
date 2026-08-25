@@ -50,6 +50,9 @@ class OpenAICompatibleEvidenceSpanExtractor:
         base_url: str | None = None,
         timeout_seconds: float = 90.0,
         max_document_chars: int = 60_000,
+        deepseek_cache_hit_usd_per_million: float | None = None,
+        deepseek_cache_miss_usd_per_million: float | None = None,
+        deepseek_output_usd_per_million: float | None = None,
     ):
         if max_document_chars <= 0 or timeout_seconds <= 0:
             raise ValueError("LLM evidence extraction budgets must be positive")
@@ -73,6 +76,22 @@ class OpenAICompatibleEvidenceSpanExtractor:
             client = OpenAI(**kwargs)
         self.client = client
         self.max_document_chars = max_document_chars
+        self.deepseek_cache_hit_usd_per_million = _price(
+            deepseek_cache_hit_usd_per_million,
+            "DEEPSEEK_CACHE_HIT_USD_PER_MILLION_TOKENS",
+            0.028,
+        )
+        self.deepseek_cache_miss_usd_per_million = _price(
+            deepseek_cache_miss_usd_per_million,
+            "DEEPSEEK_CACHE_MISS_USD_PER_MILLION_TOKENS",
+            0.28,
+        )
+        self.deepseek_output_usd_per_million = _price(
+            deepseek_output_usd_per_million,
+            "DEEPSEEK_OUTPUT_USD_PER_MILLION_TOKENS",
+            0.42,
+        )
+        self._unreported_cost_usd = 0.0
 
     @property
     def model_version(self) -> str:
@@ -104,6 +123,13 @@ class OpenAICompatibleEvidenceSpanExtractor:
                 response_format={"type": "json_object"},
                 temperature=0,
             )
+            if "deepseek" in self.model.casefold():
+                self._unreported_cost_usd += _estimate_deepseek_completion_cost(
+                    completion,
+                    cache_hit_rate=self.deepseek_cache_hit_usd_per_million,
+                    cache_miss_rate=self.deepseek_cache_miss_usd_per_million,
+                    output_rate=self.deepseek_output_usd_per_million,
+                )
             message = completion.choices[0].message
             raw_content = (getattr(message, "content", "") or "").strip()
             if not raw_content:
@@ -146,6 +172,53 @@ class OpenAICompatibleEvidenceSpanExtractor:
                     },
                 ]
         raise last_error from None
+
+    def consume_cost_usd(self) -> float:
+        cost = round(self._unreported_cost_usd, 6)
+        self._unreported_cost_usd = 0.0
+        return cost
+
+
+def _price(explicit, environment_name: str, default: float) -> float:
+    value = float(os.getenv(environment_name, str(default))) if explicit is None else float(explicit)
+    if value < 0:
+        raise ValueError("LLM token prices cannot be negative")
+    return value
+
+
+def _usage_value(usage, name: str) -> int:
+    value = usage.get(name, 0) if isinstance(usage, dict) else getattr(usage, name, 0)
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _estimate_deepseek_completion_cost(
+    completion,
+    *,
+    cache_hit_rate: float,
+    cache_miss_rate: float,
+    output_rate: float,
+) -> float:
+    usage = getattr(completion, "usage", None)
+    if usage is None:
+        return 0.0
+    prompt_tokens = _usage_value(usage, "prompt_tokens")
+    cache_hit_tokens = _usage_value(usage, "prompt_cache_hit_tokens")
+    cache_miss_tokens = _usage_value(usage, "prompt_cache_miss_tokens")
+    if cache_hit_tokens + cache_miss_tokens == 0:
+        cache_miss_tokens = prompt_tokens
+    completion_tokens = _usage_value(usage, "completion_tokens")
+    return round(
+        (
+            cache_hit_tokens * cache_hit_rate
+            + cache_miss_tokens * cache_miss_rate
+            + completion_tokens * output_rate
+        )
+        / 1_000_000,
+        6,
+    )
 
 
 _SYSTEM_PROMPT = """

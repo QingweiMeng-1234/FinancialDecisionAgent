@@ -8,6 +8,7 @@ import pytest
 
 from event_collector.theme_chokepoint.contracts import (
     DemandFrame,
+    EvidenceAcquisitionBatch,
     ExtractedEvidenceSpan,
     ResearchRequest,
     Stage1RunSnapshot,
@@ -154,6 +155,84 @@ def test_tavily_provider_requires_key_before_network_and_never_echoes_key(monkey
         provider.search("qualified transformer supply")
     assert "secret-test-key" not in str(exc_info.value)
     assert exc_info.value.__cause__ is None
+
+
+def test_tavily_search_receipt_estimates_advanced_search_credits(monkeypatch):
+    """SELECT INVARIANT: missing provider cost headers cannot silently become zero."""
+    session = FakeSession(
+        {"request_id": "tavily-request-7", "results": []}, {}
+    )
+    provider = TavilySearchProvider(
+        api_key="test-key",
+        session=session,
+        search_depth="advanced",
+        estimated_cost_usd_per_credit=0.004,
+    )
+
+    batch = provider.search_with_receipt("HBM qualified supply")
+
+    assert batch.hits == ()
+    assert batch.request_receipt_id == "tavily-request-7"
+    assert batch.credits == 2.0
+    assert batch.cost_usd == 0.008
+    assert batch.cost_is_estimated is True
+
+
+def test_metered_evidence_acquirer_combines_tavily_and_deepseek_costs():
+    """SELECT INVARIANT: Stage 3 receives both discovery and extraction cost."""
+
+    class MeteredSearch:
+        def search_with_receipt(self, query):
+            from event_collector.theme_chokepoint.providers.tavily import TavilySearchBatch
+
+            return TavilySearchBatch(
+                hits=(
+                    SearchHit(
+                        url="https://issuer.example.com/metered",
+                        title="Metered source",
+                        discovery_summary="discovery only",
+                        score=1.0,
+                        publication_date=date(2026, 8, 1),
+                    ),
+                ),
+                request_receipt_id="tavily-request-8",
+                credits=2.0,
+                cost_usd=0.008,
+                cost_is_estimated=True,
+            )
+
+    class NoopFetcher:
+        def fetch(self, hit):
+            quote = "Qualified supply grew only five percent year over year."
+            return OriginalDocument(
+                article_id="article-metered",
+                canonical_url=hit.url,
+                title=hit.title,
+                publisher="issuer.example.com",
+                source_type="original_web",
+                publication_date=hit.publication_date,
+                text=quote,
+                content_hash="a" * 64,
+                publication_date_verified=True,
+            )
+
+    class MeteredExtractor(ExactSentenceExtractor):
+        def consume_cost_usd(self):
+            return 0.003
+
+    acquired = TavilyOriginalEvidenceAcquirer(
+        MeteredSearch(), NoopFetcher(), MeteredExtractor(), metered=True
+    ).acquire(
+        query="HBM qualified supply",
+        run=_run(),
+        node=_node(),
+        material_field="effective_supply_concentration",
+    )
+
+    assert isinstance(acquired, EvidenceAcquisitionBatch)
+    assert len(acquired.candidates) == 1
+    assert acquired.request_receipt_ids == ("tavily-request-8",)
+    assert acquired.cost_usd == 0.011
 
 
 def test_tavily_discovers_url_but_evidence_comes_from_refetched_original(monkeypatch):
@@ -539,6 +618,59 @@ class FakeLLMClient:
     def __init__(self, payload):
         self.chat = type("Chat", (), {})()
         self.chat.completions = FakeLLMCompletions(payload)
+
+
+def test_deepseek_extractor_estimates_cost_from_token_usage():
+    """SELECT INVARIANT: DeepSeek token usage contributes a non-zero estimated cost."""
+    quote = "Qualified supply grew only five percent year over year."
+    payload = {
+        "spans": [
+            {
+                "exact_quote": quote,
+                "claim_type": "source_fact",
+                "statement": quote,
+                "stance": "supports",
+                "limitations": "No industry denominator.",
+                "location": "Capacity section",
+                "primary_scoring_dimension": "effective_supply_concentration",
+                "scoring_use": "primary",
+                "data_as_of_date": "2026-06-30",
+            }
+        ]
+    }
+
+    class UsageCompletions:
+        def create(self, **kwargs):
+            message = SimpleNamespace(content=__import__("json").dumps(payload))
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=message)],
+                usage=SimpleNamespace(
+                    prompt_tokens=1_000_000,
+                    completion_tokens=1_000_000,
+                    prompt_cache_hit_tokens=0,
+                    prompt_cache_miss_tokens=1_000_000,
+                ),
+            )
+
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=UsageCompletions())
+    )
+    extractor = OpenAICompatibleEvidenceSpanExtractor(
+        client=client,
+        model="deepseek-chat",
+        deepseek_cache_miss_usd_per_million=0.28,
+        deepseek_output_usd_per_million=0.42,
+    )
+
+    extractor.extract(
+        document=_document(),
+        node=_node(),
+        material_field="effective_supply_concentration",
+        query="qualified effective supply",
+    )
+
+    assert extractor.consume_cost_usd() == 0.7
+    assert extractor.consume_cost_usd() == 0.0
 
 
 class SequenceLLMCompletions:

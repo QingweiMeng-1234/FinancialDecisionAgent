@@ -27,7 +27,10 @@ from event_collector.theme_chokepoint.providers import (
     TavilyOriginalEvidenceAcquirer,
     TavilySearchProvider,
 )
-from event_collector.theme_chokepoint.providers.tavily import TAVILY_SEARCH_URL
+from event_collector.theme_chokepoint.providers.tavily import (
+    TAVILY_SEARCH_URL,
+    tavily_cost_from_response,
+)
 
 
 class LiveProviderError(RuntimeError):
@@ -239,6 +242,7 @@ class TavilyCounterSearchExecutor:
         timeout_seconds: float = 20.0,
         max_results: int = 5,
         search_depth: str = "advanced",
+        estimated_cost_usd_per_credit: float | None = None,
     ):
         self.api_key = api_key or os.getenv("TAVILY_API_KEY")
         if not self.api_key:
@@ -255,6 +259,13 @@ class TavilyCounterSearchExecutor:
         self.timeout_seconds = timeout_seconds
         self.max_results = max_results
         self.search_depth = search_depth
+        self.estimated_cost_usd_per_credit = (
+            float(os.getenv("TAVILY_ESTIMATED_COST_USD_PER_CREDIT", "0.004"))
+            if estimated_cost_usd_per_credit is None
+            else float(estimated_cost_usd_per_credit)
+        )
+        if self.estimated_cost_usd_per_credit < 0:
+            raise ValueError("Tavily estimated credit cost cannot be negative")
 
     def execute(self, *, route_id: str, query: str, **_context):
         if not route_id.strip() or not query.strip():
@@ -286,16 +297,17 @@ class TavilyCounterSearchExecutor:
         trace_id = (
             response.headers.get("X-Request-Id")
             or response.headers.get("X-Provider-Trace-Id")
+            or (upstream.get("request_id") if isinstance(upstream, dict) else None)
             or "tavily-" + sha256(
                 f"{route_id}\0{query}\0{retrieved_at.isoformat()}".encode("utf-8")
             ).hexdigest()[:24]
         )
-        try:
-            cost_usd = float(response.headers.get("X-Cost-Usd", "0"))
-        except (TypeError, ValueError):
-            cost_usd = 0.0
-        if cost_usd < 0:
-            cost_usd = 0.0
+        _, cost_usd, _ = tavily_cost_from_response(
+            response.headers,
+            upstream,
+            search_depth=self.search_depth,
+            estimated_cost_usd_per_credit=self.estimated_cost_usd_per_credit,
+        )
         normalized = {
             "query_log_id": "tavily-query-"
             + sha256(f"{route_id}\0{query}".encode("utf-8")).hexdigest()[:24],
@@ -378,6 +390,7 @@ def build_live_runtime_from_env(runtime_config):
         search,
         OriginalTextFetcher(),
         OpenAICompatibleEvidenceSpanExtractor(),
+        metered=True,
     )
     return build_production_theme_chokepoint_runtime(
         config,

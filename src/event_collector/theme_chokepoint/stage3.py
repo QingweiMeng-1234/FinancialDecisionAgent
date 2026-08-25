@@ -12,6 +12,7 @@ from typing import Protocol
 from event_collector.theme_chokepoint.contracts import (
     BoundBasis,
     Claim,
+    DimensionResourceUsage,
     DimensionRatingDraft,
     EvidenceCandidate,
     EvidenceAcquisitionBatch,
@@ -251,7 +252,29 @@ class EvidenceChokepointLoop:
         started_at = self.monotonic_clock()
         elapsed_seconds = 0.0
         budget_stop_reason = None
+        retrieval_exhausted_dimensions: tuple[str, ...] = ()
+        dimension_query_counts: dict[str, int] = {}
+        dimension_provider_request_counts: dict[str, int] = {}
+        dimension_costs: dict[str, float] = {}
+
+        def record_scorer_cost() -> None:
+            nonlocal cost_usd_spent
+            consume_cost = getattr(self.scorer, "consume_cost_usd", None)
+            if not callable(consume_cost):
+                return
+            scorer_cost = float(consume_cost())
+            if scorer_cost < 0:
+                raise ValueError("provider scoring cost cannot be negative")
+            cost_usd_spent += scorer_cost
+            if scorer_cost:
+                share = scorer_cost / len(self.contract.weights)
+                for dimension in self.contract.weights:
+                    dimension_costs[dimension] = (
+                        dimension_costs.get(dimension, 0.0) + share
+                    )
+
         drafts = self._assess(nodes, claims_by_id, cards_by_id, request=run.request)
+        record_scorer_cost()
 
         while self._missing_pairs(nodes, drafts):
             elapsed_seconds = self.monotonic_clock() - started_at
@@ -261,10 +284,25 @@ class EvidenceChokepointLoop:
             if iterations >= run.request.max_iterations:
                 break
             pairs = self._missing_pairs(nodes, drafts)
-            remaining_sources = run.request.max_sources - len(cards_by_id)
-            if remaining_sources <= 0:
-                break
+            missing_dimensions = tuple(dict.fromkeys(field for _, field in pairs))
+            dimension_sources = {
+                dimension: {
+                    card.article_id
+                    for card in cards_by_id.values()
+                    if card.primary_scoring_dimension == dimension
+                }
+                for dimension in missing_dimensions
+            }
             new_candidates: list[EvidenceCandidate] = []
+            pending_article_ids: set[str] = set()
+            pending_cards_per_article: dict[str, int] = {}
+            source_budget_reached = False
+            pending_dimension_sources = {
+                dimension: set() for dimension in missing_dimensions
+            }
+            iteration_dimension_sources = {
+                dimension: set() for dimension in missing_dimensions
+            }
             for node, field in pairs:
                 elapsed_seconds = self.monotonic_clock() - started_at
                 if elapsed_seconds >= run.request.max_time_seconds:
@@ -272,9 +310,8 @@ class EvidenceChokepointLoop:
                         f"max_time_seconds:{run.request.max_time_seconds}"
                     )
                     break
-                if len(new_candidates) >= remaining_sources:
-                    break
                 query = self._targeted_query(run.request, node, field)
+                dimension_query_counts[field] = dimension_query_counts.get(field, 0) + 1
                 acquired_result = self.acquirer.acquire(
                     query=query,
                     run=run,
@@ -285,6 +322,13 @@ class EvidenceChokepointLoop:
                     if acquired_result.cost_usd < 0:
                         raise ValueError("provider acquisition cost cannot be negative")
                     cost_usd_spent += acquired_result.cost_usd
+                    dimension_costs[field] = (
+                        dimension_costs.get(field, 0.0) + acquired_result.cost_usd
+                    )
+                    dimension_provider_request_counts[field] = (
+                        dimension_provider_request_counts.get(field, 0)
+                        + len(acquired_result.request_receipt_ids)
+                    )
                     provider_request_receipt_ids.extend(
                         acquired_result.request_receipt_ids
                     )
@@ -303,10 +347,98 @@ class EvidenceChokepointLoop:
                         _candidate_fact_key(item) == key for item in new_candidates
                     ):
                         continue
-                    new_candidates.append(candidate)
-                    if len(new_candidates) >= remaining_sources:
+                    if (
+                        len(cards_by_id) + len(new_candidates)
+                        >= run.request.max_evidence_cards
+                    ):
+                        budget_stop_reason = (
+                            f"max_evidence_cards:{run.request.max_evidence_cards}"
+                        )
                         break
-            if budget_stop_reason is not None:
+                    dimension = candidate.claim.primary_scoring_dimension or field
+                    if dimension not in pending_dimension_sources:
+                        pending_dimension_sources[dimension] = set()
+                        iteration_dimension_sources[dimension] = set()
+                        dimension_sources[dimension] = set()
+                    is_new_dimension_source = candidate.article_id not in (
+                        dimension_sources[dimension]
+                        | pending_dimension_sources[dimension]
+                    )
+                    if (
+                        is_new_dimension_source
+                        and len(iteration_dimension_sources[dimension])
+                        >= run.request.max_sources_per_dimension_per_iteration
+                    ):
+                        continue
+                    underserved_dimensions = {
+                        item
+                        for item in missing_dimensions
+                        if len(
+                            dimension_sources.get(item, set())
+                            | pending_dimension_sources.get(item, set())
+                        )
+                        < run.request.min_sources_per_dimension
+                    }
+                    candidate_improves_fairness = (
+                        dimension in underserved_dimensions
+                        and is_new_dimension_source
+                    )
+                    reserved_card_slots = len(underserved_dimensions) - int(
+                        candidate_improves_fairness
+                    )
+                    remaining_card_slots = (
+                        run.request.max_evidence_cards
+                        - len(cards_by_id)
+                        - len(new_candidates)
+                    )
+                    if remaining_card_slots <= reserved_card_slots:
+                        continue
+                    is_known_source = (
+                        candidate.article_id in snapshots_by_article_id
+                        or candidate.article_id in pending_article_ids
+                    )
+                    reserved_source_slots = reserved_card_slots
+                    remaining_source_slots = (
+                        run.request.max_sources
+                        - len(snapshots_by_article_id)
+                        - len(pending_article_ids)
+                    )
+                    if (
+                        not is_known_source
+                        and remaining_source_slots <= reserved_source_slots
+                    ):
+                        if remaining_source_slots <= 0:
+                            source_budget_reached = True
+                        continue
+                    existing_source_cards = sum(
+                        card.article_id == candidate.article_id
+                        for card in cards_by_id.values()
+                    )
+                    if (
+                        existing_source_cards
+                        + pending_cards_per_article.get(candidate.article_id, 0)
+                        >= run.request.max_cards_per_source
+                    ):
+                        continue
+                    new_candidates.append(candidate)
+                    pending_article_ids.add(candidate.article_id)
+                    if is_new_dimension_source:
+                        pending_dimension_sources[dimension].add(candidate.article_id)
+                        iteration_dimension_sources[dimension].add(candidate.article_id)
+                    pending_cards_per_article[candidate.article_id] = (
+                        pending_cards_per_article.get(candidate.article_id, 0) + 1
+                    )
+                if budget_stop_reason is not None:
+                    break
+            if budget_stop_reason is not None and not new_candidates:
+                break
+            if not new_candidates:
+                if source_budget_reached:
+                    budget_stop_reason = (
+                        f"max_unique_sources:{run.request.max_sources}"
+                    )
+                else:
+                    retrieval_exhausted_dimensions = missing_dimensions
                 break
             self._materialize(
                 new_candidates,
@@ -317,6 +449,20 @@ class EvidenceChokepointLoop:
             )
             iterations += 1
             drafts = self._assess(nodes, claims_by_id, cards_by_id, request=run.request)
+            record_scorer_cost()
+            if cost_usd_spent > run.request.max_cost_usd:
+                budget_stop_reason = f"max_cost_usd:{run.request.max_cost_usd}"
+            remaining_pairs = self._missing_pairs(nodes, drafts)
+            if (
+                budget_stop_reason is not None
+                and budget_stop_reason.startswith("max_evidence_cards:")
+                and not remaining_pairs
+            ):
+                budget_stop_reason = None
+            if source_budget_reached and budget_stop_reason is None and remaining_pairs:
+                budget_stop_reason = f"max_unique_sources:{run.request.max_sources}"
+            if budget_stop_reason is not None:
+                break
 
         drafts = self._attach_relief(
             nodes,
@@ -350,17 +496,58 @@ class EvidenceChokepointLoop:
         if budget_stop_reason is not None:
             status = RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
             incomplete_reasons = (budget_stop_reason,)
+        elif retrieval_exhausted_dimensions:
+            status = RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
+            incomplete_reasons = tuple(
+                f"retrieval_exhausted:{dimension}"
+                for dimension in retrieval_exhausted_dimensions
+            )
         elif unresolved:
             status = RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
             if iterations >= run.request.max_iterations:
                 incomplete_reasons = (f"max_iterations:{run.request.max_iterations}",)
-            elif len(cards_by_id) >= run.request.max_sources:
-                incomplete_reasons = (f"max_sources:{run.request.max_sources}",)
+            elif len(snapshots_by_article_id) >= run.request.max_sources:
+                incomplete_reasons = (
+                    f"max_unique_sources:{run.request.max_sources}",
+                )
             else:
-                incomplete_reasons = ("retrieval_exhausted_required_evidence_class",)
+                unresolved_dimensions = tuple(
+                    dict.fromkeys(
+                        dimension.dimension
+                        for assessment in assessments
+                        for dimension in assessment.dimensions
+                        if dimension.evidence_state in {"unknown", "conflicted"}
+                    )
+                )
+                incomplete_reasons = tuple(
+                    f"retrieval_exhausted:{dimension}"
+                    for dimension in unresolved_dimensions
+                ) or ("retrieval_exhausted:required_evidence_class",)
         else:
             status = RunStatus.CHOKEPOINT_ASSESSMENT_READY
             incomplete_reasons = ()
+        dimension_resource_usage = tuple(
+            DimensionResourceUsage(
+                dimension=dimension,
+                query_count=dimension_query_counts.get(dimension, 0),
+                unique_source_count=len(
+                    {
+                        card.article_id
+                        for card in cards_by_id.values()
+                        if card.primary_scoring_dimension == dimension
+                    }
+                ),
+                evidence_card_count=sum(
+                    card.primary_scoring_dimension == dimension
+                    for card in cards_by_id.values()
+                ),
+                provider_request_count=dimension_provider_request_counts.get(
+                    dimension, 0
+                ),
+                cost_usd=round(dimension_costs.get(dimension, 0.0), 6),
+            )
+            for dimension in self.contract.weights
+        )
         return self.repository.save_stage3_result(
             run_id,
             status=status,
@@ -376,6 +563,7 @@ class EvidenceChokepointLoop:
             provider_request_receipt_ids=tuple(provider_request_receipt_ids),
             cost_usd_spent=round(cost_usd_spent, 6),
             elapsed_seconds=round(elapsed_seconds, 6),
+            dimension_resource_usage=dimension_resource_usage,
         )
 
     def _attach_critic(
@@ -476,10 +664,18 @@ class EvidenceChokepointLoop:
 
     @staticmethod
     def _missing_pairs(nodes, drafts):
+        dimensions = tuple(
+            dict.fromkeys(
+                field
+                for node in nodes
+                for field in drafts[node.node_id].missing_material_fields
+            )
+        )
         return tuple(
             (node, field)
             for node in nodes
-            for field in drafts[node.node_id].missing_material_fields
+            for field in dimensions
+            if field in drafts[node.node_id].missing_material_fields
         )
 
     @staticmethod

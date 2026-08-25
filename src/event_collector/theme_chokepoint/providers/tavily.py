@@ -18,6 +18,7 @@ import trafilatura
 from event_collector.theme_chokepoint.contracts import (
     AssessmentScope,
     ClaimDraft,
+    EvidenceAcquisitionBatch,
     EvidenceCandidate,
     ExtractedEvidenceSpan,
     SupplyChainNode,
@@ -35,6 +36,15 @@ class SearchHit:
     discovery_summary: str
     score: float
     publication_date: date | None
+
+
+@dataclass(frozen=True)
+class TavilySearchBatch:
+    hits: tuple[SearchHit, ...]
+    request_receipt_id: str
+    credits: float
+    cost_usd: float
+    cost_is_estimated: bool
 
 
 @dataclass(frozen=True)
@@ -73,6 +83,7 @@ class TavilySearchProvider:
         timeout_seconds: float = 20.0,
         max_results: int = 5,
         search_depth: str = "advanced",
+        estimated_cost_usd_per_credit: float | None = None,
     ):
         self.api_key = api_key or os.getenv("TAVILY_API_KEY")
         if not self.api_key:
@@ -87,8 +98,23 @@ class TavilySearchProvider:
         self.timeout_seconds = timeout_seconds
         self.max_results = max_results
         self.search_depth = search_depth
+        self.estimated_cost_usd_per_credit = (
+            float(
+                os.getenv(
+                    "TAVILY_ESTIMATED_COST_USD_PER_CREDIT",
+                    "0.004",
+                )
+            )
+            if estimated_cost_usd_per_credit is None
+            else float(estimated_cost_usd_per_credit)
+        )
+        if self.estimated_cost_usd_per_credit < 0:
+            raise ValueError("Tavily estimated credit cost cannot be negative")
 
     def search(self, query: str) -> tuple[SearchHit, ...]:
+        return self.search_with_receipt(query).hits
+
+    def search_with_receipt(self, query: str) -> TavilySearchBatch:
         if not query.strip():
             raise ValueError("Tavily search query is required")
         try:
@@ -127,7 +153,26 @@ class TavilySearchProvider:
                     publication_date=_parse_date(item.get("published_date")),
                 )
             )
-        return tuple(hits)
+        credits, cost_usd, cost_is_estimated = tavily_cost_from_response(
+            response.headers,
+            payload,
+            search_depth=self.search_depth,
+            estimated_cost_usd_per_credit=self.estimated_cost_usd_per_credit,
+        )
+        request_receipt_id = str(
+            response.headers.get("X-Request-Id")
+            or response.headers.get("X-Provider-Trace-Id")
+            or (payload.get("request_id") if isinstance(payload, dict) else None)
+            or "tavily-"
+            + sha256(query.strip().encode("utf-8")).hexdigest()[:24]
+        ).strip()
+        return TavilySearchBatch(
+            hits=tuple(hits),
+            request_receipt_id=request_receipt_id,
+            credits=credits,
+            cost_usd=cost_usd,
+            cost_is_estimated=cost_is_estimated,
+        )
 
 
 class OriginalTextFetcher:
@@ -220,14 +265,27 @@ class TavilyOriginalEvidenceAcquirer:
         search_provider: TavilySearchProvider,
         fetcher: OriginalTextFetcher,
         extractor: EvidenceSpanExtractor,
+        *,
+        metered: bool = False,
     ):
         self.search_provider = search_provider
         self.fetcher = fetcher
         self.extractor = extractor
+        self.metered = metered
 
-    def acquire(self, *, query, run, node, material_field) -> list[EvidenceCandidate]:
+    def acquire(self, *, query, run, node, material_field):
         candidates = []
-        for hit in self.search_provider.search(query):
+        search_with_receipt = getattr(self.search_provider, "search_with_receipt", None)
+        if self.metered and callable(search_with_receipt):
+            search_batch = search_with_receipt(query)
+            hits = search_batch.hits
+            cost_usd = search_batch.cost_usd
+            request_receipt_ids = [search_batch.request_receipt_id]
+        else:
+            hits = self.search_provider.search(query)
+            cost_usd = 0.0
+            request_receipt_ids = []
+        for hit in hits:
             document = self.fetcher.fetch(hit)
             if document is None:
                 continue
@@ -237,6 +295,10 @@ class TavilyOriginalEvidenceAcquirer:
                 material_field=material_field,
                 query=query,
             )
+            if self.metered:
+                consume_cost = getattr(self.extractor, "consume_cost_usd", None)
+                if callable(consume_cost):
+                    cost_usd += float(consume_cost())
             for ordinal, span in enumerate(spans):
                 quote = span.exact_quote.strip()
                 start = document.text.find(quote)
@@ -350,7 +412,45 @@ class TavilyOriginalEvidenceAcquirer:
                         ),
                     )
                 )
+        if self.metered:
+            return EvidenceAcquisitionBatch(
+                candidates=tuple(candidates),
+                cost_usd=round(cost_usd, 6),
+                request_receipt_ids=tuple(request_receipt_ids),
+            )
         return candidates
+
+
+def tavily_cost_from_response(
+    headers,
+    payload,
+    *,
+    search_depth: str,
+    estimated_cost_usd_per_credit: float,
+) -> tuple[float, float, bool]:
+    """Return credits, USD cost and whether USD was estimated."""
+    try:
+        actual_cost = float(headers.get("X-Cost-Usd"))
+    except (TypeError, ValueError):
+        actual_cost = None
+    usage = payload.get("usage", {}) if isinstance(payload, dict) else {}
+    raw_credits = (
+        usage.get("credits") if isinstance(usage, dict) else None
+    )
+    if raw_credits is None and isinstance(payload, dict):
+        raw_credits = payload.get("credits")
+    try:
+        credits = float(raw_credits)
+    except (TypeError, ValueError):
+        credits = 2.0 if search_depth == "advanced" else 1.0
+    credits = max(0.0, credits)
+    if actual_cost is not None and actual_cost >= 0:
+        return credits, round(actual_cost, 6), False
+    return (
+        credits,
+        round(credits * estimated_cost_usd_per_credit, 6),
+        True,
+    )
 
 
 def _parse_date(value) -> date | None:

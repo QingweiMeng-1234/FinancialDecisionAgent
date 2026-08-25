@@ -45,6 +45,10 @@ class ResearchRequest:
     max_time_seconds: int
     max_cost_usd: float
     max_product_anchors: int
+    max_evidence_cards: int = 240
+    max_cards_per_source: int = 6
+    min_sources_per_dimension: int = 2
+    max_sources_per_dimension_per_iteration: int = 2
 
 
 @dataclass(frozen=True)
@@ -645,6 +649,16 @@ class SourceSnapshot:
 
 
 @dataclass(frozen=True)
+class DimensionResourceUsage:
+    dimension: str
+    query_count: int
+    unique_source_count: int
+    evidence_card_count: int
+    provider_request_count: int
+    cost_usd: float
+
+
+@dataclass(frozen=True)
 class Stage3Result:
     run_id: str
     status: RunStatus
@@ -661,6 +675,7 @@ class Stage3Result:
     provider_request_receipt_ids: tuple[str, ...] = ()
     cost_usd_spent: float = 0.0
     elapsed_seconds: float = 0.0
+    dimension_resource_usage: tuple[DimensionResourceUsage, ...] = ()
 
 
 @dataclass(frozen=True)

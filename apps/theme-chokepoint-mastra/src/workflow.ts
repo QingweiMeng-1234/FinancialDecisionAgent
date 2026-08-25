@@ -22,6 +22,15 @@ const stageProjectionSchema = z
   })
   .strict();
 
+const terminalIncompleteStatuses = new Set([
+  "INCOMPLETE_BUDGET_EXHAUSTED",
+  "COMPANY_ASSESSMENT_INCOMPLETE",
+]);
+
+function isTerminalIncomplete(state: WorkflowProjectionState): boolean {
+  return terminalIncompleteStatuses.has(state.pythonStatus);
+}
+
 export const workflowStateSchema = correlationSchema
   .extend({
     imported: z.boolean(),
@@ -238,6 +247,25 @@ export function createM0Workflow(options: {
       },
     });
 
+  const skipStep = (stage: 4 | 5 | 6 | 7) =>
+    createStep({
+      id: `skip-stage-${stage}-not-entered`,
+      inputSchema: workflowStateSchema,
+      outputSchema: workflowStateSchema,
+      execute: async ({ inputData }) => inputData,
+    });
+
+  const stage2 = stageStep(2);
+  const stage3 = stageStep(3);
+  const stage4 = stageStep(4);
+  const stage5 = stageStep(5);
+  const stage6 = stageStep(6);
+  const stage7 = stageStep(7);
+  const skip4 = skipStep(4);
+  const skip5 = skipStep(5);
+  const skip6 = skipStep(6);
+  const skip7 = skipStep(7);
+
   return createWorkflow({
     id: "theme-chokepoint-m0",
     inputSchema: correlationSchema,
@@ -246,11 +274,43 @@ export function createM0Workflow(options: {
     .then(correlatePythonRun)
     .then(projectStage1Step)
     .then(suspendForConfirmation)
-    .then(stageStep(2))
-    .then(stageStep(3))
-    .then(stageStep(4))
-    .then(stageStep(5))
-    .then(stageStep(6))
-    .then(stageStep(7))
+    .then(stage2)
+    .then(stage3)
+    .branch([
+      [async ({ inputData }) => !isTerminalIncomplete(inputData), stage4],
+      [async ({ inputData }) => isTerminalIncomplete(inputData), skip4],
+    ])
+    .map(
+      async ({ inputData }) =>
+        inputData[stage4.id] ?? inputData[skip4.id],
+      { id: "select-stage-4-outcome" },
+    )
+    .branch([
+      [async ({ inputData }) => !isTerminalIncomplete(inputData), stage5],
+      [async ({ inputData }) => isTerminalIncomplete(inputData), skip5],
+    ])
+    .map(
+      async ({ inputData }) =>
+        inputData[stage5.id] ?? inputData[skip5.id],
+      { id: "select-stage-5-outcome" },
+    )
+    .branch([
+      [async ({ inputData }) => !isTerminalIncomplete(inputData), stage6],
+      [async ({ inputData }) => isTerminalIncomplete(inputData), skip6],
+    ])
+    .map(
+      async ({ inputData }) =>
+        inputData[stage6.id] ?? inputData[skip6.id],
+      { id: "select-stage-6-outcome" },
+    )
+    .branch([
+      [async ({ inputData }) => !isTerminalIncomplete(inputData), stage7],
+      [async ({ inputData }) => isTerminalIncomplete(inputData), skip7],
+    ])
+    .map(
+      async ({ inputData }) =>
+        inputData[stage7.id] ?? inputData[skip7.id],
+      { id: "select-stage-7-outcome" },
+    )
     .commit();
 }

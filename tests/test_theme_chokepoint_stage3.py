@@ -766,6 +766,398 @@ def _all_dimension_candidates():
     return candidates
 
 
+def _many_candidates(*, source_count: int, card_count: int):
+    """Build many atomic cards over a smaller set of immutable source snapshots."""
+    first = _candidate()
+    source_texts = {
+        source_index: " ".join(
+            f"Source {source_index} atomic fact {card_index}."
+            for card_index in range(card_count)
+            if card_index % source_count == source_index
+        )
+        for source_index in range(source_count)
+    }
+    candidates = []
+    for card_index in range(card_count):
+        source_index = card_index % source_count
+        quote = f"Source {source_index} atomic fact {card_index}."
+        original_text = source_texts[source_index]
+        candidates.append(
+            replace(
+                first,
+                article_id=f"article-many-{source_index}",
+                canonical_url=f"https://example.com/many/{source_index}",
+                quote_start=original_text.index(quote),
+                quote_end=original_text.index(quote) + len(quote),
+                exact_quote=quote,
+                original_text=original_text,
+                origin_event_id=f"event-many-{card_index}",
+                evidence_family_id=f"family-many-{card_index}",
+                claim=replace(
+                    first.claim,
+                    claim_id=f"claim-many-{card_index}",
+                    statement=quote,
+                    fact_key=f"fact-many-{card_index}",
+                ),
+            )
+        )
+    return candidates
+
+
+def test_stage3_max_sources_counts_unique_original_sources_not_evidence_cards(tmp_path):
+    """SELECT INVARIANT: max_sources counts SourceSnapshot identities, not cards."""
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=7,
+            max_evidence_cards=40,
+            max_cards_per_source=10,
+            max_sources_per_dimension_per_iteration=7,
+            max_iterations=1,
+        ),
+    )
+
+    result = _controlled_loop(
+        repository,
+        RecordingAcquirer(_many_candidates(source_count=7, card_count=40)),
+        NeverResolvedScorer(),
+    ).run(request.run_id)
+
+    assert len(result.source_snapshots) == 7
+    assert len(result.evidence_cards) == 40
+    assert result.incomplete_reasons == ("max_iterations:1",)
+
+
+def test_stage3_enforces_an_independent_evidence_card_budget(tmp_path):
+    """SELECT INVARIANT: Evidence Cards have a budget independent of sources."""
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=7,
+            max_evidence_cards=5,
+            max_cards_per_source=10,
+            max_iterations=2,
+        ),
+    )
+
+    result = _controlled_loop(
+        repository,
+        RecordingAcquirer(_many_candidates(source_count=2, card_count=12)),
+        NeverResolvedScorer(),
+    ).run(request.run_id)
+
+    assert len(result.source_snapshots) == 2
+    assert len(result.evidence_cards) == 5
+    assert result.incomplete_reasons == ("max_evidence_cards:5",)
+
+
+def test_stage3_caps_cards_materialized_from_one_original_source(tmp_path):
+    """SELECT INVARIANT: one source cannot flood the Evidence Card ledger."""
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=10,
+            max_evidence_cards=20,
+            max_cards_per_source=3,
+            max_iterations=1,
+        ),
+    )
+
+    result = _controlled_loop(
+        repository,
+        RecordingAcquirer(_many_candidates(source_count=1, card_count=12)),
+        NeverResolvedScorer(),
+    ).run(request.run_id)
+
+    assert len(result.source_snapshots) == 1
+    assert len(result.evidence_cards) == 3
+    assert result.incomplete_reasons == ("max_iterations:1",)
+
+
+def test_stage3_missing_pairs_round_robin_dimensions_across_segments():
+    """SELECT INVARIANT: one dimension cannot enqueue every segment before peers."""
+    nodes = tuple(
+        SupplyChainNode(
+            node_id=f"node-{index}",
+            normalized_name=f"segment {index}",
+            node_type="material_segment",
+            depth=1,
+            status="proposed",
+            description="fixture",
+            aliases=(),
+        )
+        for index in (1, 2)
+    )
+    drafts = {
+        node.node_id: _unknown_score(node.node_id, missing=DIMENSIONS)
+        for node in nodes
+    }
+
+    pairs = EvidenceChokepointLoop._missing_pairs(nodes, drafts)
+
+    assert tuple((node.node_id, field) for node, field in pairs) == tuple(
+        (node.node_id, dimension)
+        for node in nodes
+        for dimension in DIMENSIONS
+    )
+
+
+def test_stage3_reserves_a_fair_source_and_card_share_for_all_dimensions(tmp_path):
+    """SELECT INVARIANT: early dimensions cannot starve later dimensions."""
+
+    class TwoSourcesPerDimension:
+        def __init__(self):
+            self.queried_fields = []
+
+        def acquire(self, *, material_field, **_kwargs):
+            self.queried_fields.append(material_field)
+            first = _candidate()
+            candidates = []
+            for source_index in range(2):
+                quote = f"{material_field} fair source {source_index}."
+                candidates.append(
+                    replace(
+                        first,
+                        article_id=f"article-fair-{material_field}-{source_index}",
+                        canonical_url=(
+                            f"https://example.com/fair/{material_field}/{source_index}"
+                        ),
+                        quote_start=0,
+                        quote_end=len(quote),
+                        exact_quote=quote,
+                        original_text=quote,
+                        origin_event_id=f"event-fair-{material_field}-{source_index}",
+                        evidence_family_id=(
+                            f"family-fair-{material_field}-{source_index}"
+                        ),
+                        claim=replace(
+                            first.claim,
+                            claim_id=f"claim-fair-{material_field}-{source_index}",
+                            statement=quote,
+                            material_field=material_field,
+                            primary_scoring_dimension=material_field,
+                            fact_key=f"fact-fair-{material_field}-{source_index}",
+                            condition_ids=(f"{material_field}.anchor_3.floor",),
+                        ),
+                    )
+                )
+            return candidates
+
+    class AllDimensionsMissingScorer:
+        def assess(self, node, claims, evidence_cards, *, request, contract_version):
+            return _unknown_score(node.node_id, missing=DIMENSIONS)
+
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=6,
+            max_evidence_cards=6,
+            max_cards_per_source=2,
+            min_sources_per_dimension=1,
+            max_sources_per_dimension_per_iteration=2,
+            max_iterations=1,
+        ),
+    )
+    acquirer = TwoSourcesPerDimension()
+
+    result = _controlled_loop(
+        repository, acquirer, AllDimensionsMissingScorer()
+    ).run(request.run_id)
+
+    assert acquirer.queried_fields == list(DIMENSIONS)
+    assert {
+        dimension: sum(
+            card.primary_scoring_dimension == dimension
+            for card in result.evidence_cards
+        )
+        for dimension in DIMENSIONS
+    } == {dimension: 1 for dimension in DIMENSIONS}
+
+
+def test_stage3_records_exact_unique_source_budget_termination(tmp_path):
+    """SELECT INVARIANT: source exhaustion names the unique-source boundary."""
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=1,
+            max_evidence_cards=20,
+            max_cards_per_source=6,
+            min_sources_per_dimension=1,
+            max_iterations=2,
+        ),
+    )
+
+    result = _controlled_loop(
+        repository,
+        RecordingAcquirer(_many_candidates(source_count=2, card_count=2)),
+        NeverResolvedScorer(),
+    ).run(request.run_id)
+
+    assert result.incomplete_reasons == ("max_unique_sources:1",)
+
+
+def test_stage3_budget_boundary_does_not_override_a_resolved_assessment(tmp_path):
+    """SELECT INVARIANT: a reached cap is a stop reason only while gaps remain."""
+    candidates = _all_dimension_candidates()
+    extra = replace(
+        _candidate(),
+        article_id="article-extra-after-resolution",
+        canonical_url="https://example.com/extra-after-resolution",
+        origin_event_id="event-extra-after-resolution",
+        evidence_family_id="family-extra-after-resolution",
+        claim=replace(
+            _candidate().claim,
+            claim_id="claim-extra-after-resolution",
+            fact_key="fact-extra-after-resolution",
+        ),
+    )
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=6,
+            max_evidence_cards=20,
+            min_sources_per_dimension=1,
+        ),
+    )
+
+    result = _controlled_loop(
+        repository,
+        RecordingAcquirer([*candidates, extra]),
+        ProgressiveScorer(),
+    ).run(request.run_id)
+
+    assert result.status is RunStatus.CHOKEPOINT_ASSESSMENT_READY
+    assert result.incomplete_reasons == ()
+
+
+def test_stage3_names_each_dimension_when_retrieval_is_exhausted(tmp_path):
+    """SELECT INVARIANT: provider exhaustion identifies affected dimensions."""
+
+    class AllDimensionsMissingScorer:
+        def assess(self, node, claims, evidence_cards, *, request, contract_version):
+            return _unknown_score(node.node_id, missing=DIMENSIONS)
+
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(repository)
+    result = _controlled_loop(
+        repository, RecordingAcquirer([]), AllDimensionsMissingScorer()
+    ).run(request.run_id)
+
+    assert result.iterations_completed == 0
+    assert result.incomplete_reasons == tuple(
+        f"retrieval_exhausted:{dimension}" for dimension in DIMENSIONS
+    )
+
+
+def test_stage3_persists_dimension_query_source_card_and_cost_usage(tmp_path):
+    """SELECT INVARIANT: Stage 3 resource use is attributable by dimension."""
+    from event_collector.theme_chokepoint.contracts import EvidenceAcquisitionBatch
+
+    class CostedDimensionAcquirer:
+        def acquire(self, *, material_field, **_kwargs):
+            first = _candidate()
+            quote = f"Costed evidence for {material_field}."
+            candidate = replace(
+                first,
+                article_id=f"article-costed-{material_field}",
+                canonical_url=f"https://example.com/costed/{material_field}",
+                quote_start=0,
+                quote_end=len(quote),
+                exact_quote=quote,
+                original_text=quote,
+                origin_event_id=f"event-costed-{material_field}",
+                evidence_family_id=f"family-costed-{material_field}",
+                claim=replace(
+                    first.claim,
+                    claim_id=f"claim-costed-{material_field}",
+                    statement=quote,
+                    material_field=material_field,
+                    primary_scoring_dimension=material_field,
+                    fact_key=f"fact-costed-{material_field}",
+                    condition_ids=(f"{material_field}.anchor_3.floor",),
+                ),
+            )
+            return EvidenceAcquisitionBatch(
+                candidates=(candidate,),
+                cost_usd=0.25,
+                request_receipt_ids=(f"receipt-{material_field}",),
+            )
+
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(
+        repository,
+        request=_request(
+            max_sources=12,
+            max_evidence_cards=24,
+            min_sources_per_dimension=1,
+        ),
+    )
+    result = _controlled_loop(
+        repository, CostedDimensionAcquirer(), ProgressiveScorer()
+    ).run(request.run_id)
+
+    assert result.cost_usd_spent == 1.5
+    assert {
+        usage.dimension: (
+            usage.query_count,
+            usage.unique_source_count,
+            usage.evidence_card_count,
+            usage.provider_request_count,
+            usage.cost_usd,
+        )
+        for usage in result.dimension_resource_usage
+    } == {
+        dimension: (1, 1, 1, 1, 0.25) for dimension in DIMENSIONS
+    }
+    assert repository.get_stage3_result(request.run_id) == result
+
+
+def test_stage3_includes_metered_scorer_cost_in_total_and_dimensions(tmp_path):
+    """SELECT INVARIANT: DeepSeek scoring cost is not omitted from Stage 3."""
+
+    class MeteredScorer(ProgressiveScorer):
+        def __init__(self):
+            super().__init__()
+            self.unreported_cost = 0.0
+
+        def assess(self, node, claims, evidence_cards, *, request, contract_version):
+            result = super().assess(
+                node,
+                claims,
+                evidence_cards,
+                request=request,
+                contract_version=contract_version,
+            )
+            if evidence_cards:
+                self.unreported_cost += 0.6
+            return result
+
+        def consume_cost_usd(self):
+            value = self.unreported_cost
+            self.unreported_cost = 0.0
+            return value
+
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(repository)
+    result = _controlled_loop(
+        repository,
+        RecordingAcquirer(_all_dimension_candidates()),
+        MeteredScorer(),
+    ).run(request.run_id)
+
+    assert result.cost_usd_spent == 0.6
+    assert {
+        usage.dimension: usage.cost_usd
+        for usage in result.dimension_resource_usage
+    } == {dimension: 0.1 for dimension in DIMENSIONS}
+
+
 def test_stage3_refuses_to_run_before_supply_chain_graph_is_committed(tmp_path):
     """SELECT INVARIANT: Stage 2 committed state is a hard Stage 3 gate."""
     repository = ThemeChokepointRepository(tmp_path / "theme.db")
@@ -1602,8 +1994,10 @@ def test_stage3_keeps_missing_evidence_unknown_and_returns_budget_incomplete(tmp
     ).run(request.run_id)
 
     assert result.status is RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
-    assert result.iterations_completed == 1
-    assert result.incomplete_reasons == ("max_iterations:1",)
+    assert result.iterations_completed == 0
+    assert result.incomplete_reasons == (
+        "retrieval_exhausted:effective_supply_concentration",
+    )
     assessment = result.assessments[0]
     assert assessment.score_min == 0.0
     assert assessment.score_max == 100.0

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, fields, is_dataclass
+from dataclasses import MISSING, asdict, fields, is_dataclass
 from datetime import date, datetime
 from functools import wraps
 import math
@@ -133,6 +133,10 @@ class ThemeChokepointInterface:
         max_time_seconds: int,
         max_cost_usd: float,
         max_product_anchors: int,
+        max_evidence_cards: int = 240,
+        max_cards_per_source: int = 6,
+        min_sources_per_dimension: int = 2,
+        max_sources_per_dimension_per_iteration: int = 2,
     ) -> dict:
         if self.stage1 is None:
             raise _RuntimeNotConfigured
@@ -154,6 +158,12 @@ class ThemeChokepointInterface:
             "max_time_seconds": max_time_seconds,
             "max_cost_usd": max_cost_usd,
             "max_product_anchors": max_product_anchors,
+            "max_evidence_cards": max_evidence_cards,
+            "max_cards_per_source": max_cards_per_source,
+            "min_sources_per_dimension": min_sources_per_dimension,
+            "max_sources_per_dimension_per_iteration": (
+                max_sources_per_dimension_per_iteration
+            ),
         }
         request = _materialize_research_request(payload)
         orchestrator_start = getattr(self.orchestrator, "start", None)
@@ -399,10 +409,19 @@ def _validate_receipt_matrix(status, anchor_ids, actor, confirmed_at):
 
 
 def _materialize_research_request(payload):
-    expected = {field.name for field in fields(ResearchRequest)}
-    if set(payload) != expected:
+    field_definitions = {field.name: field for field in fields(ResearchRequest)}
+    expected = set(field_definitions)
+    required = {
+        name
+        for name, field in field_definitions.items()
+        if field.default is MISSING and field.default_factory is MISSING
+    }
+    if set(payload) - expected or required - set(payload):
         raise ValueError("request fields do not match the schema")
-    values = dict(payload)
+    values = {
+        name: payload[name] if name in payload else field.default
+        for name, field in field_definitions.items()
+    }
     if not isinstance(values["as_of_date"], str):
         raise ValueError("as_of_date must be an ISO date")
     values["as_of_date"] = date.fromisoformat(values["as_of_date"])
@@ -418,6 +437,10 @@ def _materialize_research_request(payload):
         "max_sources",
         "max_time_seconds",
         "max_product_anchors",
+        "max_evidence_cards",
+        "max_cards_per_source",
+        "min_sources_per_dimension",
+        "max_sources_per_dimension_per_iteration",
     }
     for name in integer_fields:
         if isinstance(values[name], bool) or not isinstance(values[name], int):

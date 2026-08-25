@@ -49,6 +49,7 @@ from event_collector.theme_chokepoint.contracts import (
     CounterSearchRouteFinding,
     DependencyEdge,
     DemandFrame,
+    DimensionResourceUsage,
     DimensionRatingDraft,
     EvidenceCard,
     FactVerificationReceipt,
@@ -4333,6 +4334,7 @@ class ThemeChokepointRepository:
         provider_request_receipt_ids: tuple[str, ...] = (),
         cost_usd_spent: float = 0.0,
         elapsed_seconds: float = 0.0,
+        dimension_resource_usage: tuple[DimensionResourceUsage, ...] = (),
     ) -> Stage3Result:
         if status not in {
             RunStatus.CHOKEPOINT_ASSESSMENT_READY,
@@ -4356,6 +4358,7 @@ class ThemeChokepointRepository:
             provider_request_receipt_ids=provider_request_receipt_ids,
             cost_usd_spent=cost_usd_spent,
             elapsed_seconds=elapsed_seconds,
+            dimension_resource_usage=dimension_resource_usage,
         )
         payload = _stage3_to_payload(result)
         with self._connect() as connection:
@@ -5012,6 +5015,10 @@ def _stage3_from_payload(payload: dict) -> Stage3Result:
         ),
         cost_usd_spent=float(payload.get("cost_usd_spent", 0.0)),
         elapsed_seconds=float(payload.get("elapsed_seconds", 0.0)),
+        dimension_resource_usage=tuple(
+            DimensionResourceUsage(**item)
+            for item in payload.get("dimension_resource_usage", ())
+        ),
     )
 
 

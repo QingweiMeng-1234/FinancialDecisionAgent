@@ -17,6 +17,8 @@ from event_collector.theme_chokepoint.providers.llm import (
     _configured_api_key,
     _configured_base_url,
     _configured_model,
+    _estimate_deepseek_completion_cost,
+    _price,
 )
 
 
@@ -89,6 +91,9 @@ class DeepSeekV14SegmentScorer:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 90.0,
+        deepseek_cache_hit_usd_per_million: float | None = None,
+        deepseek_cache_miss_usd_per_million: float | None = None,
+        deepseek_output_usd_per_million: float | None = None,
     ):
         if timeout_seconds <= 0:
             raise ValueError("segment scorer timeout must be positive")
@@ -107,6 +112,22 @@ class DeepSeekV14SegmentScorer:
                 kwargs["base_url"] = resolved_base
             client = OpenAI(**kwargs)
         self.client = client
+        self.deepseek_cache_hit_usd_per_million = _price(
+            deepseek_cache_hit_usd_per_million,
+            "DEEPSEEK_CACHE_HIT_USD_PER_MILLION_TOKENS",
+            0.028,
+        )
+        self.deepseek_cache_miss_usd_per_million = _price(
+            deepseek_cache_miss_usd_per_million,
+            "DEEPSEEK_CACHE_MISS_USD_PER_MILLION_TOKENS",
+            0.28,
+        )
+        self.deepseek_output_usd_per_million = _price(
+            deepseek_output_usd_per_million,
+            "DEEPSEEK_OUTPUT_USD_PER_MILLION_TOKENS",
+            0.42,
+        )
+        self._unreported_cost_usd = 0.0
 
     def assess(
         self,
@@ -144,6 +165,13 @@ class DeepSeekV14SegmentScorer:
                 response_format={"type": "json_object"},
                 temperature=0,
             )
+            if "deepseek" in self.model.casefold():
+                self._unreported_cost_usd += _estimate_deepseek_completion_cost(
+                    completion,
+                    cache_hit_rate=self.deepseek_cache_hit_usd_per_million,
+                    cache_miss_rate=self.deepseek_cache_miss_usd_per_million,
+                    output_rate=self.deepseek_output_usd_per_million,
+                )
             try:
                 dimensions = _decode_dimensions(completion, claims, evidence_cards)
             except _ModelContractViolation as error:
@@ -156,6 +184,11 @@ class DeepSeekV14SegmentScorer:
                 ) from None
             return _build_draft(node.node_id, dimensions, claims, evidence_cards)
         raise AssertionError("unreachable Segment scorer repair state")
+
+    def consume_cost_usd(self) -> float:
+        cost = round(self._unreported_cost_usd, 6)
+        self._unreported_cost_usd = 0.0
+        return cost
 
 
 def _decode_dimensions(completion, claims, evidence_cards):

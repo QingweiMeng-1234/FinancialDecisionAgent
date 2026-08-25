@@ -180,6 +180,35 @@ def test_tavily_counter_search_executes_route_without_promoting_snippets_to_evid
     assert session.calls[0][1]["headers"]["Authorization"] == "Bearer test-tavily-key"
 
 
+def test_tavily_counter_search_estimates_cost_when_header_is_absent():
+    """SELECT INVARIANT: counter-search cost does not default to permanent zero."""
+
+    class Response:
+        status_code = 200
+        content = b'{"request_id":"counter-9","results":[]}'
+        headers = {}
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return json.loads(self.content)
+
+    class Session:
+        def post(self, url, **kwargs):
+            return Response()
+
+    raw = TavilyCounterSearchExecutor(
+        api_key="test-key",
+        session=Session(),
+        search_depth="advanced",
+        estimated_cost_usd_per_credit=0.004,
+    ).execute(route_id="supply", query="HBM supply alternatives")
+
+    assert raw.provider_trace_id == "counter-9"
+    assert raw.cost_usd == 0.008
+
+
 def test_shipping_live_factory_builds_production_runtime_from_isolated_env(
     tmp_path, monkeypatch
 ):
