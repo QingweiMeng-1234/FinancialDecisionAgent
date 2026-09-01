@@ -315,7 +315,6 @@ def _run_retry_child_with_watchdog(
     watchdog = LeaseHeartbeatWatchdog(
         heartbeat, interval_seconds=lease_heartbeat_interval_seconds
     )
-    watchdog.start()
     try:
         return _run_retry_child_impl(
             db_path,
@@ -348,6 +347,14 @@ def _run_retry_child_impl(
 ) -> RetryBatchResult:
 
     outcomes: list[RetryTargetOutcome] = []
+    watchdog_started = False
+
+    def start_watchdog_before_blocking_work() -> None:
+        nonlocal watchdog_started
+        if not watchdog_started:
+            watchdog.start()
+            watchdog_started = True
+
     for target in list_collection_retry_targets(db_path, claim.run_id):
         terminal = _read_collection_target_terminal_attempt(db_path, target)
         if terminal is not None:
@@ -377,6 +384,7 @@ def _run_retry_child_impl(
             execution = _collection_executor_failure(target.source_name)
         else:
             try:
+                start_watchdog_before_blocking_work()
                 execution = _normalize_collection_execution(
                     target,
                     collection_executor(target),
@@ -451,15 +459,19 @@ def _run_retry_child_impl(
         ):
             return RetryBatchResult(claim.run_id, tuple(outcomes), lost_lease=True)
 
-        attempt = start_processing_attempt(
-            db_path,
-            run_id=claim.run_id,
-            article_id=target.article_id,
-            stage=target.stage,
-            worker_id=claim.lease_owner,
-            started_at=lease_now,
-            input_content_sha256=target.input_content_sha256,
-        )
+        try:
+            attempt = start_processing_attempt(
+                db_path,
+                run_id=claim.run_id,
+                article_id=target.article_id,
+                stage=target.stage,
+                worker_id=claim.lease_owner,
+                started_at=lease_now,
+                input_content_sha256=target.input_content_sha256,
+            )
+        except PermissionError:
+            return RetryBatchResult(claim.run_id, tuple(outcomes), lost_lease=True)
+        start_watchdog_before_blocking_work()
 
         public_status = "failed"
         if target.stage == "index" and successor_generation_coordinator is None:

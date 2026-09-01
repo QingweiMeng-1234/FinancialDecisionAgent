@@ -261,6 +261,39 @@ def test_runner_watchdog_fails_closed_when_lease_is_lost_during_a_blocking_execu
         ).fetchone() == ("running",)
 
 
+def test_runner_fails_closed_when_attempt_creation_rejects_ownership(tmp_path, monkeypatch):
+    """SELECT INVARIANT: ownership loss before attempt creation is a lost lease."""
+    path = tmp_path / "ledger.sqlite3"
+    child = _parent_with_targets(path, [(41, "content_fetch", None)])
+    executed = []
+
+    def reject_stale_owner(*args, **kwargs):
+        del args, kwargs
+        raise PermissionError("refresh run lease is not owned by this worker")
+
+    monkeypatch.setattr(
+        "event_collector.refresh_retry.start_processing_attempt", reject_stale_owner
+    )
+
+    result = run_retry_child(
+        path,
+        claim=child,
+        clock=lambda: NOW + timedelta(seconds=11),
+        lease_seconds=60,
+        content_executor=lambda target: executed.append(target),
+        summary_executor=lambda target: executed.append(target),
+    )
+
+    assert result.lost_lease is True
+    assert result.outcomes == ()
+    assert executed == []
+    with sqlite3.connect(path) as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM article_processing_attempts WHERE run_id = ?",
+            (child.run_id,),
+        ).fetchone() == (0,)
+
+
 def test_runner_persists_a_new_due_time_from_the_executor(tmp_path):
     path = tmp_path / "ledger.sqlite3"
     child = _parent_with_targets(path, [(41, "content_fetch", None)])
