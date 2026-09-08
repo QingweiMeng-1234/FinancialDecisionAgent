@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>多 Agent 对照实验 · Mastra Lab</title>
+  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/research.css"><script src="/app.js" defer></script><script src="/research.js" type="module"></script>
+  <link rel="stylesheet" href="/interrupt.css"><script src="/interrupt.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/">m<span> / </span>NEGOTIATION LAB</a><span class="topnote">FINANCIAL AGENT · EXPERIMENT 01</span><span class="version">Mastra 1.64.0</span></header>
+  <main>
+    <nav class="scenario-tabs" role="tablist" aria-label="选择实验场景"><button id="tab-negotiation" role="tab" aria-selected="true" aria-controls="scenario-negotiation">01 · 议价 / 上下文隔离</button><button id="tab-research" role="tab" aria-selected="false" aria-controls="scenario-research" tabindex="-1">02 · 财报研究 / 并行与恢复</button><button id="tab-interrupt" role="tab" aria-selected="false" aria-controls="scenario-interrupt" tabindex="-1">03 · 紧急插单 / 抢占与独立推进</button></nav>
+    <section id="scenario-negotiation" role="tabpanel" aria-labelledby="tab-negotiation">
+    <div class="intro"><div><p class="eyebrow">ONE MODEL. TWO CONTEXT DESIGNS.</p><h1>同一场议价，<br>谁看到了谁的底牌？</h1><p class="lead">一台二手电脑，买家和卖家各有一个秘密。<br>对比一个共享上下文，和两个隔离的 Agent。</p></div><aside class="principle"><span class="small-label">这次只改变一个变量</span><strong>上下文的可见范围</strong><p>同模型 · 同指令 · 同预算配置 · 串行执行</p><div class="line"></div><p>成交价衡量交易结果。<br>完整请求审计衡量信息隔离。<br>两者分别观察。</p></aside></div>
+    <form id="config" class="control-panel">
+      <label><span>买家最高预算 <small>仅买家可见</small></span><div class="money-input"><span>¥</span><input id="buyerMax" type="number" min="1" max="1000000" step="1" value="1000" required aria-label="买家最高预算"></div></label>
+      <label><span>卖家最低底价 <small>仅卖家可见</small></span><div class="money-input"><span>¥</span><input id="sellerMin" type="number" min="1" max="1000000" step="1" value="800" required aria-label="卖家最低底价"></div></label>
+      <label><span>最多轮数</span><select id="rounds" aria-label="最多轮数"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option></select></label>
+      <label class="backend-field"><span>模型来源</span><select id="backend" aria-label="模型来源"><option value="fixture">本地模拟 · 无需密钥</option><option value="live" disabled>真实模型 · 尚未配置</option></select></label>
+      <button class="primary" id="run" type="submit">运行对照实验 <span>↗</span></button>
+    </form>
+    <div class="run-meta"><p id="backend-note">模拟策略只读取当前角色配置，刻意让两组议价行为一致；真实运行 Mastra，不调用外部 LLM。</p><button id="download" class="text-button" disabled>↓ 导出审计 JSON</button></div>
+    <p id="status" role="status" aria-live="polite">配置预算后点击运行，查看可复现的对照。</p>
+    <section class="comparison" aria-label="执行模式对比">
+      <article class="arm" id="shared"><div class="arm-head"><div><p class="eyebrow">A / SHARED CONTEXT</p><h2>一个 Agent，轮流扮演</h2></div><span class="badge neutral" data-badge>待运行</span></div><p class="arm-desc">同一份历史依次累积买家与卖家的私密配置。</p><div class="metrics" data-metrics><div><span>成交价</span><strong>—</strong></div><div><span>不满足隔离的请求</span><strong>—</strong></div></div><div class="timeline" data-timeline><p class="empty">买家 → 共享历史 → 卖家 → 共享历史 → 买家</p></div></article>
+      <article class="arm" id="isolated"><div class="arm-head"><div><p class="eyebrow">B / ISOLATED CONTEXTS</p><h2>两个 Agent，各持底牌</h2></div><span class="badge neutral" data-badge>待运行</span></div><p class="arm-desc">各自保留角色历史，只交换通过校验的公开报价。</p><div class="metrics" data-metrics><div><span>成交价</span><strong>—</strong></div><div><span>不满足隔离的请求</span><strong>—</strong></div></div><div class="timeline" data-timeline><p class="empty">买家私密历史 ⇄ 公开报价 ⇄ 卖家私密历史</p></div></article>
+    </section>
+    <section class="inspector" aria-label="模型请求审计"><div class="inspector-head"><div><p class="eyebrow">INSPECT THE INPUT, NOT THE CLAIM</p><h2>模型实际收到了什么？</h2></div><span class="small-label">点击上方任意一轮查看</span></div><div id="inspection"><p class="empty">完整的系统提示、消息历史与本轮私密配置会在这里显示。</p></div></section>
+    <section class="reading"><div><span>01 / 实验条件</span><p>两个模式使用同一模型与指令，每轮买卖双方各行动一次。隔离模式也串行运行，并发上限为 1。</p></div><div><span>02 / 验收标准</span><p>审计检查对方私密配置和随机标记是否进入模型请求。公开报价恰好等于底价，不判作私密配置泄漏。</p></div><div><span>03 / 证明范围</span><p>证明输入上下文隔离，不证明谈判能力、无法推断底价、进程隔离或供应商的数据隔离。界面是能查看双方数据的实验管理员视图。</p></div></section>
+    </section>
+    <section id="scenario-research" role="tabpanel" aria-labelledby="tab-research" hidden>
+      <div class="intro"><div><p class="eyebrow">SAME RESEARCH. DIFFERENT SCHEDULE.</p><h1>三份财报，<br>一定要一份份等吗？</h1><p class="lead">相同材料、模型与校验规则。<br>看串行与并行的时间差，也看超时后能保留什么。</p></div><aside class="principle"><span class="small-label">这次观察两个系统属性</span><strong>并行加速 · 定向恢复</strong><p>每家公司一个任务 · 同模板 · 按 A/B/C 合并</p><div class="line"></div><p>单 Agent 也会保存成功结果。<br>失败重试不重做整批研究。</p></aside></div>
+      <form id="research-config" class="control-panel research-controls">
+        <label><span>并行组并发上限</span><select id="research-concurrency" aria-label="研究并发上限"><option>1</option><option>2</option><option selected>3</option></select></label>
+        <label><span>每份材料模拟等待</span><select id="research-delay" aria-label="每份材料模拟等待"><option value="1000">1 秒</option><option value="3000" selected>3 秒</option><option value="5000">5 秒</option></select></label>
+        <label><span>模型来源</span><select id="research-backend" aria-label="研究模型来源"><option value="fixture">本地模拟 · 无需密钥</option><option value="live" disabled>真实模型 · 尚未配置</option></select></label>
+        <label class="failure-toggle"><input type="checkbox" id="research-fail" aria-label="让 B 公司首次检索超时"><span>让 B 公司首次检索超时<small>重试时解除注入</small></span></label>
+        <button class="primary" type="submit" id="research-run">运行研究对照 ↗</button>
+      </form>
+      <div class="run-meta"><p id="research-backend-note">全部为虚构财报。模拟等待代表材料检索耗时，模型提取经过真实 Mastra 调用；不衡量真实供应商延迟。</p><button id="research-export" class="text-button" disabled>↓ 导出研究记录</button></div>
+      <div class="research-actions"><p id="research-status" role="status" aria-live="polite">默认每份等待 3 秒，串行约 9 秒，并发 3 时约 3 秒。两组依次执行，总等待约 12 秒。</p><button id="research-retry" class="retry-button" disabled>只重试失败任务 ↻</button></div>
+      <div class="comparison" id="research-arms">
+        <article class="arm" id="research-serial"><div class="arm-head"><div><p class="eyebrow">A / SEQUENTIAL</p><h2>一个 Agent，依次研究</h2></div><span class="badge neutral" data-research-badge>待运行</span></div><p class="arm-desc">A → B → C；每项校验成功后立即保存。</p><div data-research-content><p class="empty">运行后展示实测时间线、营收与证据。</p></div></article>
+        <article class="arm" id="research-parallel"><div class="arm-head"><div><p class="eyebrow">B / BOUNDED PARALLEL</p><h2>同一模板，有界并行</h2></div><span class="badge neutral" data-research-badge>待运行</span></div><p class="arm-desc">最多 N 个独立执行；仍按 A/B/C 顺序汇总。</p><div data-research-content><p class="empty">并发调成 1，可观察任务重新排成一列。</p></div></article>
+      </div>
+      <section class="inspector"><div class="inspector-head"><div><p class="eyebrow">DURABLE WORK, VISIBLE EVIDENCE</p><h2>财报原文与任务记录</h2></div><span class="small-label">点击公司卡片查看</span></div><div id="research-inspection"><p class="empty">每项任务都有独立输入、模型请求和尝试记录。失败后成功产物仍保留。</p></div></section>
+      <section class="reading"><div><span>01 / 调度差异</span><p>串行组复用一个 Agent；并行组按上限创建同模板 Agent。两组每次都只传当前公司的材料，避免把上下文差异混入速度比较。</p></div><div><span>02 / 恢复来自持久化</span><p>两组逐项原子保存任务记录。B 超时后只重试 B，A/C 的结果和尝试 ID 保持不变。刷新页面或重启服务后可恢复记录。</p></div><div><span>03 / 证明范围</span><p>本地模拟测调度行为，真实模式仍包含人为检索等待。普通并行模型调用也有加速收益；线程和同进程 Agent 不提供进程级故障隔离。</p></div></section>
+    </section>
+    <section id="scenario-interrupt" role="tabpanel" aria-labelledby="tab-interrupt" hidden>
+      <p class="eyebrow">ONE LOOP, OR INDEPENDENT PROGRESS?</p>
+      <h1>研究没结束，预警来了。</h1>
+      <p class="lead">同样的研究工作与风险核查。比较排队、Hook 检查点抢占、两个 Agent 独立推进。</p>
+      <form id="interrupt-config" class="control-panel interrupt-controls">
+        <label><span>研究净工作量</span><select id="interrupt-duration" aria-label="插单研究时长"><option value="60000">60 秒 · 标准演示</option><option value="12000">12 秒 · 快速演示</option></select></label>
+        <label><span>步骤 / Hook 检查间隔</span><select id="interrupt-step" aria-label="Hook 检查间隔"><option value="1000">1 秒 · 细粒度</option><option value="2000">2 秒</option><option value="6000">6 秒 · 粗粒度</option></select></label>
+        <label><span>预警响应期限</span><select id="interrupt-deadline" aria-label="预警响应期限"><option value="5000">5 秒</option><option value="2000">2 秒</option><option value="10000">10 秒</option></select></label>
+        <button id="interrupt-start" class="primary" type="submit">开始插单对照 ↗</button>
+      </form>
+      <div class="interrupt-actions"><button id="interrupt-inject" class="retry-button" disabled>立即发送紧急事件 ⚡</button><button id="interrupt-export" class="text-button" disabled>↓ 导出插单记录</button></div>
+      <p id="interrupt-status" role="status" aria-live="polite">三组同时开始；标准演示第 10 秒自动插单，快速演示第 2 秒。可提前手动发送，三组收到同一事件。每组预警核查净等待 1 秒。</p>
+      <p class="explanation">仅本地模拟，真实经过 Mastra 调用。等待模拟不可中断步骤，不代表外部模型耗时；期限按实测完成时间判定，不预设胜负。</p>
+      <div id="interrupt-results" class="interrupt-results"><p class="empty">运行后展示三组共用时间刻度的研究／预警时间线、排队耗时与研究停顿。</p></div>
+      <section class="inspector"><h2>公告与执行记录</h2><p class="report-source">青岚科技（虚构）公告：预计本年度净利润同比下降 40%–50%。</p><p class="explanation">检查的是任务调度，不是投资判断。三组输出和工作量相同；研究检查点记录已完成的步骤，Hook 处理预警后从下一步恢复，不重做已完成步骤。</p><details><summary>查看本次配置、模型请求与步骤记录</summary><pre id="interrupt-receipts">尚未运行。</pre></details></section>
+      <section class="reading"><div><span>01 / 单循环也能抢占</span><p>Hook 在步骤之间检查事件，保存内存检查点，处理预警后恢复。它不能中断本实验正在执行的步骤；细粒度检查也可能满足期限。</p></div><div><span>02 / 独立推进有资源成本</span><p>独立组使用两个同模板 Agent 和两个异步执行循环。研究与预警可以重叠，但占用额外并发额度；普通 worker 也能实现，不是 Agent 名字带来的收益。</p></div><div><span>03 / 不是进程隔离实验</span><p>三组同进程、并发运行，检查点仅在内存，关闭页面后继续，服务重启即丢失。共享 CPU 或供应商限流时，不保证这里的响应时间；没有真实交易或外部模型费用。</p></div></section>
+    </section>
+    <footer>BUILT WITH MASTRA <span>单控制器 / 显式输入 / 确定性校验 / 可审计执行</span></footer>
+  </main>
+</body></html>

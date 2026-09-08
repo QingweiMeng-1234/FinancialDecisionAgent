@@ -1,0 +1,15 @@
+.scenario-tabs{flex-wrap:wrap}
+.interrupt-controls{grid-template-columns:1fr 1fr 1fr 1fr;margin-top:24px}
+.interrupt-actions{display:flex;gap:16px;justify-content:space-between;margin:20px 0}
+#interrupt-status{font-size:14px;line-height:1.8;color:var(--green)}
+.interrupt-results{display:grid;gap:18px;margin-top:24px}
+.interrupt-arm{padding:22px;border:1px solid var(--line);background:white;border-radius:10px;min-width:0}
+.interrupt-arm h2{font-size:18px;margin:0}.interrupt-arm header{display:flex;gap:14px;justify-content:space-between;align-items:center}
+.interrupt-arm p{font-size:13px;line-height:1.8;color:var(--muted)}
+.interrupt-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0}
+.interrupt-metrics span{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}.interrupt-metrics strong{font:18px var(--mono)}
+.interrupt-lanes{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center}
+.interrupt-lanes>span{font-size:12px;color:var(--muted)}.interrupt-chart{width:100%;height:110px;display:block;overflow:visible}
+.interrupt-legend{font-size:12px;line-height:1.8;color:var(--muted);margin-top:12px}
+#scenario-interrupt pre{font-size:12px}
+@media(max-width:680px){.interrupt-controls{grid-template-columns:1fr 1fr}.interrupt-metrics{grid-template-columns:1fr 1fr}.interrupt-arm{padding:16px}.interrupt-arm header{align-items:flex-start;flex-direction:column}.interrupt-actions{flex-wrap:wrap}}

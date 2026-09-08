@@ -1,0 +1,18 @@
+{
+  "name": "mastra-negotiation-isolation-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "check": "node --check src/domain.js && node --check src/experiment.js && node --check src/models.js && node --check src/server.js && node --check src/research.js && node --check src/interrupt.js && node --check public/app.js && node --check public/research.js && node --check public/interrupt.js"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "2.0.74",
+    "@mastra/core": "1.64.0",
+    "ai": "6.0.277",
+    "zod": "4.3.6"
+  }
+}
