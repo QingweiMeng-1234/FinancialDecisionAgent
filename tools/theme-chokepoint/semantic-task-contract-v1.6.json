@@ -1,0 +1,123 @@
+{
+  "contract_id": "theme-chokepoint-semantic-task-contract-v1.6",
+  "status": "freeze_candidate",
+  "created_at": "2026-08-23",
+  "inherits_scoring_contract": "theme-chokepoint-scoring-v1.6",
+  "derived_from_contract_id": "theme-chokepoint-semantic-task-contract-v1.5",
+  "inherits_machine_contract": {
+    "contract_id": "theme-chokepoint-semantic-runtime-overlay-v1.4.1",
+    "sha256": "c7490b28fa12801c0a9e1aa6b054a676f2bb62265f5caac683d79e07d0491f03"
+  },
+  "runtime_assets": {
+    "prompt": "tools/theme-chokepoint/prompts/segment-fact-extractor-v1.6.md",
+    "segment_fact_schema": "tools/theme-chokepoint/schemas/theme-chokepoint-segment-facts-v1.6.schema.json",
+    "stage4_schema": "tools/theme-chokepoint/schemas/theme-chokepoint-stage4-v1.5.schema.json",
+    "validator": "src/event_collector/theme_chokepoint/validation_v16.py",
+    "deterministic_scorer": "src/event_collector/theme_chokepoint/scoring_v16.py"
+  },
+  "segment_weights": {
+    "demand_pressure": 15,
+    "downstream_criticality": 20,
+    "effective_supply_concentration": 15,
+    "qualification_barrier": 15,
+    "capacity_inelasticity": 15,
+    "substitute_weakness": 20
+  },
+  "segment_semantics": {
+    "demand_pressure": {
+      "basis": "canonical_annual_growth",
+      "anchors": [
+        {"score": 0, "max_inclusive": 0.0},
+        {"score": 1, "min_exclusive": 0.0, "max_exclusive": 0.10},
+        {"score": 2, "min_inclusive": 0.10, "max_exclusive": 0.20},
+        {"score": 3, "min_inclusive": 0.20, "max_inclusive": 0.30},
+        {"score": 4, "min_exclusive": 0.30, "requires": ["direct_transmission", "inventory_verified"]}
+      ]
+    },
+    "downstream_criticality": {
+      "model": "structural_gate_then_operational_impact",
+      "structural_loss_fraction": 1.0,
+      "structural_duration": "permanent",
+      "structural_scope_coverage_required": 1.0,
+      "operational_shock": "largest_effective_supplier_loss",
+      "operational_loss_fraction": 1.0,
+      "operational_shock_days": 90,
+      "observation_months": 12,
+      "allowed_mitigations": ["existing_inventory", "same_route_qualified_failover_90d"],
+      "excluded_mitigations": ["technology_substitute", "redesign"],
+      "temporary_stop_max_score": 3
+    },
+    "effective_supply_concentration": {
+      "components": ["effective_supplier_count", "largest_effective_share", "qualified_failover_ratio"],
+      "weights": [0.3, 0.3, 0.4],
+      "ordinal_rounding": "half_up",
+      "failover_horizon_days": 90,
+      "failover_denominator": "same_scope_target_demand",
+      "failover_numerator": "incremental_qualified_uncommitted_same_route_output",
+      "hard_gate": "largest_share_score_4_and_failover_score_4"
+    },
+    "qualification_barrier": {
+      "model": "duration_or_observable_process",
+      "duration_anchors_months": {
+        "0": "<=3",
+        "1": ">3_and_<=6",
+        "2": ">6_and_<=12",
+        "3": ">12_and_<18",
+        "4": ">=18_with_process_or_milestone_evidence"
+      },
+      "process_only_floors": {
+        "formal_requirement": [1, 4],
+        "multi_step_process": [2, 4],
+        "customer_specific_or_field_validation": [3, 4]
+      },
+      "delivery_lead_time_is_qualification_time": false,
+      "exact_four_requires": ["duration_at_least_18_months", "process_or_milestone_evidence"]
+    },
+    "capacity_inelasticity": {
+      "required_increment": "max(0,top1_loss_output-qualified_failover_output_90d)",
+      "clock": "physical_only_from_as_of",
+      "stable_months_required": 3,
+      "critical_path": "dag_longest_path",
+      "customer_qualification_excluded": true,
+      "single_constraint_at_or_above_18_months": [3, 4]
+    },
+    "substitute_weakness": {
+      "same_route_second_supplier_excluded": true,
+      "coverage_denominator": "same_scope_total_target_demand",
+      "shared_capacity_deduplication": "constraint_pool_max_feasible_output",
+      "convergence_rounds": 2,
+      "budget_exhaustion": "incomplete",
+      "unresolved_route_blocks_exact_4": true,
+      "empty_route_set_requires_explicit_negative_for_every_category": true
+    }
+  },
+  "stage3_stage4_boundary": {
+    "stage3_company_id": null,
+    "stage3_company_fact_attribution_field": "subject_company_ids",
+    "stage4_rebind_required": true,
+    "lineage_fields": ["derived_from_evidence_id", "source_identity_id", "source_version_id", "quote_start", "quote_end", "quote_hash"],
+    "stage4_business_facts_reverify": ["accounting", "customer_qualification", "customer_adoption", "capacity_allocation", "realized_replacement"],
+    "stage4_may_mutate_same_run_stage3": false,
+    "segment_change_action": "segment_recompute_required"
+  },
+  "stage4_completion": {
+    "challenger_set_scope": "typed_assessment_scope",
+    "included_identity": "included_assessment_ids",
+    "incomplete_status": "COMPANY_ASSESSMENT_INCOMPLETE",
+    "incomplete_blocks_competition_state": true,
+    "incomplete_blocks_stage5": true,
+    "resume_from_persisted_progress": true
+  },
+  "freeze_gates": {
+    "hard_gate_agreement_min": 0.95,
+    "final_state_agreement_min": 0.90,
+    "exact_exact_pairs_min": 10,
+    "linear_weighted_kappa_min": 0.70,
+    "high_risk_one_sided_upgrades_max": 0,
+    "new_boundary_tests_required": true,
+    "hbm_regression_required": true,
+    "top_10_review_required": true,
+    "coverage_receipt_required": true
+  },
+  "proof_boundary": "Freeze candidate only. This artifact does not claim Golden, Holdout, HBM regression, Top-10 or production acceptance."
+}

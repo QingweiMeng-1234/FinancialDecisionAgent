@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "prd",
+      "kind": "PRD",
+      "path": "docs/product/theme-chokepoint-agent-execution-ablation-prd-v1.1-superseding-addendum.md",
+      "required": true,
+      "expectedStatus": "READY_FOR_HUMAN_REVIEW",
+      "expectedVersion": "1.1-draft",
+      "expectedPredecessor": "docs/product/theme-chokepoint-agent-execution-ablation-prd.md"
+    },
+    {
+      "id": "system-design",
+      "kind": "System Design",
+      "path": "docs/architecture/theme-chokepoint-agent-execution-ablation-system-design-v1.1-candidate.2-superseding-addendum.md",
+      "required": true,
+      "expectedStatus": "READY_FOR_HUMAN_REVIEW",
+      "expectedVersion": "1.1-candidate.2",
+      "expectedPredecessor": "docs/architecture/theme-chokepoint-agent-execution-ablation-system-design-v1.1-superseding-addendum.md"
+    },
+    {
+      "id": "api-contract",
+      "kind": "API Contract",
+      "path": "docs/api/theme-chokepoint-agent-execution-ablation-api-v1.1-superseding-addendum.md",
+      "required": true,
+      "expectedStatus": "READY_FOR_HUMAN_REVIEW",
+      "expectedVersion": "1.1-draft",
+      "expectedPredecessor": "docs/api/theme-chokepoint-agent-execution-ablation-api.md"
+    },
+    {
+      "id": "migration-contract",
+      "kind": "Migration Contract",
+      "path": "docs/architecture/theme-chokepoint-agent-execution-ablation-migration-contract-v1.1-candidate.2-superseding-addendum.md",
+      "required": true,
+      "expectedStatus": "READY_FOR_HUMAN_REVIEW",
+      "expectedVersion": "1.1-candidate.2",
+      "expectedPredecessor": "docs/architecture/theme-chokepoint-agent-execution-ablation-migration-contract-v1.1.md"
+    },
+    {
+      "id": "review-report",
+      "kind": "Document Review",
+      "path": "docs/architecture/theme-chokepoint-agent-execution-ablation-document-review-v1.1-candidate.2.md",
+      "required": true,
+      "expectedStatus": "READY_FOR_HUMAN_REVIEW",
+      "expectedPredecessor": "docs/architecture/theme-chokepoint-agent-execution-ablation-document-review-v1.1.md"
+    }
+  ],
+  "requiredTerms": [
+    {
+      "term": "execution_id",
+      "documents": ["prd", "system-design", "api-contract"]
+    },
+    {
+      "term": "candidate_result_sha256",
+      "documents": ["prd", "system-design", "api-contract"]
+    },
+    {
+      "term": "MIGRATION_REQUIRED",
+      "documents": ["api-contract", "migration-contract"]
+    }
+  ],
+  "allowMarkerPatterns": [],
+  "reportPath": ".codex/document-architecture-report.json"
+}

@@ -1,0 +1,138 @@
+{
+  "task_id": "ai-dc-golden-external-annotation-v0.1",
+  "task_type": "blind_second_annotation_on_fixed_evidence_pack",
+  "contract_id": "theme-chokepoint-scoring-v1.1",
+  "evidence_pack_id": "ai-dc-power-cooling-evidence-pack-v0.1",
+  "as_of_date": "2026-08-15",
+  "blinding": {
+    "expected_labels_included": false,
+    "same_agent_results_included": false,
+    "adjudication_results_included": false,
+    "external_web_research_allowed": false
+  },
+  "cases": [
+    {
+      "case_id": "PWR-C01",
+      "scope": {"company_id": "eaton", "product_id": "us_three_phase_transformers", "segment_id": "seg_large_power_transformer_switchgear_us", "customer_or_platform_scope": "US utility, large commercial, industrial and data-center customers", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E01", "E03", "E23", "E24", "E25"]
+    },
+    {
+      "case_id": "PWR-C02",
+      "scope": {"company_id": "siemens_energy", "product_id": "grid_technologies_transformers_and_grid_equipment", "segment_id": "seg_large_power_transformer_switchgear_us", "customer_or_platform_scope": "US data-center-related grid investment", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E06", "E07", "E23", "E24", "E25"]
+    },
+    {
+      "case_id": "PWR-C03",
+      "scope": {"company_id": "ge_vernova", "product_id": "electrification_transformers_and_grid_equipment", "segment_id": "seg_large_power_transformer_switchgear_us", "customer_or_platform_scope": "US data-center-related electrification demand", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E08", "E09", "E23", "E24", "E25"]
+    },
+    {
+      "case_id": "PWR-C04",
+      "scope": {"company_id": "vertiv", "product_id": "critical_power_portfolio", "segment_id": "seg_critical_power_distribution_us", "customer_or_platform_scope": "Americas hyperscale and colocation data centers", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E04", "E05", "E23", "E25"]
+    },
+    {
+      "case_id": "PWR-C05",
+      "scope": {"company_id": "eaton", "product_id": "ups_pdu_busway_portfolio", "segment_id": "seg_critical_power_distribution_us", "customer_or_platform_scope": "Electrical Americas data-center customers", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E01", "E02", "E23", "E25"]
+    },
+    {
+      "case_id": "PWR-C06",
+      "scope": {"company_id": "vertiv", "product_id": "gb300_liquid_cooling_reference_architecture", "segment_id": "seg_direct_liquid_cooling_us", "customer_or_platform_scope": "NVIDIA GB300 NVL72 reference architecture", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E13"]
+    },
+    {
+      "case_id": "PWR-C07",
+      "scope": {"company_id": "nvent", "product_id": "data_center_liquid_cooling_solutions", "segment_id": "seg_direct_liquid_cooling_us", "customer_or_platform_scope": "US AI and HPC data centers", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E12"]
+    },
+    {
+      "case_id": "PWR-C08",
+      "scope": {"company_id": "supermicro", "product_id": "rack_scale_direct_liquid_cooling", "segment_id": "seg_direct_liquid_cooling_us", "customer_or_platform_scope": "Getworks Yuzawa GX Data Center", "geography": "Japan", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E22"]
+    },
+    {
+      "case_id": "PWR-C09",
+      "scope": {"company_id": "modine", "product_id": "data_centers_cooling_segment", "segment_id": "seg_direct_liquid_cooling_us", "customer_or_platform_scope": "North America hyperscale customers", "geography": "North America", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E32", "E33", "E34", "E35"]
+    },
+    {
+      "case_id": "PWR-C10",
+      "scope": {"company_id": "asetek", "product_id": "data_center_water_cooling", "segment_id": "seg_direct_liquid_cooling_us", "customer_or_platform_scope": "HP USA historical evaluation", "geography": "US", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E21"]
+    },
+    {
+      "case_id": "SUP-DURABLE-ASML-EUV",
+      "scope": {"company_id": "asml", "product_id": "euv_lithography_scanner_assemblies", "segment_id": "seg_euv_lithography_global", "customer_or_platform_scope": "leading-edge Logic and DRAM fabs", "geography": "Global", "time_horizon_months": 24, "as_of_date": "2026-08-15"},
+      "evidence_ids": ["E14", "E15", "E16", "E26", "E27", "E28"],
+      "frozen_challenger_set": {"challenger_set_id": "asml-euv-challengers-v0.1", "search_completed_at": "2026-08-15", "included_candidates": ["Canon DUV", "Nikon DUV", "Canon nanoimprint", "China domestic EUV/SSMB concepts", "DUV multi-patterning"]}
+    },
+    {
+      "case_id": "SUP-REALIZED-APPLE-SILICON",
+      "scope": {"company_id": "apple", "product_id": "apple_silicon_for_mac", "segment_id": "seg_mac_cpu_architecture", "customer_or_platform_scope": "Apple Mac product line", "geography": "Global", "time_horizon_months": 36, "as_of_date": "2023-06-05"},
+      "incumbent_replaced": "Intel processors in Apple Mac product line",
+      "evidence_ids": ["E17", "E18", "E19", "E29", "E30", "E31"]
+    }
+  ],
+  "ordinal_tasks": [
+    {"item_id": "O01", "case_id": "SUP-DURABLE-ASML-EUV", "dimension": "technical_performance_gap"},
+    {"item_id": "O02", "case_id": "SUP-DURABLE-ASML-EUV", "dimension": "qualification_lock_in"},
+    {"item_id": "O03", "case_id": "SUP-DURABLE-ASML-EUV", "dimension": "qualified_effective_capacity"},
+    {"item_id": "O04", "case_id": "SUP-DURABLE-ASML-EUV", "dimension": "customer_sourcing_evidence"},
+    {"item_id": "O05", "case_id": "SUP-REALIZED-APPLE-SILICON", "dimension": "qualification_progress"},
+    {"item_id": "O06", "case_id": "SUP-REALIZED-APPLE-SILICON", "dimension": "customer_adoption"},
+    {"item_id": "O07", "case_id": "SUP-REALIZED-APPLE-SILICON", "dimension": "architecture_tailwind"},
+    {"item_id": "O08", "case_id": "SUP-REALIZED-APPLE-SILICON", "dimension": "ecosystem_compatibility"},
+    {"item_id": "O09", "case_id": "SUP-REALIZED-APPLE-SILICON", "dimension": "displacement"},
+    {"item_id": "O10", "case_id": "PWR-C09", "dimension": "revenue_materiality"},
+    {"item_id": "O11", "case_id": "PWR-C09", "dimension": "volume_realization_leverage"},
+    {"item_id": "O12", "case_id": "PWR-C09", "dimension": "margin_transmission"},
+    {"item_id": "O13", "case_id": "PWR-C09", "dimension": "time_to_revenue"},
+    {"item_id": "O14", "case_id": "PWR-C09", "dimension": "customer_concentration_risk"},
+    {"item_id": "O15", "case_id": "PWR-C10", "dimension": "customer_adoption_historical"},
+    {"item_id": "O16", "case_id": "PWR-C08", "dimension": "customer_adoption"},
+    {"item_id": "O17", "case_id": "PWR-C07", "dimension": "execution_delivery"},
+    {"item_id": "O18", "case_id": "PWR-C06", "dimension": "architecture_tailwind"}
+  ],
+  "hard_gate_tasks": [
+    {"item_id": "H01", "case_id": "SUP-DURABLE-ASML-EUV", "gate": "defensibility_high"},
+    {"item_id": "H02", "case_id": "SUP-DURABLE-ASML-EUV", "gate": "customer_sourcing_current"},
+    {"item_id": "H03", "case_id": "SUP-DURABLE-ASML-EUV", "gate": "challenger_set_complete_for_fixed_audit_scope"},
+    {"item_id": "H04", "case_id": "SUP-DURABLE-ASML-EUV", "gate": "no_credible_challenge_in_frozen_set"},
+    {"item_id": "H05", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "performance_min_3"},
+    {"item_id": "H06", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "qualification_min_3"},
+    {"item_id": "H07", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "capacity_min_3"},
+    {"item_id": "H08", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "adoption_min_3"},
+    {"item_id": "H09", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "ecosystem_min_3"},
+    {"item_id": "H10", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "displacement_min_3"},
+    {"item_id": "H11", "case_id": "SUP-REALIZED-APPLE-SILICON", "gate": "no_fatal_blocker"},
+    {"item_id": "H12", "case_id": "PWR-C09", "gate": "revenue_non_unknown"},
+    {"item_id": "H13", "case_id": "PWR-C09", "gate": "time_to_revenue_non_unknown"},
+    {"item_id": "H14", "case_id": "PWR-C09", "gate": "margin_transmission_non_unknown"},
+    {"item_id": "H15", "case_id": "PWR-C09", "gate": "earnings_hard_fail_present"},
+    {"item_id": "H16", "case_id": "PWR-C10", "gate": "current_freshness"},
+    {"item_id": "H17", "case_id": "PWR-C07", "gate": "qualification"},
+    {"item_id": "H18", "case_id": "PWR-C06", "gate": "customer_adoption"},
+    {"item_id": "H19", "case_id": "PWR-C08", "gate": "displacement"},
+    {"item_id": "H20", "case_id": "PWR-C01", "gate": "2027_plant_current_saleable_output"}
+  ],
+  "state_tasks": [
+    {"item_id": "S01", "case_id": "PWR-C01"},
+    {"item_id": "S02", "case_id": "PWR-C02"},
+    {"item_id": "S03", "case_id": "PWR-C03"},
+    {"item_id": "S04", "case_id": "PWR-C04"},
+    {"item_id": "S05", "case_id": "PWR-C05"},
+    {"item_id": "S06", "case_id": "PWR-C06"},
+    {"item_id": "S07", "case_id": "PWR-C07"},
+    {"item_id": "S08", "case_id": "PWR-C08"},
+    {"item_id": "S09", "case_id": "PWR-C09"},
+    {"item_id": "S10", "case_id": "PWR-C10"},
+    {"item_id": "S11", "case_id": "SUP-DURABLE-ASML-EUV"},
+    {"item_id": "S12", "case_id": "SUP-REALIZED-APPLE-SILICON"}
+  ],
+  "required_output_fields": {
+    "ordinal": ["item_id", "evidence_state", "bound_type", "rating_min", "rating_max", "primary_evidence_ids", "withheld_reason", "rationale"],
+    "hard_gate": ["item_id", "label", "evidence_ids", "withheld_reason", "rationale"],
+    "state": ["item_id", "primary_state", "achieved_gates", "withheld_reason", "rationale"]
+  }
+}

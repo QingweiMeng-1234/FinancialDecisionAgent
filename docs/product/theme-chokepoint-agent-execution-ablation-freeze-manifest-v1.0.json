@@ -1,0 +1,93 @@
+{
+  "manifest_id": "financial-agent-theme-chokepoint-agent-execution-ablation-v1.0-freeze",
+  "manifest_version": "1.0",
+  "status": "FROZEN",
+  "frozen_on": "2026-09-04",
+  "contract_family": "financial-agent.theme-chokepoint.agent-execution-ablation.v1",
+  "authorization": {
+    "authority": "user",
+    "basis": "Explicit instruction on 2026-09-04 to approve and freeze the PRD and generate the aligned System Design and API documentation",
+    "scope": "Freeze the PRD v1.0 product decisions; record byte hashes for the two implementation-draft companion documents without freezing those drafts as completed implementation contracts"
+  },
+  "artifacts": [
+    {
+      "role": "PRD",
+      "path": "docs/product/theme-chokepoint-agent-execution-ablation-prd.md",
+      "version": "1.0",
+      "document_status": "FROZEN_FOR_IMPLEMENTATION",
+      "frozen_by_this_manifest": true,
+      "sha256": "e3fb44cedbabfea5d7a54ea032605d2d5df73ffda2fd15a13f1990f4cbc7aa30"
+    },
+    {
+      "role": "SYSTEM_DESIGN",
+      "path": "docs/architecture/theme-chokepoint-agent-execution-ablation-system-design.md",
+      "version": "1.0",
+      "document_status": "IMPLEMENTATION_DRAFT_ALIGNED_TO_FROZEN_PRD",
+      "frozen_by_this_manifest": false,
+      "hash_purpose": "Companion-artifact integrity at the PRD v1.0 freeze point",
+      "sha256": "a7eefe7052040562ec21ed52b717b69401b9cbe469548b1c042578cad1a54510"
+    },
+    {
+      "role": "API_CONTRACT",
+      "path": "docs/api/theme-chokepoint-agent-execution-ablation-api.md",
+      "version": "1.0",
+      "document_status": "IMPLEMENTATION_DRAFT_ALIGNED_TO_FROZEN_PRD",
+      "frozen_by_this_manifest": false,
+      "hash_purpose": "Companion-artifact integrity at the PRD v1.0 freeze point",
+      "sha256": "f0ce51926898fef7f5a8f0f68b5289c414c3b61addd93036ccecd1f458fec32e"
+    }
+  ],
+  "frozen_decisions": [
+    "Stage 1 uses one logical agent",
+    "Stage 2 uses one logical agent by default",
+    "Stage 3 is the first controlled single versus isolated-workers execution ablation boundary",
+    "Stage 4 independent producer, verifier, and critic separation is a later work package",
+    "Stage 5 and Stage 7 remain deterministic code, while Stage 6 remains one semantic evaluator plus deterministic scheduling in the first release",
+    "The isolated-workers hypothesis is limited to bounded parallelism, context isolation, independent counter-review, and task-level failure isolation; it does not claim intrinsic intelligence",
+    "Both execution modes share the same frozen scope, source snapshot, model family, prompt family, configured budgets, schemas, scoring contract, validators, and final domain contract",
+    "Both modes receive a forbidden-field-clean counter packet; the single shared-session arm reports context_blind=false, while an isolated critic must prove a distinct worker identity and fresh context",
+    "Mode-independent task_key and execution-specific task_id are separate identities; task_key excludes run, pair, mode, execution, worker, attempt, and actual-usage identity",
+    "Proof-eligible Phase A and Phase B pairs use a pre-sealed strict-replay task plan; divergent dynamic shadow plans cannot support topology-only causal claims",
+    "Ablation and shadow arms persist execution-scoped candidate results and cannot mutate canonical Stage 3 state or RunStatus without an explicit authorized promotion",
+    "The default production mode remains single until the documented gates pass",
+    "Mastra, LangGraph, and a lightweight Python executor remain unselected until framework-neutral contracts and Phase A evidence exist"
+  ],
+  "change_control": {
+    "silent_in_place_edits_allowed": false,
+    "required_for_any_prd_byte_change": [
+      "New manifest version",
+      "Recomputed artifact SHA-256 hashes",
+      "Classification as semantic or non-semantic change",
+      "Compatibility and proof-boundary review"
+    ],
+    "requires_prd_reopen_or_superseding_product_version": [
+      "Change to stage ownership or initial work-package scope",
+      "Change to execution modes or the four isolated-worker hypotheses",
+      "Change to paired fairness, strict-replay, task identity, budget, blind-review, or failure semantics",
+      "Change to candidate isolation, canonical-write authority, promotion, or RunStatus semantics",
+      "Change to quality-claim boundaries, production default, or framework-selection deferral"
+    ],
+    "implementation_draft_companions": {
+      "may_evolve_without_reopening_prd": true,
+      "must_remain_compatible_with_frozen_prd": true,
+      "must_not_be_described_as_frozen_or_implemented_without_separate_authorization_and_evidence": true,
+      "manifest_refresh_required_if_current_companion_hashes_are_claimed": true
+    }
+  },
+  "proof_boundary": {
+    "proves": [
+      "The exact PRD bytes identified by the recorded SHA-256 were frozen by the user's approval",
+      "The listed System Design and API draft bytes were the aligned companion versions present at the freeze point"
+    ],
+    "does_not_prove": [
+      "Application implementation or database migration completion",
+      "Test, CI, or deployment success",
+      "External provider, credential, model, or source availability",
+      "Any research-quality advantage for isolated workers",
+      "Any single-versus-multi experiment has been executed",
+      "Mastra, LangGraph, or any other framework has been selected",
+      "Production or trading authorization",
+      "A clean or committed Git repository snapshot"
+    ]
+  }
+}

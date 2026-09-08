@@ -11,3 +11,5 @@ langchain-core
 langchain-text-splitters
 grandalf
 mcp
+pyarrow>=14.0
+pypdf>=5.0

@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "theme-chokepoint-segment-facts-v1.6",
+  "title": "Theme Chokepoint v1.6 Segment extracted facts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "demand_pressure",
+    "downstream_criticality",
+    "effective_supply_concentration",
+    "qualification_barrier",
+    "capacity_inelasticity",
+    "substitute_weakness"
+  ],
+  "properties": {
+    "schema_version": {"const": "theme-chokepoint-segment-facts-v1.6"},
+    "demand_pressure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "evidence_ids"],
+      "allOf": [{"if": {"properties": {"unresolved": {"const": false}}}, "then": {"required": ["canonical_annual_growth", "direct_transmission_verified", "inventory_verified"]}}],
+      "properties": {
+        "unresolved": {"type": "boolean"},
+        "canonical_annual_growth": {"type": ["number", "null"]},
+        "direct_transmission_verified": {"type": "boolean"},
+        "inventory_verified": {"type": "boolean"},
+        "annual_growth_basis": {"enum": ["monthly_yoy", "quarterly_yoy", "ttm_yoy", "cagr_annualized", "seasonally_adjusted_annualized", null]},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "downstream_criticality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "evidence_ids"],
+      "allOf": [{"if": {"properties": {"unresolved": {"const": false}}}, "then": {"required": ["structural_hard_block", "cohorts"]}}],
+      "properties": {
+        "unresolved": {"type": "boolean"},
+        "structural_hard_block": {"enum": ["pass", "fail", "unknown"]},
+        "explicit_no_impact": {"type": "boolean"},
+        "cohorts": {"type": "array", "items": {"$ref": "#/$defs/cohort"}},
+        "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "effective_supply_concentration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "evidence_ids"],
+      "allOf": [{"if": {"properties": {"unresolved": {"const": false}}}, "then": {"required": ["target_demand", "suppliers"]}}],
+      "properties": {
+        "unresolved": {"type": "boolean"},
+        "target_demand": {"type": "number", "exclusiveMinimum": 0},
+        "suppliers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/supplier"}},
+        "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "qualification_barrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "evidence_ids"],
+      "allOf": [{"if": {"properties": {"unresolved": {"const": false}}}, "then": {"required": ["duration_months", "qualification_required", "explicit_no_special_qualification", "process_signals"]}}],
+      "properties": {
+        "unresolved": {"type": "boolean"},
+        "duration_months": {"type": ["number", "null"], "minimum": 0},
+        "qualification_required": {"type": ["boolean", "null"]},
+        "explicit_no_special_qualification": {"type": "boolean"},
+        "process_signals": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "formal_qualification",
+              "approved_vendor_list",
+              "type_test",
+              "design_review",
+              "factory_acceptance_test",
+              "site_acceptance_test",
+              "customer_specific_validation",
+              "field_pilot",
+              "regulatory_approval",
+              "requalification"
+            ]
+          }
+        },
+        "evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "capacity_inelasticity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "evidence_ids"],
+      "allOf": [{"if": {"properties": {"unresolved": {"const": false}}}, "then": {"required": ["top1_loss_output", "failover_output_90d", "stable_incremental_output", "tasks"]}}],
+      "properties": {
+        "unresolved": {"type": "boolean"},
+        "top1_loss_output": {"type": "number", "minimum": 0},
+        "failover_output_90d": {"type": "number", "minimum": 0},
+        "stable_incremental_output": {"type": "number", "minimum": 0},
+        "tasks": {"type": "array", "items": {"$ref": "#/$defs/capacity_task"}},
+        "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "substitute_weakness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "evidence_ids"],
+      "allOf": [{"if": {"properties": {"unresolved": {"const": false}}}, "then": {"required": ["target_demand", "discovery_rounds_without_new_routes", "required_categories", "searched_categories", "routes"]}}],
+      "properties": {
+        "unresolved": {"type": "boolean"},
+        "target_demand": {"type": "number", "exclusiveMinimum": 0},
+        "discovery_rounds_without_new_routes": {"type": "integer", "minimum": 0},
+        "required_categories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "searched_categories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "explicit_negative_categories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "budget_exhausted": {"type": "boolean"},
+        "routes": {"type": "array", "items": {"$ref": "#/$defs/substitute_route"}},
+        "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+      }
+    }
+  },
+  "$defs": {
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delay_months", "impact_ratio"],
+      "properties": {
+        "delay_months": {"type": "number", "minimum": 0},
+        "impact_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "material_performance_degradation": {"type": "boolean"},
+        "positive_consequence": {"type": "boolean"}
+      }
+    },
+    "supplier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supplier_id", "nameplate_output", "yield_fraction", "qualification_fraction", "target_scope_allocation_fraction", "availability_fraction"],
+      "properties": {
+        "supplier_id": {"type": "string", "minLength": 1},
+        "nameplate_output": {"type": "number", "minimum": 0},
+        "yield_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "qualification_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "target_scope_allocation_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "availability_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "additional_qualified_output_90d": {"type": "number", "minimum": 0}
+      }
+    },
+    "capacity_task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "duration_months", "dependencies", "constraint_class"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "duration_months": {"type": "number", "minimum": 0},
+        "dependencies": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "constraint_class": {"type": "string", "minLength": 1}
+      }
+    },
+    "substitute_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_id", "status", "qualified_output"],
+      "properties": {
+        "route_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["ready", "production", "credible", "prototype", "unresolved", "explicit_failure", "ineligible", "cancelled", "time_window_outside", "insufficient_capacity"]},
+        "qualified_output": {"type": "number", "minimum": 0},
+        "capacity_pool_id": {"type": ["string", "null"]},
+        "category": {"type": "string"}
+      }
+    }
+  }
+}

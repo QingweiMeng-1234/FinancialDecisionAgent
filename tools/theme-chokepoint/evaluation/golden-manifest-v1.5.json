@@ -1,0 +1,49 @@
+{
+  "evaluation_id": "theme-chokepoint-golden-v1.5",
+  "contract_version": "theme-chokepoint-scoring-v1.5",
+  "status": "double_annotation_complete_identity_unverified",
+  "contamination_policy": "Golden cases may be used for development regression and are never counted as Holdout.",
+  "package_root": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/golden",
+  "evidence_pack": {
+    "path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/golden/common/evidence-pack-v1.5.json",
+    "sha256": "fe403d0c98ac9af6686a817a19a7348996ca8898dbc1db335e5e91dea32dbf9f"
+  },
+  "annotation_task": {
+    "path": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/golden/common/annotation-task-v1.5.json",
+    "sha256": "18c716185fc7af1a7bc26ff17f84889e503ce3ce60e10375793709cff6ecb154"
+  },
+  "cases": [
+    {
+      "case_id": "G15-C01",
+      "industry": "semiconductors",
+      "case_type": "real_source_boundary",
+      "required_boundaries": [
+        "hbm_stack_scope_is_not_2_5d_integration",
+        "production_sales_do_not_supply_missing_segment_denominators",
+        "unresolved_substitute_registry_blocks_exact_4"
+      ]
+    },
+    {
+      "case_id": "G15-C02",
+      "industry": "electrical_equipment",
+      "case_type": "real_source_boundary",
+      "required_boundaries": [
+        "strong_demand_language_without_annual_denominator",
+        "announced_capacity_is_not_stable_qualified_output",
+        "critical_function_is_not_automatic_structural_hard_block"
+      ]
+    }
+  ],
+  "independent_annotations_required": 2,
+  "results": {
+    "report": "outputs/theme-chokepoint-v1.5-evaluation-20260820-001/agreement-20260820/golden-agreement-v1.5.json",
+    "report_sha256": "e208f27f00957bfabac8776bafe34e1622b7e5735433b48babf7d62b939c342f",
+    "full_tuple_agreement": 1.0,
+    "hard_gate_agreement": 1.0,
+    "final_state_agreement": 1.0,
+    "exact_exact_pairs": 0,
+    "linear_weighted_kappa": null,
+    "interpretation": "Boundary agreement passed; all items remained unknown, so this Golden is not an ordinal-calibration or Kappa population."
+  },
+  "proof_boundary": "Submitted files passed the v1.5 Validator, but the internal directory identifies a Codex annotator. This is not evidence of two-human annotation and does not close Top-10 or frozen status."
+}

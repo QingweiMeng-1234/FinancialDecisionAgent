@@ -1,0 +1,61 @@
+{
+  "schema_version": "1",
+  "bundle_id": "financial-agent-theme-chokepoint-agent-execution-ablation-v1",
+  "bundle_version": "1.0-runtime-approval-2026-09-04",
+  "bundle_status": "FROZEN_FOR_IMPLEMENTATION",
+  "predecessor_bundle_sha256": null,
+  "objective": "Implement the framework-neutral Stage 3 execution-ablation capability specified by the approved Theme Chokepoint PRD v1.0: WP0-WP4 only (contracts/planner, durable candidate ledger and migrations, sequential and bounded isolated executors, blind counter worker, and paired evaluation). Preserve the current single-mode production behavior and all existing Stage 3 scoring, source-policy, validation, canonical-write, and RunStatus semantics. Do not implement Stage 4 independent verification, framework selection/adapters, deployment, provider expansion, automatic promotion, trading, or external publication.",
+  "documents": [
+    {
+      "document_roles": ["prd", "acceptance_criteria"],
+      "path_or_embedded_id": "docs/product/theme-chokepoint-agent-execution-ablation-prd.md",
+      "sha256": "e3fb44cedbabfea5d7a54ea032605d2d5df73ffda2fd15a13f1990f4cbc7aa30"
+    },
+    {
+      "document_roles": ["adr", "system_design", "migration_contract"],
+      "path_or_embedded_id": "docs/architecture/theme-chokepoint-agent-execution-ablation-system-design.md",
+      "sha256": "a7eefe7052040562ec21ed52b717b69401b9cbe469548b1c042578cad1a54510"
+    },
+    {
+      "document_roles": ["api_contract"],
+      "path_or_embedded_id": "docs/api/theme-chokepoint-agent-execution-ablation-api.md",
+      "sha256": "f0ce51926898fef7f5a8f0f68b5289c414c3b61addd93036ccecd1f458fec32e"
+    }
+  ],
+  "allowed_scope": [
+    "src/event_collector/theme_chokepoint/**",
+    "src/event_collector/cli/theme_chokepoint.py",
+    "financial_agent_mcp.py",
+    "tests/test_theme_chokepoint_*.py"
+  ],
+  "forbidden_scope": [
+    "docs/**",
+    ".agent/**",
+    "AGENT.md",
+    "AGENTS.md",
+    "CONTEXT.md",
+    "QuantGPT/**",
+    "rag-from-zero/**",
+    "data/**",
+    "chroma_data/**",
+    "outputs/**",
+    "reports/**",
+    "logs/**",
+    "config/**",
+    ".github/**"
+  ],
+  "acceptance_checks": [
+    "PRD-TC-EXEC-001 through PRD-TC-EXEC-008 are implemented for Stage 3 only; unknown modes fail closed and production remains single by default.",
+    "Evidence task keys are canonical and mode-independent; task IDs are execution-scoped; strict-replay paired plans align by complete ordered task-key set.",
+    "Isolated execution has server-bounded concurrency, stable merge order, shared budgets, task-level failure containment, lease/fencing, and targeted retry without rerunning unchanged successful tasks.",
+    "Blind counter packets reject every forbidden field; isolated critics use distinct worker identities and fresh contexts; packet blindness and context blindness are reported truthfully.",
+    "Both execution modes preserve the existing Stage 3 schema, lineage, scoring, source-policy, canonical-write, and RunStatus contracts; candidates remain execution-scoped and cannot auto-promote.",
+    "Paired comparison reports validity, identities, task differences, concurrency, cost, latency, context, counter-evidence, validation results, and proof limitations; mismatches fail as PAIR_INVALID without a topology-quality conclusion.",
+    "All changed runtime, contract, persistence, retry, and orchestration behavior has recorded TDD RED/GREEN evidence, relevant Stage 3/4 regression coverage, and deterministic verification passes."
+  ],
+  "changes_existing_persisted_data": true,
+  "human_approval": {
+    "status": "APPROVED",
+    "reference": "User explicit approval in this Codex task on 2026-09-04: Human approve. This runtime Bundle binds the exact PRD, System Design (including its Migration and Rollout section), and API Contract bytes validated against manifest financial-agent-theme-chokepoint-agent-execution-ablation-v1.0-freeze."
+  }
+}

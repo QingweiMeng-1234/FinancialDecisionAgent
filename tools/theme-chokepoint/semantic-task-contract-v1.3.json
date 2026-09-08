@@ -1,0 +1,132 @@
+{
+  "contract_id": "theme-chokepoint-semantic-task-contract-v1.3",
+  "status": "freeze_candidate",
+  "inherits_scoring_contract": "theme-chokepoint-scoring-v1.2",
+  "score_families": {
+    "segment": {
+      "weighted_dimensions": {
+        "demand_pressure": 15,
+        "downstream_criticality": 20,
+        "effective_supply_concentration": 15,
+        "qualification_barrier": 15,
+        "capacity_inelasticity": 15,
+        "substitute_weakness": 20
+      }
+    },
+    "defensibility": {
+      "weighted_dimensions": {
+        "technical_performance_gap": 20,
+        "qualification_lock_in": 15,
+        "switching_cost": 15,
+        "qualified_effective_capacity": 20,
+        "quality_delivery_reliability": 15,
+        "customer_sourcing_evidence": 15
+      }
+    },
+    "replacement": {
+      "weighted_dimensions": {
+        "performance_parity": 20,
+        "qualification_progress": 15,
+        "capacity_readiness": 15,
+        "customer_adoption": 15,
+        "cost_tco_advantage": 15,
+        "execution_delivery": 10,
+        "regulatory_tailwind": 5,
+        "architecture_tailwind": 5
+      },
+      "non_weighted_dimensions": [
+        "ecosystem_compatibility",
+        "displacement",
+        "lifecycle_status"
+      ]
+    },
+    "earnings": {
+      "weighted_dimensions": {
+        "revenue_materiality": 20,
+        "volume_realization_leverage": 15,
+        "pricing_power": 15,
+        "margin_transmission": 20,
+        "time_to_revenue": 10,
+        "capital_cash_burden": 10,
+        "customer_concentration_risk": 5,
+        "earnings_persistence": 5
+      },
+      "supported_evidence_requirements": {
+        "revenue_materiality": [
+          "accounting_revenue_confirmed"
+        ],
+        "time_to_revenue": [
+          "accounting_revenue_confirmed"
+        ],
+        "earnings_persistence": [
+          "multi_period_revenue_confirmed"
+        ]
+      }
+    }
+  },
+  "task_invariants": {
+    "state_task_requires_complete_weighted_family": true,
+    "weighted_dimension_cardinality_per_state_task": 1,
+    "state_task_requires_ordinal_item_ids": true,
+    "state_task_requires_hard_gate_item_ids": true,
+    "cross_case_item_reference_forbidden": true,
+    "cross_family_ordinal_reference_forbidden": true,
+    "weighted_dimension_sum_required": 100,
+    "free_text_state_policy_forbidden": true
+  },
+  "evidence_capabilities": {
+    "commercial_production_stage": "The facility or product is in a commercial or revenue-production manufacturing stage; this does not prove accounting revenue recognition.",
+    "nonzero_ramp_output": "The source proves nonzero pilot or ramp output; this does not prove signed-demand coverage.",
+    "accounting_revenue_confirmed": "A revenue note, segment disclosure, product disclosure or explicit customer sale proves recognized revenue for the assessed Scope.",
+    "multi_period_revenue_confirmed": "Comparable recognized revenue for the assessed Scope is directly supported across the required periods.",
+    "general_scoring_evidence": "Evidence may support a non-revenue dimension subject to that dimension's anchor predicates."
+  },
+  "forbidden_capability_substitutions": [
+    {
+      "from": "commercial_production_stage",
+      "to": "accounting_revenue_confirmed"
+    },
+    {
+      "from": "nonzero_ramp_output",
+      "to": "accounting_revenue_confirmed"
+    },
+    {
+      "from": "accounting_revenue_confirmed",
+      "to": "multi_period_revenue_confirmed"
+    }
+  ],
+  "hard_gate_predicate_ops": [
+    "ordinal_resolved",
+    "ordinal_min",
+    "and",
+    "or"
+  ],
+  "state_expression_ops": [
+    "constant",
+    "metric_gte",
+    "metric_lt",
+    "ordinal_resolved",
+    "ordinal_min",
+    "ordinal_max_lt",
+    "gate_is",
+    "and",
+    "or",
+    "not"
+  ],
+  "state_result_required_fields": [
+    "item_id",
+    "primary_state",
+    "achieved_hard_gates",
+    "derived_metrics",
+    "withheld_reason",
+    "rationale"
+  ],
+  "derived_metrics_required_fields": [
+    "score_min",
+    "score_max",
+    "presence_coverage",
+    "resolved_coverage",
+    "decision_coverage"
+  ],
+  "validation_rule": "A submission is invalid if any task invariant fails or any submitted Hard Gate, derived metric, achieved_hard_gates set, or primary_state differs from the mechanical derivation."
+}

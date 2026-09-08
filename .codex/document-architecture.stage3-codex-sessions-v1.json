@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {"id": "sessions-prd", "kind": "PRD", "path": "docs/product/theme-stage3-codex-sessions-prd-v1.md", "required": true, "expectedStatus": "READY_FOR_HUMAN_REVIEW", "expectedVersion": "1.0-candidate.1"},
+    {"id": "sessions-design", "kind": "System Design / ADR / Migration", "path": "docs/architecture/theme-stage3-codex-sessions-system-design-v1.md", "required": true, "expectedStatus": "READY_FOR_HUMAN_REVIEW", "expectedVersion": "1.0-candidate.1"},
+    {"id": "sessions-api", "kind": "API / Data Contract", "path": "docs/api/theme-stage3-codex-sessions-api-v1.md", "required": true, "expectedStatus": "READY_FOR_HUMAN_REVIEW", "expectedVersion": "1.0-candidate.1"}
+  ],
+  "requiredTerms": [
+    {"term": "execution_id", "documents": ["sessions-prd", "sessions-design", "sessions-api"]},
+    {"term": "candidate_result_sha256", "documents": ["sessions-prd", "sessions-design", "sessions-api"]},
+    {"term": "MIGRATION_REQUIRED", "documents": ["sessions-design", "sessions-api"]}
+  ],
+  "allowMarkerPatterns": [],
+  "reportPath": ".codex/document-architecture.stage3-codex-sessions-v1.report.json"
+}

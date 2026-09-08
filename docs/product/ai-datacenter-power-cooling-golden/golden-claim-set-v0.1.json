@@ -1,0 +1,324 @@
+{
+  "golden_set_id": "ai-dc-power-cooling-golden-v0.1",
+  "contract_id": "theme-chokepoint-scoring-v1.1",
+  "protocol_id": "ai-dc-power-cooling-golden-protocol-v0.1",
+  "as_of_date": "2026-08-15",
+  "status": "golden_candidate_pending_external_second_annotation",
+  "evidence_pack_id": "ai-dc-power-cooling-evidence-pack-v0.1",
+  "evidence_pack_item_count": 35,
+  "theme_review_cards": [
+    {
+      "card_id": "PWR-C01",
+      "lane": "proven_floor",
+      "scope": {
+        "company_id": "eaton",
+        "product_id": "us_three_phase_transformers",
+        "segment_id": "seg_large_power_transformer_switchgear_us",
+        "customer_or_platform_scope": "US utility, large commercial, industrial and data-center customers",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E01", "E03", "E23", "E24", "E25"],
+      "expected_state_family": "segment",
+      "expected_primary_state": "watch_segment",
+      "golden_assertions": [
+        "critical_shortage_and_record_demand_support_positive_floors",
+        "2027_factory_plan_is_not_current_qualified_output",
+        "orders_and_backlog_do_not_prove_company_defensibility"
+      ],
+      "missing_material_questions": ["current saleable output", "qualification duration", "like-for-like effective supplier shares", "named project delay"]
+    },
+    {
+      "card_id": "PWR-C02",
+      "lane": "proven_floor",
+      "scope": {
+        "company_id": "siemens_energy",
+        "product_id": "grid_technologies_transformers_and_grid_equipment",
+        "segment_id": "seg_large_power_transformer_switchgear_us",
+        "customer_or_platform_scope": "US data-center-related grid investment",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E06", "E07", "E23", "E24", "E25"],
+      "expected_state_family": "segment",
+      "expected_primary_state": "watch_segment",
+      "golden_assertions": [
+        "grid_technologies_growth_is_a_company_exposure_floor",
+        "group_backlog_is_not_us_transformer_backlog",
+        "segment_profit_does_not_prove_product_margin_transmission"
+      ],
+      "missing_material_questions": ["US product revenue", "US product backlog", "customer sourcing", "qualified capacity"]
+    },
+    {
+      "card_id": "PWR-C03",
+      "lane": "proven_floor",
+      "scope": {
+        "company_id": "ge_vernova",
+        "product_id": "electrification_transformers_and_grid_equipment",
+        "segment_id": "seg_large_power_transformer_switchgear_us",
+        "customer_or_platform_scope": "US data-center-related electrification demand",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E08", "E09", "E23", "E24", "E25"],
+      "expected_state_family": "segment",
+      "expected_primary_state": "watch_segment",
+      "golden_assertions": [
+        "orders_and_backlog_support_demand_exposure",
+        "backlog_margin_is_not_recognized_profit",
+        "electrification_scope_must_not_be_collapsed_to_transformers"
+      ],
+      "missing_material_questions": ["product mix", "recognized product revenue and margin", "US effective capacity", "customer qualification"]
+    },
+    {
+      "card_id": "PWR-C04",
+      "lane": "proven_floor",
+      "scope": {
+        "company_id": "vertiv",
+        "product_id": "critical_power_portfolio",
+        "segment_id": "seg_critical_power_distribution_us",
+        "customer_or_platform_scope": "Americas hyperscale and colocation data centers",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E04", "E05", "E23", "E25"],
+      "expected_state_family": "segment",
+      "expected_primary_state": "watch_segment",
+      "golden_assertions": [
+        "order_growth_and_book_to_bill_support_a_strong_demand_floor",
+        "company_margin_improvement_is_not_product_level_margin_proof",
+        "high_backlog_does_not_establish_single_source_dependence"
+      ],
+      "missing_material_questions": ["critical-power product mix", "product backlog", "customer qualification", "substitute coverage"]
+    },
+    {
+      "card_id": "PWR-C05",
+      "lane": "proven_floor",
+      "scope": {
+        "company_id": "eaton",
+        "product_id": "ups_pdu_busway_portfolio",
+        "segment_id": "seg_critical_power_distribution_us",
+        "customer_or_platform_scope": "Electrical Americas data-center customers",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E01", "E02", "E23", "E25"],
+      "expected_state_family": "segment",
+      "expected_primary_state": "watch_segment",
+      "golden_assertions": [
+        "segment_orders_and_sales_are_positive_floors",
+        "ups_pdu_busway_cannot_inherit_transformer_shortage_evidence",
+        "segment_operating_margin_cannot_be_assigned_to_one_product"
+      ],
+      "missing_material_questions": ["product revenue", "product delivery lead time", "approved suppliers", "product margin"]
+    },
+    {
+      "card_id": "PWR-C06",
+      "lane": "proven_floor",
+      "scope": {
+        "company_id": "vertiv",
+        "product_id": "gb300_liquid_cooling_reference_architecture",
+        "segment_id": "seg_direct_liquid_cooling_us",
+        "customer_or_platform_scope": "NVIDIA GB300 NVL72 reference architecture",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E13"],
+      "expected_state_family": "replacement",
+      "expected_primary_state": "early_signal",
+      "golden_assertions": [
+        "reference_architecture_supports_early_integration_only",
+        "no_customer_production_adoption",
+        "no_actual_displacement"
+      ],
+      "missing_material_questions": ["named deployment", "production approval", "saleable output", "two-cycle adoption"]
+    },
+    {
+      "card_id": "PWR-C07",
+      "lane": "bounded_upside",
+      "scope": {
+        "company_id": "nvent",
+        "product_id": "data_center_liquid_cooling_solutions",
+        "segment_id": "seg_direct_liquid_cooling_us",
+        "customer_or_platform_scope": "US AI and HPC data centers",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E12"],
+      "expected_state_family": "replacement",
+      "expected_primary_state": "early_signal",
+      "golden_assertions": [
+        "factory_area_supports_execution_or_capacity_build_only",
+        "area_does_not_prove_qualified_saleable_output",
+        "capex_does_not_prove_adoption_or_share"
+      ],
+      "missing_material_questions": ["qualification", "yield", "utilization", "customer adoption", "market presence"]
+    },
+    {
+      "card_id": "PWR-C08",
+      "lane": "bounded_upside",
+      "scope": {
+        "company_id": "supermicro",
+        "product_id": "rack_scale_direct_liquid_cooling",
+        "segment_id": "seg_direct_liquid_cooling_us",
+        "customer_or_platform_scope": "Getworks Yuzawa GX Data Center",
+        "geography": "Japan",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E22"],
+      "expected_state_family": "replacement",
+      "expected_primary_state": "early_signal",
+      "golden_assertions": [
+        "named_production_deployment_supports_customer_adoption_floor",
+        "japan_evidence_must_not_be_mapped_to_us_scope",
+        "one_deployment_does_not_prove_scaled_or_realized_replacement"
+      ],
+      "missing_material_questions": ["performance benchmark", "qualification approval", "capacity", "ecosystem", "displacement"]
+    },
+    {
+      "card_id": "PWR-C09",
+      "lane": "counterexample_or_transfer",
+      "scope": {
+        "company_id": "modine",
+        "product_id": "data_centers_cooling_segment",
+        "segment_id": "seg_direct_liquid_cooling_us",
+        "customer_or_platform_scope": "North America hyperscale customers",
+        "geography": "North America",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E32", "E33", "E34", "E35"],
+      "expected_state_family": "earnings",
+      "dimensions": [
+        {"name": "revenue_materiality", "weight": 20, "evidence_state": "supported", "bound_type": "exact", "rating_min": 2, "rating_max": 2, "primary_evidence_ids": ["E32"]},
+        {"name": "volume_realization_leverage", "weight": 15, "evidence_state": "supported", "bound_type": "exact", "rating_min": 2, "rating_max": 2, "primary_evidence_ids": ["E32", "E35"]},
+        {"name": "pricing_power", "weight": 15, "evidence_state": "unknown", "bound_type": "none", "rating_min": 0, "rating_max": 4, "primary_evidence_ids": []},
+        {"name": "margin_transmission", "weight": 20, "evidence_state": "supported", "bound_type": "exact", "rating_min": 1, "rating_max": 1, "primary_evidence_ids": ["E32"]},
+        {"name": "time_to_revenue", "weight": 10, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E32"]},
+        {"name": "capital_cash_burden", "weight": 10, "evidence_state": "supported", "bound_type": "upper_bound", "rating_min": 0, "rating_max": 1, "primary_evidence_ids": ["E33"]},
+        {"name": "customer_concentration_risk", "weight": 5, "evidence_state": "supported", "bound_type": "exact", "rating_min": 2, "rating_max": 2, "primary_evidence_ids": ["E34"]},
+        {"name": "earnings_persistence", "weight": 5, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 3, "rating_max": 4, "primary_evidence_ids": ["E34"]}
+      ],
+      "score_min": 38.8,
+      "score_max": 57.5,
+      "decision_coverage": 0.8125,
+      "hard_gates": {"earnings_hard_fail": "pass_due_margin_transmission_rating_max_below_2"},
+      "expected_primary_state": "weak_earnings_capture",
+      "golden_assertions": [
+        "material_revenue_does_not_compensate_for_margin_hard_fail",
+        "current_not_historical_weak_earnings_case",
+        "negative_fcf_is_linked_to_data_centers_capex_but_is_not_forced_to_zero_score"
+      ],
+      "missing_material_questions": ["product pricing", "contract margin", "capex payback", "customer concentration denominator"]
+    },
+    {
+      "card_id": "PWR-C10",
+      "lane": "counterexample_or_transfer",
+      "scope": {
+        "company_id": "asetek",
+        "product_id": "data_center_water_cooling",
+        "segment_id": "seg_direct_liquid_cooling_us",
+        "customer_or_platform_scope": "HP USA historical evaluation",
+        "geography": "US",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E21"],
+      "expected_state_family": "replacement",
+      "expected_primary_state": null,
+      "withheld_reason": "stale_scope",
+      "golden_assertions": [
+        "performance_success_does_not_imply_adoption",
+        "explicit_non_adoption_supports_customer_adoption_zero_for_the_historical_event",
+        "undated_historical_event_cannot_become_current_2026_business_state"
+      ],
+      "missing_material_questions": ["event date", "current product", "current HP status", "production capacity"]
+    }
+  ],
+  "supplemental_positive_cases": [
+    {
+      "case_id": "SUP-DURABLE-ASML-EUV",
+      "purpose": "real_durable_positive_outside_ai_data_center_theme",
+      "scope": {
+        "company_id": "asml",
+        "product_id": "euv_lithography_scanner_assemblies",
+        "segment_id": "seg_euv_lithography_global",
+        "customer_or_platform_scope": "leading-edge Logic and DRAM fabs",
+        "geography": "Global",
+        "time_horizon_months": 24,
+        "as_of_date": "2026-08-15"
+      },
+      "evidence_ids": ["E14", "E15", "E16", "E26", "E27", "E28"],
+      "defensibility_dimensions": [
+        {"name": "technical_performance_gap", "weight": 20, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E14", "E26"]},
+        {"name": "qualification_lock_in", "weight": 15, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 3, "rating_max": 4, "primary_evidence_ids": ["E26", "E28"]},
+        {"name": "switching_cost", "weight": 15, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 2, "rating_max": 4, "primary_evidence_ids": ["E28"]},
+        {"name": "qualified_effective_capacity", "weight": 20, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E14"]},
+        {"name": "quality_delivery_reliability", "weight": 15, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 3, "rating_max": 4, "primary_evidence_ids": ["E15", "E27"]},
+        {"name": "customer_sourcing_evidence", "weight": 15, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E14", "E27"]}
+      ],
+      "score_min": 85.0,
+      "score_max": 100.0,
+      "decision_coverage": 0.85,
+      "defensibility_primary_state": "high_defensibility",
+      "challenger_set": {
+        "challenger_set_id": "asml-euv-challengers-v0.1",
+        "search_completed_at": "2026-08-15",
+        "coverage_gate": "pass",
+        "included_candidates": ["Canon DUV", "Nikon DUV", "Canon nanoimprint", "China domestic EUV/SSMB concepts", "DUV multi-patterning"],
+        "credible_challenge_found": false,
+        "boundary": "No included route had same-scope evidence meeting the v1.1 credible_challenge gate; this is not an open-world claim that no future route can emerge."
+      },
+      "competition_primary_state": "durable_chokepoint_owner"
+    },
+    {
+      "case_id": "SUP-REALIZED-APPLE-SILICON",
+      "purpose": "real_realized_replacement_positive_outside_ai_data_center_theme",
+      "scope": {
+        "company_id": "apple",
+        "product_id": "apple_silicon_for_mac",
+        "segment_id": "seg_mac_cpu_architecture",
+        "customer_or_platform_scope": "Apple Mac product line",
+        "geography": "Global",
+        "time_horizon_months": 36,
+        "as_of_date": "2023-06-05"
+      },
+      "incumbent_replaced": "Intel processors in Apple Mac product line",
+      "evidence_ids": ["E17", "E18", "E19", "E29", "E30", "E31"],
+      "replacement_dimensions": [
+        {"name": "performance_parity", "weight": 20, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 3, "rating_max": 4, "primary_evidence_ids": ["E29"]},
+        {"name": "qualification_progress", "weight": 15, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E19", "E30"]},
+        {"name": "capacity_readiness", "weight": 15, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 3, "rating_max": 4, "primary_evidence_ids": ["E30", "E19"]},
+        {"name": "customer_adoption", "weight": 15, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E19"]},
+        {"name": "cost_tco_advantage", "weight": 15, "evidence_state": "unknown", "bound_type": "none", "rating_min": 0, "rating_max": 4, "primary_evidence_ids": []},
+        {"name": "execution_delivery", "weight": 10, "evidence_state": "supported", "bound_type": "lower_bound", "rating_min": 3, "rating_max": 4, "primary_evidence_ids": ["E17", "E19"]},
+        {"name": "regulatory_tailwind", "weight": 5, "evidence_state": "unknown", "bound_type": "none", "rating_min": 0, "rating_max": 4, "primary_evidence_ids": []},
+        {"name": "architecture_tailwind", "weight": 5, "evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E17", "E31"]}
+      ],
+      "ecosystem_compatibility": {"evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E18", "E31"]},
+      "displacement": {"evidence_state": "supported", "bound_type": "exact", "rating_min": 4, "rating_max": 4, "primary_evidence_ids": ["E19"]},
+      "score_min": 68.8,
+      "score_max": 100.0,
+      "decision_coverage": 0.6875,
+      "achieved_gates": ["credible_challenge", "replacement_ready", "production_alternative", "scaled_alternative", "realized_replacement", "scaled_replacement"],
+      "replacement_primary_state": "scaled_replacement",
+      "golden_assertion": "The required Realized gate is positively satisfied; the unique primary state is the higher cumulative state scaled_replacement."
+    }
+  ],
+  "stop_rule": {
+    "theme_durable_positive_found": false,
+    "theme_realized_replacement_positive_found": false,
+    "theme_weak_earnings_positive_found": true,
+    "supplemental_durable_positive_added": true,
+    "supplemental_realized_positive_added": true,
+    "gate_lowered": false
+  }
+}

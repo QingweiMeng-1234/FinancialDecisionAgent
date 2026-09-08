@@ -1,0 +1,78 @@
+{
+  "schema_version": "1",
+  "bundle_id": "financial-agent-theme-stage3-codex-sessions-v1",
+  "bundle_version": "1.0-candidate.1",
+  "bundle_status": "FROZEN_FOR_IMPLEMENTATION",
+  "predecessor_bundle_sha256": null,
+  "objective": "Implement the opt-in Stage 3 six-dimension Codex-session candidate research path: independent per-dimension usage limits across nodes, bounded concurrency, persistent lane sessions, evidence validation, durable recovery and archive-after-persistence. Preserve canonical Stage 3 and all other stages. Use the shared Coding Agent Platform with LangGraph as sole Coding orchestrator; add no product framework dependency. This candidate does not inherit the old paired-ablation shared-dollar budget contract. No live provider smoke without separate explicit authorization.",
+  "documents": [
+    {
+      "document_roles": [
+        "prd",
+        "acceptance_criteria"
+      ],
+      "path_or_embedded_id": "docs/product/theme-stage3-codex-sessions-prd-v1.md",
+      "sha256": "e5fdf806c83cb56d9fdcfb3c9b912dafdb5f24377104631905ffbbb21f202fae"
+    },
+    {
+      "document_roles": [
+        "adr",
+        "system_design",
+        "migration_contract"
+      ],
+      "path_or_embedded_id": "docs/architecture/theme-stage3-codex-sessions-system-design-v1.md",
+      "sha256": "ec36ca0b1cc131cc933851dfdc91d94aac6c03a02e760388ecff7e338cf6ec63"
+    },
+    {
+      "document_roles": [
+        "api_contract"
+      ],
+      "path_or_embedded_id": "docs/api/theme-stage3-codex-sessions-api-v1.md",
+      "sha256": "684fea41111c62702034955f00a35f6685bb91a925fa60258764573a056bbeda"
+    }
+  ],
+  "allowed_scope": [
+    "src/event_collector/theme_chokepoint/**",
+    "src/event_collector/cli/theme_chokepoint.py",
+    "tests/test_theme_chokepoint_*.py"
+  ],
+  "forbidden_scope": [
+    "docs/**",
+    ".agent/**",
+    "AGENT.md",
+    "AGENTS.md",
+    "CONTEXT.md",
+    "QuantGPT/**",
+    "rag-from-zero/**",
+    "data/**",
+    "chroma_data/**",
+    "outputs/**",
+    "reports/**",
+    "logs/**",
+    "config/**",
+    ".github/**",
+    ".codex/**",
+    "requirements*.txt",
+    "package*.json",
+    "pyproject.toml",
+    "uv.lock",
+    "poetry.lock",
+    "financial_agent_mcp.py"
+  ],
+  "acceptance_checks": [
+    "PRD AC-01..AC-14 and all related API/System Design invariants are implemented; runtime changes show observed TDD RED/GREEN, not post-hoc claims.",
+    "Six dimension lanes each have immutable independent task/turn/round/time/source/token limits; at most six owned persistent sessions, concurrency <= configured maximum, one turn per lane; every research/assess attempt is accounted.",
+    "Unknown thread creation, turn dispatch or termination does not trigger blind retry, replacement sessions, budget resets or unsafe archive; receipts, fencing and usage high-watermarks survive restart.",
+    "Model evidence is independently fetched and validated; only current v1.4 pure validation and deterministic finalization are reused; no unbudgeted model scorer, critic or relief calls.",
+    "Candidate artifacts use a separate database and explicit subscription usage with actual_cost_usd=null; canonical domain/RPC databases, scoring governance and legacy behavior remain unchanged.",
+    "Terminal lane artifacts persist before confirmed archive and unsubscribe; cleanup retries never rerun research, delete or compact sessions, or affect unrelated threads.",
+    "Offline protocol/feature tests cover AC-01..AC-13 including state recovery, invalid inputs, budget boundaries, source safety and cleanup; existing Stage 3/4/composition/orchestrator/repository/RPC regressions pass.",
+    "New feature tests must be selectable by pytest -k stage3_codex_sessions; selection must collect at least one test and fail closed if empty. Live Codex smoke remains separately authorized, and offline success makes no production, UI or cost-saving claim.",
+    "Code P0/P1 return through platform Developer loop; Document P0/P1 stop for document revision and new human-approved Bundle; report exact bundle SHA, candidate source snapshot SHA and open P2 at Human Final Confirmation; never self-authorize GO."
+  ],
+  "changes_existing_persisted_data": false,
+  "human_approval": {
+    "status": "APPROVED",
+    "reference": "User replied 'go' in this Codex task on 2026-09-07 to the explicit request to freeze the reviewed document hashes, register the new Profile and start exactly one LangGraph Coding run. Approval binds candidate Bundle SHA 01567a695fdd39913062301b0973a60fc4d1fceb3a18703aedd1ecd3c3e4cf43 and its three exact document hashes. It does not authorize Human Final Confirmation GO or live Codex research smoke."
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "policy_id": "theme-chokepoint-automated-freeze-thresholds-v2",
+  "status": "active",
+  "effective_on": "2026-08-23",
+  "supersedes": {
+    "contract_threshold_source": "theme-chokepoint-scoring-contract-v1.6 section 9",
+    "evaluation_manifest": "final-evaluation-manifest-v1.6.6.json"
+  },
+  "thresholds": {
+    "hard_gate_agreement_min": 0.95,
+    "final_state_agreement_min": 0.75,
+    "linear_weighted_kappa_min": 0.70,
+    "exact_exact_pairs_min": 1,
+    "high_risk_one_sided_upgrades_max": 0
+  },
+  "changes": [
+    {
+      "gate_id": "final_state_agreement",
+      "old_threshold": 0.90,
+      "new_threshold": 0.75
+    },
+    {
+      "gate_id": "linear_weighted_kappa",
+      "field": "exact_exact_pairs_min",
+      "old_threshold": 10,
+      "new_threshold": 1
+    }
+  ],
+  "unchanged": {
+    "linear_weighted_kappa_min": 0.70,
+    "hard_gate_agreement_min": 0.95,
+    "high_risk_one_sided_upgrades_max": 0
+  },
+  "sample_quality_rules": {
+    "kappa_pairs_1_to_9": "low_sample_size",
+    "kappa_pairs_10_or_more": "standard_sample_size",
+    "low_sample_result_may_pass_gate": true,
+    "low_sample_result_must_be_disclosed": true,
+    "prohibited_claim": "A passing low-sample Kappa must not be described as statistically robust."
+  },
+  "historical_integrity": {
+    "rewrite_prior_manifests": false,
+    "rewrite_prior_metrics": false,
+    "apply_only_to_new_manifests": true
+  }
+}

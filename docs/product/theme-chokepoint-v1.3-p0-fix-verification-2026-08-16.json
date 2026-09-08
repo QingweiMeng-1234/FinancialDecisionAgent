@@ -1,0 +1,48 @@
+{
+  "verification_id": "theme-chokepoint-v1.3-p0-fix-20260816",
+  "status": "implemented_and_locally_verified_freeze_candidate",
+  "scope": [
+    "TD-01_complete_weighted_dimensions_per_state_task",
+    "ED-01_revenue_production_not_accounting_revenue",
+    "TV-01_mechanical_score_coverage_gate_state_validation"
+  ],
+  "tdd_evidence": {
+    "red": [
+      "Initial focused suite failed because semantic-validator-v1.3.mjs did not exist.",
+      "Generic ordered-state test failed with expected_withheld because the expression evaluator was not implemented.",
+      "Canonical-binding test failed because task weights and evidence requirements were not compared with the machine contract.",
+      "Malformed-array CLI test failed with empty stdout because the validator crashed before producing a JSON report."
+    ],
+    "green_command": "node --test tools/theme-chokepoint/semantic-validator-v1.3.test.mjs",
+    "green_result": {
+      "tests": 10,
+      "passed": 10,
+      "failed": 0
+    }
+  },
+  "static_verification": {
+    "node_check": "passed_for_module_cli_and_test",
+    "git_diff_check": "passed_for_task_owned_paths",
+    "canonical_weight_sums": {
+      "segment": 100,
+      "defensibility": 100,
+      "replacement": 100,
+      "earnings": 100
+    },
+    "v0_4_immutable_artifacts_checked": 10,
+    "v0_4_hash_mismatches": 0
+  },
+  "artifact_sha256": {
+    "tools/theme-chokepoint/semantic-task-contract-v1.3.json": "dc9cf80f5bc2c6ae8992eadea5a2d52c4a9450d7a9ab048936bedddd8236d780",
+    "tools/theme-chokepoint/semantic-validator-v1.3.mjs": "71c560bc25264733925a4dff25e4c5128a4f017b0800de1726bb50c7db0a4774",
+    "tools/theme-chokepoint/validate-submission-v1.3.mjs": "af8cf52e144beaaa9dea2191cda9ab848ec0188914c93664e19fb15189d45918",
+    "tools/theme-chokepoint/semantic-validator-v1.3.test.mjs": "84fc2ced9f7973f6e97e1c0c9d9160d5207effbd892597eafe34d0c9e292cb1d",
+    "docs/product/theme-chokepoint-scoring-contract-v1.3.zh-CN.md": "7fa9180930864c4f95ed203575b069a3d498981950b4b2327fd4df6b66bdb213",
+    "docs/product/theme-chokepoint-scoring-v1.3-migration-and-validation-plan.zh-CN.md": "fda2c87eb9dba9967f05dbe76ec42f5c45e959e95d3032ad42fc58a7b9dab034"
+  },
+  "proof_limits": [
+    "Local tests prove the specified validator invariants, not human annotator agreement.",
+    "v1.3 remains freeze_candidate until a new uncontaminated v0.5 double-blind Holdout passes every pre-adjudication gate.",
+    "HBM regression and Top-10 review remain not run because the v0.4 pre-adjudication gate failed."
+  ]
+}

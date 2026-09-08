@@ -1,0 +1,35 @@
+{
+  "schema_version": "theme-chokepoint-business-fact-decision-table-v1.4",
+  "allowed_polarities": ["affirmative"],
+  "allowed_lifecycle_states": ["current", "active", "realized"],
+  "allowed_verification_decisions": ["verified"],
+  "unstructured_exempt_capabilities": ["general_scoring_evidence"],
+  "accounting_capabilities": [
+    "accounting_revenue_confirmed",
+    "multi_period_revenue_confirmed"
+  ],
+  "official_accounting_source_markers": [
+    "company_filing",
+    "regulatory_filing",
+    "annual_report",
+    "quarterly_report",
+    "sec"
+  ],
+  "required_verification_fields": [
+    "request_record_id",
+    "response_record_id",
+    "receipt_id",
+    "verifier",
+    "verified_at",
+    "raw_response_sha256"
+  ],
+  "required_accounting_fields": [
+    "accounting_metric",
+    "accounting_value",
+    "accounting_unit",
+    "currency",
+    "fiscal_period_type",
+    "fiscal_period_id",
+    "accounting_basis"
+  ]
+}
