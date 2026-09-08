@@ -1,0 +1,113 @@
+{
+  "network": {
+    "allowedDomains": [
+      "newsapi.org",
+      "api.deepseek.com",
+      "api.openai.com",
+      "api.tavily.com",
+      "google.serper.dev",
+      "query1.finance.yahoo.com",
+      "www.wikidata.org",
+      "www.alphavantage.co",
+      "cloudflare-dns.com",
+      "1.1.1.1",
+      "1.0.0.1"
+    ],
+    "deniedDomains": [],
+    "strictAllowlist": true,
+    "allowLocalBinding": true,
+    "tlsTerminate": {}
+  },
+  "filesystem": {
+    "denyRead": [
+      "~",
+      "./.env",
+      "./.git",
+      "~/.ssh",
+      "~/.aws",
+      "~/.azure",
+      "~/.config/gcloud",
+      "~/.kube"
+    ],
+    "allowRead": [
+      ".",
+      "~/AppData/Local/Programs/Python"
+    ],
+    "allowWrite": [
+      "./logs/financial-agent-mcp",
+      "./data/runtime",
+      "./data/articles",
+      "./data/rag_corpus_v2_20260815",
+      "./data/rag_index_v2_20260815",
+      "./chroma_data",
+      "./reports"
+    ],
+    "denyWrite": [
+      "./.env",
+      "./.git"
+    ]
+  },
+  "credentials": {
+    "files": [
+      {
+        "path": "./.env",
+        "mode": "deny"
+      }
+    ],
+    "envVars": [
+      {
+        "name": "NEWSAPI_API_KEY",
+        "mode": "mask",
+        "injectHosts": [
+          "newsapi.org"
+        ]
+      },
+      {
+        "name": "OPENAI_API_KEY",
+        "mode": "mask",
+        "injectHosts": [
+          "api.openai.com"
+        ]
+      },
+      {
+        "name": "DEEPSEEK_API_KEY",
+        "mode": "mask",
+        "injectHosts": [
+          "api.deepseek.com"
+        ]
+      },
+      {
+        "name": "THEME_CHOKEPOINT_LLM_API_KEY",
+        "mode": "mask",
+        "injectHosts": [
+          "api.deepseek.com"
+        ]
+      },
+      {
+        "name": "TAVILY_API_KEY",
+        "mode": "mask",
+        "injectHosts": [
+          "api.tavily.com"
+        ]
+      },
+      {
+        "name": "SERPER_API_KEY",
+        "mode": "mask",
+        "injectHosts": [
+          "google.serper.dev"
+        ]
+      },
+      {
+        "name": "ALPHA_VANTAGE_API_KEY",
+        "mode": "deny"
+      }
+    ]
+  },
+  "windows": {
+    "sandboxUser": "srt-sandbox",
+    "proxyPortRange": [
+      60080,
+      60089
+    ]
+  }
+}

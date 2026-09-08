@@ -1,0 +1,10 @@
+{
+  "name": "financial-agent-sandbox-tooling",
+  "private": true,
+  "scripts": {
+    "sandbox:check": "npm ls @anthropic-ai/sandbox-runtime --depth=0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.73"
+  }
+}
