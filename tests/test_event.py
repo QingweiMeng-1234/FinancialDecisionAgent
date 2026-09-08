@@ -214,6 +214,8 @@ def test_news_collector():
         assert raw_inputs[0].publisher_source_name == "Source One"
         assert calls[0][0].endswith("/top-headlines/sources")
         assert calls[1][0].endswith("/everything")
+        assert all(call[2]["X-Api-Key"] == "dummy_key" for call in calls)
+        assert all("apiKey" not in call[1] for call in calls)
     finally:
         if original_key is None:
             os.environ.pop("NEWSAPI_API_KEY", None)

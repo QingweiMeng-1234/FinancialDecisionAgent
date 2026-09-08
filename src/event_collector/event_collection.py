@@ -842,7 +842,11 @@ class NewsCollector(EventSourceCollector):
         ]
 
     def _get_json(self, url: str, params: dict) -> dict:
-        headers = {"X-No-Cache": "true"} if self.no_cache else None
+        request_params = dict(params)
+        api_key = request_params.pop("apiKey", None)
+        headers = {"X-Api-Key": api_key} if api_key else {}
+        if self.no_cache:
+            headers["X-No-Cache"] = "true"
         # Preserve an explicit test/compatibility transport override while normal
         # collection uses the collector-owned reusable Session.
         http_get = self._http_get or (
@@ -850,7 +854,7 @@ class NewsCollector(EventSourceCollector):
             if requests.get is not _ORIGINAL_REQUESTS_GET
             else getattr(self._session, "get", None) or requests.get
         )
-        response = http_get(url, params=params, headers=headers, timeout=10)
+        response = http_get(url, params=request_params, headers=headers or None, timeout=10)
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
