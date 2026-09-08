@@ -1,0 +1,30 @@
+{
+  "snapshot_date": "2026-09-08",
+  "status": "unreviewed_annotation_snapshot",
+  "candidate_articles": 200,
+  "splits": {
+    "test": 24,
+    "validation": 24,
+    "train": 152
+  },
+  "draft_articles": 12,
+  "draft_events": 13,
+  "human_reviewed_articles": 0,
+  "grouping_status": "needs_human_story_review",
+  "source": "Existing local news exports; each article retains its source URL and content hash.",
+  "hash_scope": "UTF-8 files with LF line endings, enforced by this dataset directory .gitattributes; update manifest when revising data.",
+  "files": {
+    "annotation_candidates.jsonl": {
+      "sha256": "3eab4ebb385dfab437ce349190c0d864cf3d0e21316f68ce602f31e6313e03c7",
+      "bytes": 1015150
+    },
+    "annotation-round1/drafts.jsonl": {
+      "sha256": "6c82ab410a25102f1a7e9674a86e8fd1a6c750c6176d88f9effd0e04ff110a90",
+      "bytes": 43499
+    },
+    "annotation-round1/review-pack.md": {
+      "sha256": "cb9b627701c7db8131246acd632eafb3a0fcc951905de8419922157f832c99d6",
+      "bytes": 36991
+    }
+  }
+}
