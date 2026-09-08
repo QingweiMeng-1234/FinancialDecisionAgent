@@ -49,7 +49,6 @@ def ensure_article_structured(
 
     agent = structuring_agent or EventStructuringAgent()
     attempted_at = datetime.now()
-    structuring_model = _resolve_structuring_model(agent)
     article_record = storage.get_article_record(article_id)
     if article_record is None:
         raise ValueError(f"Article {article_id} not found in storage")
@@ -69,8 +68,8 @@ def ensure_article_structured(
             attempted=True,
             status="success",
             events=events,
-            structuring_model=structuring_model,
-            structuring_prompt_version=STRUCTURING_PROMPT_VERSION,
+            structuring_model=_resolve_structuring_model(agent),
+            structuring_prompt_version=_resolve_structuring_prompt(agent),
             attempted_at=attempted_at,
         )
     except Exception as exc:
@@ -81,11 +80,15 @@ def ensure_article_structured(
             attempted=True,
             status="failed",
             events=[],
-            structuring_model=structuring_model,
-            structuring_prompt_version=STRUCTURING_PROMPT_VERSION,
+            structuring_model=_resolve_structuring_model(agent),
+            structuring_prompt_version=_resolve_structuring_prompt(agent),
             error=str(exc),
             attempted_at=attempted_at,
         )
+
+
+def _resolve_structuring_prompt(agent: EventStructuringAgent) -> str:
+    return getattr(getattr(agent, "llm_client", None), "prompt_version", STRUCTURING_PROMPT_VERSION)
 
 
 def _resolve_structuring_model(agent: EventStructuringAgent) -> str | None:

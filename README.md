@@ -138,6 +138,10 @@ do not update `chroma_data/news_articles` in place.
 
 ## Event Structuring
 
+Optional local-model inference, isolated evaluation and reviewed SFT data export:
+[Local event structuring guide](./docs/local-event-structuring.md).
+The default production provider remains unchanged until explicitly configured.
+
 To derive normalized market events from stored articles:
 
 ```powershell
