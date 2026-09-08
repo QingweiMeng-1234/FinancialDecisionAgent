@@ -98,3 +98,12 @@ Working data, indexes, and databases should converge under data-oriented directo
 ### Experiments
 
 Exploratory or adjacent projects such as `rag-from-zero/` and `QuantGPT/` are separate modules at the repo seam, not part of the core Financial Agent package.
+
+## Architecture and API Documentation
+
+- `docs/product/rag-ingestion-serving-prd.md`: frozen RAG product requirements and acceptance boundary.
+- `docs/architecture/rag-ingestion-serving-system-design.md`: current RAG ingestion, immutable generation, retry, and serving design.
+- `docs/api/rag-ingestion-serving-api.md`: current MCP/Python refresh and query contract.
+- `docs/product/rag-ingestion-serving-freeze-manifest-v1.0.json`: frozen v1.0 artifact hashes and change-control boundary.
+- `docs/operations/rag-corpus-migration-runbook.md`: migration, activation, backup, verification, and rollback evidence.
+- `docs/architecture/rag-ingestion-reliability-remediation-plan.md`: historical audit, remediation sequence, and acceptance criteria; not the current status authority.

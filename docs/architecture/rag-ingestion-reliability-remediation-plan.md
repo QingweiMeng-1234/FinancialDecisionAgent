@@ -2,26 +2,34 @@
 
 ## 1. 文档状态
 
-- 状态：In progress；工作包 1 已完成工具与隔离 staging 验证，工作包 2 正在实现
+- 状态：历史整改方案与工作包来源；不再作为当前实施状态的权威
 - 代码基线：`main@24d2307`
 - 审计日期：2026-08-15
 - 适用范围：核心 Financial Agent 包，不包含 `QuantGPT/` 与 `rag-from-zero/`
-- 当前阶段：已实现 read-only audit、manifest、staging apply/verify 与 canonical content
-  存储契约；尚未执行 live migration、Chroma v2 构建、切流或部署
+- 冻结产品契约：[RAG Ingestion and Generation Serving PRD](../product/rag-ingestion-serving-prd.md)
+- 当前实现基线：[RAG Ingestion and Generation Serving System Design](rag-ingestion-serving-system-design.md)
+- 当前接口契约：[RAG Ingestion and Serving API and Data Contract](../api/rag-ingestion-serving-api.md)
+- 当前操作证据：[RAG Corpus Migration Backup and Rollback Runbook](../operations/rag-corpus-migration-runbook.md)
+
+本文件冻结最初审计、整改顺序、目标不变量和验收标准。后续本地实施已经完成
+canonical corpus migration、不可变 Chroma v2 generation 构建和 control-pointer
+激活；具体快照、路径、数量和证明边界以 runbook 为准。外部 staging、生产部署
+和持续运行质量仍未由这些本地证据证明。
 
 `feature/theme-research-v1@611fa60` 与上述 `main` 在本文涉及的核心源文件上没有差异；`main` 额外包含 README 合并结果。本文记录的 SQLite、正文文件和 Chroma 数量来自当前本地工作区的只读审计，不应视为远端仓库或其他环境的实时状态。
 
-当前实施证据仅覆盖本地 dirty worktree 与隔离 `.tmp` staging：最新计划
+以下段落记录整改开始阶段的历史实施证据，仅覆盖当时的本地 dirty worktree 与
+隔离 `.tmp` staging：最新计划
 `79b92bfa0dba29cba22331bad51edb339496c47569a5b6d766c086e06406d0ee`
 验证了 482 条 audit rows、421 条 canonical verified ready articles 和 1 条
 持久 quarantine（article 228），verification issues 为 0。它不证明 Chroma v2、
 线上 retrieval eligibility、部署或用户可见回答已经完成。
 
-工作包 3 当前只完成了 dependency-independent generation control plane：
+在该历史检查点，工作包 3 只完成了 dependency-independent generation control plane：
 `index_generations`、`article_index_manifest`、chunk 双向 reconciliation proof、
 `corpus_index_state` 与 verified-only atomic activation。真实 Chroma v2 collection
-尚未构建或激活；本机 Python 缺少可用的 `chromadb`/embedding 运行依赖，因此
-该数据面步骤保持 pending，旧 v1 collection 与 live pointer 均未改变。
+当时尚未构建或激活。此状态已被后续 runbook 中记录的本地构建、验证和激活证据
+取代，不得再引用为当前状态。
 
 ## 2. 决策摘要
 
@@ -668,6 +676,9 @@ integrity mismatch 时不得调用 reranker 或 answer LLM，不得返回任何�
 - 在没有 canonical content integrity 证明前继续扩大 corpus
 
 ## 18. 实施工作包
+
+下表保留原始依赖顺序与进入门槛，不表示当前完成度。当前完成度以 System Design
+的“Current Assessed State”和操作 runbook 为准。
 
 | 顺序 | 工作包 | 主要交付物 | 开始下一包的门槛 |
 | ---: | --- | --- | --- |

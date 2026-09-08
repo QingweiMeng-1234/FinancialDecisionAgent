@@ -1,5 +1,12 @@
 # RAG Corpus Migration Backup and Rollback Runbook
 
+Related contracts:
+
+- [RAG Ingestion and Generation Serving PRD](../product/rag-ingestion-serving-prd.md)
+- [RAG Ingestion and Generation Serving System Design](../architecture/rag-ingestion-serving-system-design.md)
+- [RAG Ingestion and Serving API and Data Contract](../api/rag-ingestion-serving-api.md)
+- [Original reliability remediation plan](../architecture/rag-ingestion-reliability-remediation-plan.md)
+
 ## 1. Purpose and scope
 
 This runbook is the operational control for work package 1 in

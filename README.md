@@ -30,6 +30,15 @@ $env:NEWSAPI_API_KEY="your-newsapi-key"
 
 Project context and module seams now live in [CONTEXT.md](./CONTEXT.md).
 
+## Architecture and Contracts
+
+- [RAG Ingestion and Generation Serving PRD](./docs/product/rag-ingestion-serving-prd.md)
+- [RAG Ingestion and Generation Serving System Design](./docs/architecture/rag-ingestion-serving-system-design.md)
+- [RAG Ingestion and Serving API and Data Contract](./docs/api/rag-ingestion-serving-api.md)
+- [RAG v1.0 freeze manifest](./docs/product/rag-ingestion-serving-freeze-manifest-v1.0.json)
+- [RAG Corpus Migration Backup and Rollback Runbook](./docs/operations/rag-corpus-migration-runbook.md)
+- [RAG reliability remediation history and acceptance criteria](./docs/architecture/rag-ingestion-reliability-remediation-plan.md)
+
 Optional model overrides:
 
 ```powershell

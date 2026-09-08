@@ -1,0 +1,59 @@
+{
+  "manifest_id": "financial-agent-rag-v1.0-freeze",
+  "manifest_version": "1.0",
+  "status": "FROZEN",
+  "frozen_on": "2026-09-01",
+  "contract_family": "financial-agent.rag.v1",
+  "authorization": {
+    "authority": "user",
+    "basis": "Explicit instruction in the current repository task to freeze the PRD, System Design, and API documentation"
+  },
+  "artifacts": [
+    {
+      "role": "PRD",
+      "path": "docs/product/rag-ingestion-serving-prd.md",
+      "version": "1.0",
+      "document_status": "FROZEN_FOR_IMPLEMENTATION",
+      "sha256": "317784227ae655593107f7bdec741d04cb678aa4bb3cd960ae13e56697fd2b8a"
+    },
+    {
+      "role": "SYSTEM_DESIGN",
+      "path": "docs/architecture/rag-ingestion-serving-system-design.md",
+      "version": "1.0",
+      "document_status": "FROZEN_FOR_IMPLEMENTATION",
+      "sha256": "b2c0e65642eaf58d482443d0f361f58dfd03aa42af4c5c26a86d42f5300fd31b"
+    },
+    {
+      "role": "API_CONTRACT",
+      "path": "docs/api/rag-ingestion-serving-api.md",
+      "version": "1.0",
+      "document_status": "FROZEN_API_CONTRACT",
+      "sha256": "40b7f15d4e9b98ab3b98dff457bb871e6ccc6331a7da334244806214ed9b395c"
+    }
+  ],
+  "frozen_decisions": [
+    "Canonical exact content is authoritative",
+    "Refresh completion, partial failure, retry, and ownership remain explicit",
+    "Index generations are immutable, complete, verified, and activated by compare-and-swap",
+    "Every read request pins one active generation and fails closed when corpus proof is unavailable",
+    "Material answer claims require citations to server-owned evidence",
+    "The v1 public interface is the documented MCP and Python contract",
+    "Local verification does not prove external deployment or production readiness"
+  ],
+  "change_control": {
+    "silent_in_place_edits_allowed": false,
+    "required_for_any_artifact_change": [
+      "New manifest version",
+      "Recomputed artifact SHA-256 hashes",
+      "Documented compatibility and proof-boundary review"
+    ],
+    "requires_prd_reopen_or_superseding_version": [
+      "Change to canonical source-of-truth ownership",
+      "Change to refresh terminal or retry semantics",
+      "Change to generation completeness, activation, rollback, or request-pinning semantics",
+      "Breaking v1 request or response change",
+      "Relaxation of fail-closed, citation, secret-handling, or deployment-proof boundaries"
+    ]
+  },
+  "proof_boundary": "This manifest freezes repository documentation semantics and verifies the listed file bytes. It does not commit the files to Git, execute CI, deploy a service, authorize production traffic, or prove external-provider behavior."
+}

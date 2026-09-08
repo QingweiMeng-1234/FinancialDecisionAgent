@@ -1,0 +1,58 @@
+{
+  "schema_version": "1",
+  "bundle_id": "financial-agent-rag-v1.0-langgraph",
+  "bundle_version": "1.0-langgraph-2026-09-01",
+  "bundle_status": "FROZEN_FOR_IMPLEMENTATION",
+  "predecessor_bundle_sha256": null,
+  "objective": "Close local implementation and deterministic verification gaps for financial-agent.rag.v1 against the frozen PRD, System Design and API Contract. Preserve existing user changes. Do not deploy, call paid or external providers, mutate live runtime data, or perform destructive migration.",
+  "documents": [
+    {
+      "document_roles": [
+        "prd",
+        "acceptance_criteria"
+      ],
+      "path_or_embedded_id": "docs/product/rag-ingestion-serving-prd.md",
+      "sha256": "317784227ae655593107f7bdec741d04cb678aa4bb3cd960ae13e56697fd2b8a"
+    },
+    {
+      "document_roles": [
+        "adr",
+        "system_design"
+      ],
+      "path_or_embedded_id": "docs/architecture/rag-ingestion-serving-system-design.md",
+      "sha256": "b2c0e65642eaf58d482443d0f361f58dfd03aa42af4c5c26a86d42f5300fd31b"
+    },
+    {
+      "document_roles": [
+        "api_contract"
+      ],
+      "path_or_embedded_id": "docs/api/rag-ingestion-serving-api.md",
+      "sha256": "40b7f15d4e9b98ab3b98dff457bb871e6ccc6331a7da334244806214ed9b395c"
+    }
+  ],
+  "allowed_scope": [
+    "src/event_collector/**",
+    "tests/**",
+    "scripts/**",
+    "config/financial_agent_service_defaults.json",
+    "requirements.txt"
+  ],
+  "forbidden_scope": [
+    "docs/**",
+    "data/**",
+    "chroma_data/**",
+    "QuantGPT/**",
+    "rag-from-zero/**"
+  ],
+  "acceptance_checks": [
+    "All local-runtime items in System Design section 20 are satisfied or reported with exact proof limits.",
+    "The API Contract section 14 matrix is covered by deterministic tests without changing v1 field or status semantics.",
+    "The configured focused RAG contract suite and Python compile verification pass on the exact candidate snapshot.",
+    "No deployment, external-provider, live-runtime-data, or destructive-migration claim or mutation is made."
+  ],
+  "changes_existing_persisted_data": false,
+  "human_approval": {
+    "status": "APPROVED",
+    "reference": "docs/product/rag-ingestion-serving-freeze-manifest-v1.0.json authorization + current user request 2026-09-01 (approved by user)"
+  }
+}
