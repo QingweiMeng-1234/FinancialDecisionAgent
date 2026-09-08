@@ -1,0 +1,662 @@
+profiles:
+- ticker: AAPL
+  canonical_name: Apple Inc.
+  website: https://apple.com/at
+  ir_url: https://investor.apple.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - iPhone
+  - iPad
+  - Mac
+  - Apple Watch
+  - AirPods
+  - App Store
+  - Apple Music
+  - iCloud
+  business_lines:
+  - consumer electronics
+  - wearables
+  - digital services
+  themes:
+  - personal computing
+  - services ecosystem
+  asset_type: company
+- ticker: ADBE
+  canonical_name: Adobe Inc.
+  website: https://www.adobe.com
+  ir_url: https://www.adobe.com
+  ceo_name: Shantanu Narayen
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Photoshop
+  - Illustrator
+  - Acrobat
+  - Premiere Pro
+  - Creative Cloud
+  business_lines:
+  - creative software
+  - document software
+  - marketing software
+  themes:
+  - digital media
+  - enterprise software
+  asset_type: company
+- ticker: AMD
+  canonical_name: Advanced Micro Devices, Inc.
+  website: https://www.amd.com
+  ir_url: https://www.amd.com#!
+  ceo_name: Lisa Su
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Ryzen
+  - EPYC
+  - Radeon
+  - Instinct
+  business_lines:
+  - cpus
+  - gpus
+  - data center chips
+  themes:
+  - semiconductors
+  - ai accelerators
+  asset_type: company
+- ticker: AMZN
+  canonical_name: Amazon.com, Inc.
+  website: https://www.amazon.com
+  ir_url: https://www.amazon.com
+  ceo_name: Andy Jassy
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Amazon Prime
+  - Amazon Prime Video
+  - Amazon Web Services
+  - Alexa
+  - Kindle
+  - Amazon Echo
+  business_lines:
+  - e-commerce
+  - cloud infrastructure
+  - digital advertising
+  - logistics
+  themes:
+  - consumer internet
+  - cloud computing
+  asset_type: company
+- ticker: AVGO
+  canonical_name: Broadcom Inc.
+  website: https://www.broadcom.com
+  ir_url: https://www.broadcom.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - VMware
+  business_lines:
+  - semiconductors
+  - infrastructure software
+  themes:
+  - networking chips
+  - enterprise infrastructure
+  asset_type: company
+- ticker: BA
+  canonical_name: The Boeing Company
+  website: https://boeing.com
+  ir_url: http://investors.boeing.com/?_gl=1*169wy4g*_ga*NTk1NTE0ODYzLjE2OTc2NTk2NDA.*_ga_3N2PEGZ4HD*MTcwMTE4OTIxMS45NC4xLjE3MDExOTA3NzUuMC4wLjA.
+  ceo_name: Kelly Ortberg
+  aliases:
+  - Boeing Company
+  ceo_aliases: []
+  products:
+  - Boeing 737
+  - Boeing 747
+  - Boeing 767
+  - Boeing 777
+  - Boeing 787 Dreamliner
+  business_lines:
+  - commercial airplanes
+  - defense aerospace
+  - services
+  themes:
+  - aerospace
+  - aviation
+  asset_type: company
+- ticker: CEG
+  canonical_name: Constellation Energy Corporation
+  website: http://www.constellation.com
+  ir_url: https://investors.constellationenergy.com
+  ceo_name: null
+  aliases:
+  - Constellation Energy Corporatio
+  ceo_aliases: []
+  products: []
+  business_lines:
+  - nuclear power generation
+  - energy retail
+  - renewable power
+  themes:
+  - electric utilities
+  - power markets
+  asset_type: company
+- ticker: COST
+  canonical_name: Costco Wholesale Corporation
+  website: https://www.costco.com
+  ir_url: https://investor.costco.com/overview/default.aspx
+  ceo_name: Ron Vachris
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Kirkland Signature
+  business_lines:
+  - warehouse retail
+  - membership retail
+  themes:
+  - consumer staples retail
+  asset_type: company
+- ticker: CRWD
+  canonical_name: CrowdStrike Holdings, Inc.
+  website: https://www.crowdstrike.com
+  ir_url: https://ir.crowdstrike.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Falcon Platform
+  - Charlotte AI
+  business_lines:
+  - endpoint security
+  - identity protection
+  - security operations
+  themes:
+  - cybersecurity
+  - threat intelligence
+  asset_type: company
+- ticker: CRWV
+  canonical_name: CoreWeave, Inc.
+  website: https://www.coreweave.com
+  ir_url: https://investors.coreweave.com/overview/default.aspx
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - CoreWeave Cloud
+  business_lines:
+  - gpu cloud infrastructure
+  - managed kubernetes
+  themes:
+  - ai infrastructure
+  - cloud computing
+  asset_type: company
+- ticker: DAL
+  canonical_name: Delta Air Lines, Inc.
+  website: https://ir.delta.com
+  ir_url: https://ir.delta.com/resources/default.aspx#investor-kit
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - SkyMiles
+  - Delta One
+  business_lines:
+  - passenger airlines
+  - loyalty programs
+  themes:
+  - air travel
+  asset_type: company
+- ticker: DASH
+  canonical_name: DoorDash, Inc.
+  website: https://www.doordash.com
+  ir_url: https://www.doordash.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - DoorDash
+  - DashPass
+  - Wolt
+  - Caviar
+  business_lines:
+  - food delivery
+  - local commerce
+  - last-mile logistics
+  themes:
+  - consumer internet
+  - delivery
+  asset_type: company
+- ticker: GD
+  canonical_name: General Dynamics Corporation
+  website: https://www.gd.com
+  ir_url: https://www.gd.com
+  ceo_name: Phebe Novakovic
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Gulfstream
+  business_lines:
+  - business aviation
+  - defense systems
+  - marine systems
+  themes:
+  - aerospace
+  - defense
+  asset_type: company
+- ticker: GOOG
+  canonical_name: Alphabet Inc.
+  website: https://abc.xyz
+  ir_url: https://abc.xyz
+  ceo_name: Sundar Pichai
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Google Search
+  - YouTube
+  - Google Cloud
+  - Android
+  - Google Maps
+  - Gemini
+  business_lines:
+  - digital advertising
+  - cloud infrastructure
+  - consumer internet
+  themes:
+  - internet platforms
+  - ai
+  asset_type: company
+- ticker: GOOGL
+  canonical_name: Alphabet Inc.
+  website: https://abc.xyz
+  ir_url: https://abc.xyz
+  ceo_name: Sundar Pichai
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Google Search
+  - YouTube
+  - Google Cloud
+  - Android
+  - Google Maps
+  - Gemini
+  business_lines:
+  - digital advertising
+  - cloud infrastructure
+  - consumer internet
+  themes:
+  - internet platforms
+  - ai
+  asset_type: company
+- ticker: INTC
+  canonical_name: Intel Corporation
+  website: https://www.intel.com
+  ir_url: https://www.intel.com
+  ceo_name: Michelle Johnston Holthaus
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Intel Core
+  - Xeon
+  - Arc
+  - Gaudi
+  business_lines:
+  - pc chips
+  - server chips
+  - foundry services
+  themes:
+  - semiconductors
+  - ai accelerators
+  asset_type: company
+- ticker: LMT
+  canonical_name: Lockheed Martin Corporation
+  website: https://lockheedmartin.com
+  ir_url: https://investors.lockheedmartin.com
+  ceo_name: James D. Taiclet
+  aliases: []
+  ceo_aliases: []
+  products:
+  - F-35
+  - HIMARS
+  - Aegis Combat System
+  - Sikorsky Black Hawk
+  business_lines:
+  - aeronautics
+  - missiles and fire control
+  - rotary aircraft
+  themes:
+  - defense
+  - aerospace
+  asset_type: company
+- ticker: META
+  canonical_name: Meta Platforms, Inc.
+  website: https://www.meta.com
+  ir_url: https://www.meta.com
+  ceo_name: Mark Zuckerberg
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Facebook
+  - Instagram
+  - WhatsApp
+  - Messenger
+  - Threads
+  business_lines:
+  - social media
+  - digital advertising
+  - consumer hardware
+  themes:
+  - consumer internet
+  - ai
+  asset_type: company
+- ticker: MSFT
+  canonical_name: Microsoft Corporation
+  website: https://www.microsoft.com
+  ir_url: https://www.microsoft.com
+  ceo_name: Satya Nadella
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Windows
+  - Azure
+  - GitHub Copilot
+  - Microsoft 365
+  - Dynamics 365
+  - LinkedIn
+  business_lines:
+  - enterprise software
+  - cloud infrastructure
+  - productivity software
+  themes:
+  - ai
+  - enterprise computing
+  asset_type: company
+- ticker: NEE
+  canonical_name: NextEra Energy, Inc.
+  website: http://www.nexteraenergy.com
+  ir_url: https://www.investor.nexteraenergy.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Company
+  - About NextEra Energy
+  - NextEra Energy
+  - Inc
+  - NYSE
+  - NEE
+  - North America
+  - American
+  business_lines:
+  - regulated electric utility
+  - utility-scale renewables
+  - energy infrastructure
+  themes:
+  - electric utilities
+  - renewable energy
+  asset_type: company
+- ticker: NOC
+  canonical_name: Northrop Grumman Corporation
+  website: https://www.northropgrumman.com
+  ir_url: https://investor.northropgrumman.com
+  ceo_name: Kathy J. Warden
+  aliases: []
+  ceo_aliases: []
+  products:
+  - B-2 Spirit
+  - Global Hawk
+  - Sentinel
+  business_lines:
+  - aerospace systems
+  - defense electronics
+  - mission systems
+  themes:
+  - defense
+  - space
+  asset_type: company
+- ticker: NVDA
+  canonical_name: NVIDIA Corporation
+  website: https://www.nvidia.com
+  ir_url: https://investor.nvidia.com/home/default.aspx
+  ceo_name: Jensen Huang
+  aliases: []
+  ceo_aliases: []
+  products:
+  - GeForce
+  - CUDA
+  - DGX
+  - Omniverse
+  - H100
+  business_lines:
+  - gpus
+  - ai systems
+  - networking
+  themes:
+  - semiconductors
+  - ai infrastructure
+  asset_type: company
+- ticker: ORCL
+  canonical_name: Oracle Corporation
+  website: https://www.oracle.com
+  ir_url: https://www.oracle.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Oracle Database
+  - MySQL
+  - NetSuite
+  - Oracle Cloud Infrastructure
+  - Java
+  business_lines:
+  - database software
+  - enterprise applications
+  - cloud infrastructure
+  themes:
+  - enterprise software
+  - cloud computing
+  asset_type: company
+- ticker: QCOM
+  canonical_name: QUALCOMM Incorporated
+  website: https://www.qualcomm.com
+  ir_url: https://www.qualcomm.com
+  ceo_name: Cristiano Amon
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Snapdragon
+  - Adreno
+  business_lines:
+  - mobile chips
+  - wireless licensing
+  - automotive compute
+  themes:
+  - semiconductors
+  - wireless
+  asset_type: company
+- ticker: RBLX
+  canonical_name: Roblox Corporation
+  website: https://corp.roblox.com
+  ir_url: https://ir.roblox.com
+  ceo_name: David Baszucki
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Roblox
+  - Roblox Studio
+  business_lines:
+  - gaming platform
+  - virtual economy
+  themes:
+  - gaming
+  - metaverse
+  asset_type: company
+- ticker: RTX
+  canonical_name: RTX Corporation
+  website: https://www.rtx.com
+  ir_url: https://investors.rtx.com/#Investors
+  ceo_name: Greg Hayes
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Raytheon
+  - Pratt & Whitney
+  - Collins Aerospace
+  business_lines:
+  - aerospace systems
+  - aircraft engines
+  - defense systems
+  themes:
+  - aerospace
+  - defense
+  asset_type: company
+- ticker: TGT
+  canonical_name: Target Corporation
+  website: https://www.target.com
+  ir_url: https://www.target.com
+  ceo_name: Brian Cornell
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Target Circle
+  - Good & Gather
+  - Cat & Jack
+  - up&up
+  business_lines:
+  - discount retail
+  - owned brands
+  - e-commerce retail
+  themes:
+  - consumer retail
+  asset_type: company
+- ticker: TSLA
+  canonical_name: Tesla, Inc.
+  website: https://www.tesla.com
+  ir_url: https://www.tesla.com
+  ceo_name: Elon Musk
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Model 3
+  - Model Y
+  - Cybertruck
+  - Powerwall
+  - Megapack
+  - Supercharger
+  business_lines:
+  - electric vehicles
+  - energy storage
+  - charging infrastructure
+  themes:
+  - electric vehicles
+  - clean energy
+  asset_type: company
+- ticker: TSM
+  canonical_name: Taiwan Semiconductor Manufacturing Company Limited
+  website: https://www.tsmc.com
+  ir_url: https://www.tsmc.com
+  ceo_name: C. C. Wei
+  aliases:
+  - Taiwan Semiconductor Manufactur
+  ceo_aliases: []
+  products:
+  - CoWoS
+  business_lines:
+  - semiconductor foundry
+  - advanced packaging
+  themes:
+  - semiconductors
+  - ai supply chain
+  asset_type: company
+- ticker: UBER
+  canonical_name: Uber Technologies, Inc.
+  website: https://www.uber.com
+  ir_url: https://www.uber.com
+  ceo_name: Dara Khosrowshahi
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Uber
+  - Uber Eats
+  - Uber Freight
+  - Uber One
+  business_lines:
+  - ride-hailing
+  - food delivery
+  - logistics
+  themes:
+  - consumer internet
+  - mobility
+  asset_type: company
+- ticker: UPS
+  canonical_name: United Parcel Service, Inc.
+  website: https://www.ups.com
+  ir_url: https://www.ups.com
+  ceo_name: "Carol Tom\xE9"
+  aliases: []
+  ceo_aliases: []
+  products:
+  - UPS My Choice
+  business_lines:
+  - parcel delivery
+  - logistics
+  - supply chain services
+  themes:
+  - logistics
+  - e-commerce enablement
+  asset_type: company
+- ticker: VRT
+  canonical_name: Vertiv Holdings Co
+  website: https://www.vertiv.com
+  ir_url: https://investors.vertiv.com
+  ceo_name: Giordano Albertazzi
+  aliases:
+  - Vertiv Holdings, LLC
+  ceo_aliases: []
+  products:
+  - Liebert
+  - Avocent
+  - Geist
+  business_lines:
+  - data center cooling
+  - power infrastructure
+  - it management
+  themes:
+  - data center infrastructure
+  - power management
+  asset_type: company
+- ticker: VST
+  canonical_name: Vistra Corp.
+  website: https://www.vistracorp.com
+  ir_url: https://investor.vistracorp.com
+  ceo_name: null
+  aliases: []
+  ceo_aliases: []
+  products:
+  - TXU Energy
+  - Ambit Energy
+  business_lines:
+  - power generation
+  - energy retail
+  themes:
+  - electric utilities
+  - power markets
+  asset_type: company
+- ticker: WMT
+  canonical_name: Walmart Inc.
+  website: https://www.walmart.com
+  ir_url: https://www.walmart.com
+  ceo_name: Doug McMillon
+  aliases: []
+  ceo_aliases: []
+  products:
+  - Walmart+
+  - Sam's Club
+  - Flipkart
+  business_lines:
+  - discount retail
+  - e-commerce retail
+  - grocery retail
+  themes:
+  - consumer retail
+  asset_type: company

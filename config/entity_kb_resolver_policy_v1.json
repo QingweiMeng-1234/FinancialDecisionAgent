@@ -1,0 +1,19 @@
+{
+  "policy_type": "resolver",
+  "policy_version": "resolver.v1",
+  "schema_version": "1.0",
+  "effective_from": "2026-08-15T00:00:00Z",
+  "settings": {
+    "resolution_order": [
+      "exchange_qualified_or_unambiguous_ticker",
+      "reviewed_strong_alias",
+      "canonical_name",
+      "reviewed_product_owner_context",
+      "weak_or_ambiguous_candidates"
+    ],
+    "product_owner_auto_select": false,
+    "ambiguous_auto_select": false,
+    "max_selected_targets": 1
+  },
+  "content_sha256": "4e7738d17f2983dfe8633bdc1ca2baf0f121b1663f850b41e44b0ca3b69cd932"
+}

@@ -1,0 +1,44 @@
+{
+  "policy_type": "signal",
+  "policy_version": "signals.price_in.v1",
+  "schema_version": "1.0",
+  "effective_from": "2026-08-15T00:00:00Z",
+  "settings": {
+    "combination_algorithm": "weighted_semantic_plus_kb_v1",
+    "semantic_weight": 0.7,
+    "signal_bases": {
+      "direct_ticker": 0.1,
+      "direct_company_alias": 0.1,
+      "direct_product_owner": 0.05,
+      "direct_executive_context": 0.02,
+      "indirect_dependency": 0.3,
+      "indirect_supplier": 0.27,
+      "indirect_customer": 0.23,
+      "indirect_substitute": 0.2,
+      "indirect_competitor": 0.18,
+      "context_business_line": 0.0,
+      "context_theme": 0.0
+    },
+    "class_caps": {
+      "direct_identity": 0.1
+    },
+    "total_caps": {
+      "direct": 0.15,
+      "indirect": 0.3
+    },
+    "freshness_multipliers": {
+      "current": 1.0,
+      "aging": 0.0,
+      "stale": 0.0
+    },
+    "duplicate_behavior": "same_fact_once",
+    "indirect_selection": "contribution_desc_relationship_id_asc",
+    "supported_intents": [
+      "direct",
+      "indirect"
+    ],
+    "direct_indirect_accumulate": false,
+    "allow_semantic_hard_gate": false
+  },
+  "content_sha256": "6669e27e97fe7e76c76242f497aa9b339699bdae1690620dffef7f40937290ad"
+}
