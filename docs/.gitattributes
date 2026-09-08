@@ -1,0 +1,4 @@
+# Frozen design bundles identify these artifacts by their byte-level SHA-256.
+api/** -text
+architecture/** -text
+product/** -text

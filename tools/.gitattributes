@@ -1,0 +1,2 @@
+# Runtime governance and scoring contracts pin the exact artifact bytes.
+theme-chokepoint/** -text
