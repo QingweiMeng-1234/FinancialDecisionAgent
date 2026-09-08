@@ -1,0 +1,14 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "max_length": 2048,
+  "epochs": 2,
+  "learning_rate": 0.0002,
+  "gradient_accumulation_steps": 16,
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.05,
+  "min_train_examples": 50,
+  "min_validation_examples": 10,
+  "seed": 42
+}
