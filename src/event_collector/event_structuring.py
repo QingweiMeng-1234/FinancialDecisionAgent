@@ -182,7 +182,11 @@ class EventStructuringAgent:
     """Turns article content into durable normalized market signals."""
 
     def __init__(self, llm_client: StructuringLLMClient | None = None):
-        self.llm_client = llm_client or DeepSeekEventStructuringClient()
+        if llm_client is None:
+            from event_collector.local_event_structuring import build_event_structuring_client
+
+            llm_client = build_event_structuring_client()
+        self.llm_client = llm_client
 
     def structure_article(self, article: ArticleForStructuring) -> list[StructuredEvent]:
         raw_response = self.llm_client.extract_events(article)

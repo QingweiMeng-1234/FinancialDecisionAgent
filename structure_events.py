@@ -94,7 +94,13 @@ def main():
     print("=" * 50)
     print(f"Started at: {datetime.now()}")
     print(f"SQLite DB: {args.db_path}")
-    print(f"Model: {os.getenv('DEEPSEEK_STRUCTURING_MODEL') or 'deepseek-v4-pro'}")
+    provider = os.getenv("EVENT_STRUCTURING_PROVIDER", "deepseek").strip().lower()
+    configured_model = (
+        os.getenv("LOCAL_EVENT_MODEL", "<unset>") if provider.startswith("local")
+        else os.getenv("DEEPSEEK_STRUCTURING_MODEL") or "deepseek-v4-pro"
+    )
+    print(f"Provider: {provider}")
+    print(f"Model: {configured_model}")
     print()
 
     storage = SQLiteNewsStore(db_path=args.db_path)
