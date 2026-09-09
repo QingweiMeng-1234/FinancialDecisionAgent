@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from event_collector.entity_kb import SQLiteEntityStore
+from event_collector.corpus_retrieval import create_corpus_vector_store
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.rag_answering import answer_query
 from event_collector.recommendation import recommend_target, write_recommendation_report
@@ -682,7 +683,8 @@ class FinancialAgentMCPServer:
         }
 
     def _make_vector_store(self) -> ChromaVectorStore:
-        return ChromaVectorStore(
+        return create_corpus_vector_store(
+            db_path=self.runtime_config.db_path,
             persist_dir=self.runtime_config.persist_dir,
             collection_name=self.runtime_config.collection_name,
         )

@@ -16,7 +16,7 @@ class FakeStorage:
 
 
 class FakeVectorStore:
-    def __init__(self, persist_dir, collection_name):
+    def __init__(self, persist_dir, collection_name, *, db_path):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
 
@@ -39,7 +39,7 @@ def test_theme_research_cli_parses_ticker_hints():
 def test_theme_research_cli_runs_workflow_and_prints_artifacts(monkeypatch, capsys):
     cli_path = "event_collector.cli.theme_research"
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     calls = {}
 

@@ -21,7 +21,7 @@ class EmptyStorage(FakeStorage):
 
 
 class FakeVectorStore:
-    def __init__(self, persist_dir, collection_name):
+    def __init__(self, persist_dir, collection_name, *, db_path):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
 
@@ -36,7 +36,7 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
     cli_path = "event_collector.cli.run_watchlist"
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     result = type("Result", (), {"run_id": "run-123", "ranked_items": [], "top_n": 3})()
 
@@ -96,7 +96,7 @@ def test_main_generates_watchlist_run_and_report(monkeypatch, capsys):
 def test_main_handles_empty_database(monkeypatch, capsys):
     cli_path = "event_collector.cli.run_watchlist"
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", EmptyStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     exit_code = run_watchlist.main(["--tickers", "MSFT"])
     captured = capsys.readouterr()

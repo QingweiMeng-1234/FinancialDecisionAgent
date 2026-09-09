@@ -300,6 +300,120 @@ def test_identical_refresh_is_noop_for_summary_and_index(storage):
     assert storage.count_articles() == 1
 
 
+@pytest.mark.parametrize("failed_stage", ["summary", "index", "no_index", "legacy_index"])
+def test_identical_refresh_completes_missing_derived_stages(storage, failed_stage):
+    raw = RawEventInput(source="manual", raw_text=ARTICLE_TEXT,
+                        title="Microsoft cloud revenue rises", url="manual://retry")
+
+    class RetrySummarizer(RecordingSummarizer):
+        def summarize_article(self, article):
+            summary = super().summarize_article(article)
+            if failed_stage == "summary" and len(self.calls) == 1:
+                raise RuntimeError("temporary summary failure")
+            return summary
+
+    class RetryIndex(RecordingVectorStore):
+        def add_article(self, article_id, article):
+            chunks = super().add_article(article_id, article)
+            if failed_stage == "index" and len(self.calls) == 1:
+                raise RuntimeError("temporary index failure")
+            return chunks
+
+    summarizer, index = RetrySummarizer(), RetryIndex()
+    first = ingest_raw_inputs([raw], storage, None if failed_stage in {"no_index", "legacy_index"} else index,
+                              summarizer=summarizer)
+    if failed_stage == "legacy_index":
+        storage.mark_article_processing_status(first.items[0].article_id, index_status="ready")
+    second = ingest_raw_inputs([raw], storage, index, summarizer=summarizer)
+    article_id = first.items[0].article_id
+
+    assert second.items[0].summary_status == "ready"
+    assert second.items[0].index_status == "ready"
+    assert second.items[0].failure_reason is None
+    assert article_id in storage.list_retrieval_eligible_article_ids()
+    assert len(summarizer.calls) == (2 if failed_stage == "summary" else 1)
+    # A regenerated summary must also refresh vector metadata.
+    assert len(index.calls) == (1 if failed_stage in {"no_index", "legacy_index"} else 2)
+
+
+@pytest.mark.parametrize("changed_during", ["summary", "index", "index_failure"])
+def test_stale_processing_cannot_publish_success_for_new_content(storage, changed_during):
+    from event_collector.article_processing import process_article
+
+    raw = RawEventInput(source="manual", raw_text=ARTICLE_TEXT,
+                        title="Microsoft cloud revenue rises", url="manual://version")
+    first = ingest_raw_inputs([raw], storage, summarizer=RecordingSummarizer())
+    article_id = first.items[0].article_id
+    updated_text = ARTICLE_TEXT + "A new revision."
+
+    def change_content():
+        storage.update_article_content(article_id, content=updated_text, validation_status="not_applicable")
+
+    def summarize(article):
+        if changed_during == "summary":
+            change_content()
+        return "old version summary"
+
+    class Index(RecordingVectorStore):
+        def add_article(self, article_id, article):
+            if changed_during.startswith("index"):
+                change_content()
+            if changed_during == "index_failure":
+                raise RuntimeError("old index failed")
+            return super().add_article(article_id, article)
+
+    result = process_article(storage, article_id, Index(), summarize=summarize, force_summary=True)
+    current = storage.get_article_record(article_id)
+    assert result.error is not None
+    assert result.indexed is False
+    assert current.article.content == updated_text
+    assert current.summary_status == "pending"
+    assert current.index_status == "pending"
+    assert current.article.summary is None
+    assert article_id not in storage.list_retrieval_eligible_article_ids()
+
+
+@pytest.mark.parametrize("invalid", ["rejected", "missing", "tampered"])
+def test_processing_never_uses_invalid_canonical_content(storage, invalid):
+    from event_collector.article_processing import process_article
+
+    first = ingest_raw_inputs(
+        [RawEventInput(source="manual", raw_text=ARTICLE_TEXT, url="manual://invalid")],
+        storage, summarizer=RecordingSummarizer(),
+    )
+    article_id = first.items[0].article_id
+    article = storage.get_article(article_id)
+    if invalid == "rejected":
+        storage.mark_article_content_failure(article_id, reason="rejected")
+    elif invalid == "missing":
+        os.remove(article.content_path)
+    else:
+        with open(article.content_path, "w", encoding="utf-8") as handle:
+            handle.write("tampered")
+    summarizer, index = RecordingSummarizer(), RecordingVectorStore()
+    result = process_article(storage, article_id, index,
+                             summarize=summarizer.summarize_article, force_summary=True)
+    assert result.error is not None
+    assert summarizer.calls == []
+    assert index.calls == []
+    assert article_id not in storage.list_retrieval_eligible_article_ids()
+
+
+def test_summary_refresh_without_index_leaves_metadata_rebuild_pending(storage):
+    from event_collector.summarization import summarize_stored_articles
+
+    raw = RawEventInput(source="manual", raw_text=ARTICLE_TEXT, url="manual://summary-version")
+    index = RecordingVectorStore()
+    first = ingest_raw_inputs([raw], storage, index, summarizer=RecordingSummarizer())
+    article_id = first.items[0].article_id
+    summarize_stored_articles(storage, summarizer=RecordingSummarizer(), force=True)
+    assert storage.get_article_record(article_id).index_status == "pending"
+    assert article_id not in storage.list_retrieval_eligible_article_ids()
+    ingest_raw_inputs([raw], storage, index, summarizer=RecordingSummarizer())
+    assert article_id in storage.list_retrieval_eligible_article_ids()
+    assert len(index.calls) == 2
+
+
 def test_rejected_content_persists_reason_and_never_reaches_derived_stages(storage):
     url = "https://publisher.example/interstitial"
     fetcher = FakeFetcher(

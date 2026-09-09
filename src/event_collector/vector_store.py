@@ -55,6 +55,7 @@ class ChromaVectorStore(VectorStore):
         max_matched_chunks: int = DEFAULT_MATCHED_CHUNKS,
         embedder=None,
         eligible_article_ids_provider=None,
+        eligible_article_versions_provider=None,
     ):
         self.persist_dir = persist_dir
         self.model_name = model_name
@@ -63,6 +64,7 @@ class ChromaVectorStore(VectorStore):
         self.chunk_overlap = chunk_overlap
         self.max_matched_chunks = max_matched_chunks
         self.eligible_article_ids_provider = eligible_article_ids_provider
+        self.eligible_article_versions_provider = eligible_article_versions_provider
 
         self.client = chromadb.PersistentClient(path=persist_dir)
         self.embedder = embedder or SentenceTransformer(
@@ -144,6 +146,13 @@ class ChromaVectorStore(VectorStore):
             "query_embeddings": [query_embedding],
             "n_results": chunk_limit,
         }
+        versions_provider = getattr(self, "eligible_article_versions_provider", None)
+        eligible_versions = versions_provider() if versions_provider is not None else None
+        if eligible_versions is not None:
+            allowed_article_ids = (
+                set(eligible_versions) if allowed_article_ids is None
+                else set(allowed_article_ids) & set(eligible_versions)
+            )
         provider = getattr(self, "eligible_article_ids_provider", None)
         if provider is not None:
             live_eligible_ids = set(provider())
@@ -173,6 +182,8 @@ class ChromaVectorStore(VectorStore):
             if metadata.get("source") == "news" and metadata.get("content_validation_status") != "verified":
                 continue
             article_id = int(metadata.get("article_id") or parse_article_id_from_chunk_id(chunk_id))
+            if eligible_versions is not None and metadata.get("content_sha256") != eligible_versions.get(article_id):
+                continue
             story_group_id = int(metadata.get("story_group_id") or article_id)
 
             grouped_result = grouped.setdefault(

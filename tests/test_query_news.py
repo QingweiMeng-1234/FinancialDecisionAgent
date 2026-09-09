@@ -99,14 +99,14 @@ def test_main_supports_one_shot_question(monkeypatch, capsys):
             return None
 
     class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name, eligible_article_ids_provider=None):
+        def __init__(self, persist_dir, collection_name, *, db_path):
             self.persist_dir = persist_dir
             self.collection_name = collection_name
-            self.eligible_article_ids_provider = eligible_article_ids_provider
+            self.db_path = db_path
             constructed_vector_stores.append(self)
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
     monkeypatch.setattr(
         f"{cli_path}.run_question",
         lambda question, vector_store, top_k=3, retrieval_top_k=5, debug_rerank=False, retrieval_intent="direct": "formatted answer",
@@ -119,7 +119,7 @@ def test_main_supports_one_shot_question(monkeypatch, capsys):
     assert "formatted answer" in captured.out
     assert "Database has 2 articles" in captured.out
     assert len(constructed_vector_stores) == 1
-    assert constructed_vector_stores[0].eligible_article_ids_provider() == {1, 2}
+    assert constructed_vector_stores[0].db_path == "news_articles.db"
 
 
 def test_main_surfaces_reranker_error(monkeypatch, capsys):
@@ -139,13 +139,13 @@ def test_main_surfaces_reranker_error(monkeypatch, capsys):
             return None
 
     class FakeVectorStore:
-        def __init__(self, persist_dir, collection_name, eligible_article_ids_provider=None):
+        def __init__(self, persist_dir, collection_name, *, db_path):
             self.persist_dir = persist_dir
             self.collection_name = collection_name
-            self.eligible_article_ids_provider = eligible_article_ids_provider
+            self.db_path = db_path
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     def failing_run_question(
         question,

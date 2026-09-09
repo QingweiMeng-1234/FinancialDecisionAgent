@@ -720,6 +720,7 @@ class SQLiteNewsStore:
         content_status: Optional[str] = None,
         index_status: Optional[str] = None,
         summary_status: Optional[str] = None,
+        expected_content_sha256: Optional[str] = None,
     ) -> bool:
         if not self.conn:
             self.init_db()
@@ -734,7 +735,11 @@ class SQLiteNewsStore:
             return False
         assignments = ", ".join(f"{column} = ?" for column in updates)
         values = list(updates.values()) + [article_id]
-        cursor = self.conn.execute(f"UPDATE articles SET {assignments} WHERE id = ?", values)
+        condition = "id = ?"
+        if expected_content_sha256 is not None:
+            condition += " AND COALESCE(active_content_sha256, content_sha256) = ?"
+            values.append(expected_content_sha256)
+        cursor = self.conn.execute(f"UPDATE articles SET {assignments} WHERE {condition}", values)
         self.conn.commit()
         return cursor.rowcount > 0
 
@@ -973,6 +978,10 @@ class SQLiteNewsStore:
 
     def list_retrieval_eligible_article_ids(self) -> set[int]:
         """Return only articles whose canonical bytes match the active index version."""
+        return set(self.list_retrieval_eligible_article_versions())
+
+    def list_retrieval_eligible_article_versions(self) -> dict[int, str]:
+        """Return eligible article IDs and the exact content version retrieval must use."""
         if not self.conn:
             self.init_db()
         rows = self.conn.execute(
@@ -992,7 +1001,7 @@ class SQLiteNewsStore:
             ORDER BY id
             """
         ).fetchall()
-        eligible = set()
+        eligible = {}
         for row in rows:
             resolved_path = self.resolve_content_path(row["content_path"], article_id=row["id"])
             if not resolved_path or not os.path.isfile(resolved_path):
@@ -1000,7 +1009,7 @@ class SQLiteNewsStore:
             with open(resolved_path, "r", encoding="utf-8") as handle:
                 content = handle.read()
             if content.strip() and compute_content_sha256(content) == row["active_hash"]:
-                eligible.add(row["id"])
+                eligible[row["id"]] = row["active_hash"]
         return eligible
 
     def list_article_records_missing_summary(
@@ -1170,14 +1179,25 @@ class SQLiteNewsStore:
         self.conn.commit()
         return cursor.rowcount
 
-    def update_article_summary(self, article_id: int, summary: str) -> bool:
+    def update_article_summary(
+        self, article_id: int, summary: str, *, expected_content_sha256: Optional[str] = None,
+    ) -> bool:
         """Persist a generated summary for one article."""
         if not self.conn:
             self.init_db()
 
+        condition = "id = ?"
+        values = [summary, article_id]
+        index_update = ""
+        if expected_content_sha256 is not None:
+            condition += " AND content_status = 'ready' AND COALESCE(active_content_sha256, content_sha256) = ?"
+            values.append(expected_content_sha256)
+            index_update = ", index_status = 'pending'"
         cursor = self.conn.execute(
-            "UPDATE articles SET summary = ?, summary_status = ? WHERE id = ?",
-            (summary, "ready", article_id),
+            "UPDATE articles SET summary = ?, summary_status = 'ready', "
+            "summary_content_sha256 = COALESCE(active_content_sha256, content_sha256) "
+            f"{index_update} "
+            f"WHERE {condition}", values,
         )
         self.conn.commit()
         return cursor.rowcount > 0

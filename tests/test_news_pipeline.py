@@ -84,6 +84,7 @@ def test_run_news_pipeline_closes_owned_storage_on_failure(monkeypatch):
 
 def test_run_news_pipeline_defaults_to_non_interactive_news_only(monkeypatch):
     calls = {}
+    monkeypatch.setattr("event_collector.news_pipeline.create_corpus_vector_store", lambda **kwargs: FakeVectorStore())
 
     def fake_run_ingestion(request, *, storage=None, vector_store=None, collectors=None):
         calls["request"] = request

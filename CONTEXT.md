@@ -18,6 +18,7 @@ Primary seams:
 
 - `event_collection.py`: raw Event collection and article materialization
 - `news_ingestion.py`: collect-and-ingest workflow
+- `article_processing.py`: summary/index completion, content-version checks, and retry rules shared by ingestion and backfills
 - `news_pipeline.py`: refresh workflow plus optional immediate question-answering
 
 ### Evidence Retrieval
@@ -35,6 +36,7 @@ Its interface should hide:
 
 Primary seams:
 
+- `corpus_retrieval.py`: corpus-bound vector-store construction with live article eligibility and content-version filtering; SQLite connections belong to each search
 - `retrieval_orchestration.py`: bundle construction and scoring rules
 - `retrieval_execution.py`: bounded retrieval execution for one or many work items
 

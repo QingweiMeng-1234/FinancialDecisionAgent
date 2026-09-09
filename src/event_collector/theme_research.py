@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import requests
 
 from event_collector.article_content import ArticleContentFetcher
+from event_collector.article_processing import process_article
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 
 RESEARCH_ROOT = os.path.join(
@@ -650,14 +651,11 @@ def _acquire_search_evidence(
                     canonical_url=fetched.canonical_url,
                     published_at=result.published_at or record.article.published_at,
                 )
-                article = storage.get_article(article_id)
-                assert article is not None
-                summary = summarizer.summarize(article)
-                storage.update_article_summary(article_id, summary)
-                article.summary = summary
-                if vector_store is not None:
-                    vector_store.add_article(article_id, article)
-                    storage.mark_article_processing_status(article_id, index_status="ready")
+            processing = process_article(
+                storage, article_id, vector_store, summarize=summarizer.summarize,
+            )
+            if processing.error is not None:
+                raise processing.error
             record = storage.get_article_record(article_id)
             if record is None or article_id in seen_article_ids or record.content_status != "ready":
                 continue

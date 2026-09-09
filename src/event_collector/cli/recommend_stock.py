@@ -11,7 +11,7 @@ from event_collector.news_storage import SQLiteNewsStore
 from event_collector.recommendation import recommend_target, write_recommendation_report
 from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT
 from event_collector.service_defaults import load_service_defaults
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.corpus_retrieval import create_corpus_vector_store
 
 
 def parse_args(argv=None):
@@ -85,7 +85,7 @@ def main(argv=None):
     print(f"Started at: {datetime.now()}")
     print()
     storage = SQLiteNewsStore(db_path=args.db_path)
-    vector_store = ChromaVectorStore(persist_dir=args.persist_dir, collection_name=args.collection_name)
+    vector_store = create_corpus_vector_store(db_path=args.db_path, persist_dir=args.persist_dir, collection_name=args.collection_name)
     total = storage.count_articles()
     print(f"Database has {total} articles")
     if total == 0:

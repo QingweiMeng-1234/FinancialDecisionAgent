@@ -7,7 +7,7 @@ import argparse
 
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.theme_research import ThemeResearchRequest, run_theme_research
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.corpus_retrieval import create_corpus_vector_store
 
 
 def parse_args(argv=None):
@@ -45,7 +45,8 @@ def render_theme_research_summary(result) -> str:
 def main(argv=None):
     args = parse_args(argv)
     storage = SQLiteNewsStore(db_path=args.db_path)
-    vector_store = ChromaVectorStore(
+    vector_store = create_corpus_vector_store(
+        db_path=args.db_path,
         persist_dir=args.persist_dir,
         collection_name=args.collection_name,
     )

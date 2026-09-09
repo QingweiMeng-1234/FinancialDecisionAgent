@@ -8,7 +8,7 @@ from event_collector.reranking import RAGRerankingAgent as RealRerankingAgent
 
 
 class FakeVectorStore:
-    def __init__(self, persist_dir, collection_name):
+    def __init__(self, persist_dir, collection_name, *, db_path):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
         self.results_by_query = {
@@ -84,7 +84,7 @@ def test_run_retrieval_eval_generates_annotations_and_evaluates(tmp_path, monkey
         ),
     )
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", FakeVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -168,8 +168,8 @@ def test_run_retrieval_eval_relevant_count_mode_expands_candidate_pool(tmp_path,
     )
 
     class MultiResultVectorStore(FakeVectorStore):
-        def __init__(self, persist_dir, collection_name):
-            super().__init__(persist_dir, collection_name)
+        def __init__(self, persist_dir, collection_name, *, db_path):
+            super().__init__(persist_dir, collection_name, db_path=db_path)
             self.results_by_query = {
                 "MSFT": [
                     {
@@ -231,7 +231,7 @@ def test_run_retrieval_eval_relevant_count_mode_expands_candidate_pool(tmp_path,
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", MultiResultVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", MultiResultVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -327,8 +327,8 @@ def test_run_retrieval_eval_generate_annotations_uses_fresh_ingest_only(tmp_path
     )
 
     class FreshFilterVectorStore(FakeVectorStore):
-        def __init__(self, persist_dir, collection_name):
-            super().__init__(persist_dir, collection_name)
+        def __init__(self, persist_dir, collection_name, *, db_path):
+            super().__init__(persist_dir, collection_name, db_path=db_path)
             self.results_by_query = {
                 "MSFT": [
                     {
@@ -372,7 +372,7 @@ def test_run_retrieval_eval_generate_annotations_uses_fresh_ingest_only(tmp_path
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FreshFilterVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", FreshFilterVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -484,7 +484,7 @@ def test_run_retrieval_eval_evaluate_both_adds_deepseek_chain_to_report(tmp_path
         ),
     )
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", FakeVectorStore)
     _patch_rerankers(monkeypatch, include_deepseek=True)
 
     db_path = tmp_path / "news.db"
@@ -566,8 +566,8 @@ def test_run_retrieval_eval_evaluate_filters_tickers_by_min_relevant(tmp_path, m
     )
 
     class FilterVectorStore(FakeVectorStore):
-        def __init__(self, persist_dir, collection_name):
-            super().__init__(persist_dir, collection_name)
+        def __init__(self, persist_dir, collection_name, *, db_path):
+            super().__init__(persist_dir, collection_name, db_path=db_path)
             self.results_by_query = {
                 "MSFT": [self.results_by_query["MSFT"][0]],
                 "MSFT Microsoft Microsoft Corp": [self.results_by_query["MSFT Microsoft Microsoft Corp"][0]],
@@ -595,7 +595,7 @@ def test_run_retrieval_eval_evaluate_filters_tickers_by_min_relevant(tmp_path, m
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", FilterVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", FilterVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -720,8 +720,8 @@ def test_run_retrieval_eval_evaluate_filters_company_only(tmp_path, monkeypatch)
     )
 
     class CompanyOnlyVectorStore(FakeVectorStore):
-        def __init__(self, persist_dir, collection_name):
-            super().__init__(persist_dir, collection_name)
+        def __init__(self, persist_dir, collection_name, *, db_path):
+            super().__init__(persist_dir, collection_name, db_path=db_path)
             self.results_by_query = {
                 "MSFT": [self.results_by_query["MSFT"][0]],
                 "MSFT Microsoft Microsoft Corp": [self.results_by_query["MSFT Microsoft Microsoft Corp"][0]],
@@ -749,7 +749,7 @@ def test_run_retrieval_eval_evaluate_filters_company_only(tmp_path, monkeypatch)
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", CompanyOnlyVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", CompanyOnlyVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"
@@ -849,8 +849,8 @@ def test_run_retrieval_eval_evaluate_filters_by_max_article_id(tmp_path, monkeyp
     )
 
     class MaxIdVectorStore(FakeVectorStore):
-        def __init__(self, persist_dir, collection_name):
-            super().__init__(persist_dir, collection_name)
+        def __init__(self, persist_dir, collection_name, *, db_path):
+            super().__init__(persist_dir, collection_name, db_path=db_path)
             self.results_by_query = {
                 "MSFT": [
                     {
@@ -894,7 +894,7 @@ def test_run_retrieval_eval_evaluate_filters_by_max_article_id(tmp_path, monkeyp
                 ],
             }
 
-    monkeypatch.setattr(run_retrieval_eval, "ChromaVectorStore", MaxIdVectorStore)
+    monkeypatch.setattr(run_retrieval_eval, "create_corpus_vector_store", MaxIdVectorStore)
     _patch_rerankers(monkeypatch)
 
     db_path = tmp_path / "news.db"

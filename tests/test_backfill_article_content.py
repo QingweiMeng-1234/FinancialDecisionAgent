@@ -226,6 +226,7 @@ def test_process_record_success_rebuilds_content_summary_and_index(storage):
     assert updated.content_status == "ready"
     assert updated.summary_status == "ready"
     assert updated.index_status == "ready"
+    assert article_id in storage.list_retrieval_eligible_article_ids()
     assert updated.canonical_url == "https://example.com/story"
     assert len(vector_store.calls) == 1
 

@@ -17,6 +17,7 @@ from event_collector.article_content import (
     ArticleFetchError,
     FetchFailureReason,
 )
+from event_collector.article_processing import process_article
 from event_collector.news_storage import ArticleRecord, NewsArticle, SQLiteNewsStore
 from event_collector.summarization import ArticleForSummarization, SummarizationAgent
 from event_collector.vector_store import ChromaVectorStore, VectorStore
@@ -129,16 +130,12 @@ def rebuild_summary_and_index(
     summarizer: SummarizationAgent | None,
     vector_store: VectorStore | None,
 ) -> tuple[bool, bool, str]:
-    notes: list[str] = []
-    summary_rebuilt = False
-    index_rebuilt = False
-    article = storage.get_article(record.id)
-    if article is None:
+    if storage.get_article(record.id) is None:
         return False, False, "article disappeared before rebuild"
 
-    agent = summarizer or SummarizationAgent()
-    try:
-        summary = agent.summarize_article(
+    def summarize(article):
+        agent = summarizer or SummarizationAgent()
+        return agent.summarize_article(
             ArticleForSummarization(
                 article_id=record.id,
                 title=article.title,
@@ -147,23 +144,10 @@ def rebuild_summary_and_index(
                 url=article.canonical_url or article.original_url or article.url,
             )
         )
-        storage.update_article_summary(record.id, summary)
-        article.summary = summary
-        summary_rebuilt = True
-    except Exception as exc:
-        storage.mark_article_processing_status(record.id, summary_status="failed")
-        notes.append(f"summary_failed: {exc}")
 
-    if vector_store is not None:
-        try:
-            vector_store.add_article(record.id, article)
-            storage.mark_article_processing_status(record.id, index_status="ready")
-            index_rebuilt = True
-        except Exception as exc:
-            storage.mark_article_processing_status(record.id, index_status="failed")
-            notes.append(f"index_failed: {exc}")
-
-    return summary_rebuilt, index_rebuilt, "; ".join(notes)
+    result = process_article(storage, record.id, vector_store, summarize=summarize, force_summary=True)
+    notes = "; ".join(f"{stage}: {error}" for stage, error in result.errors.items())
+    return result.summarized, result.indexed, notes
 
 
 def process_record(

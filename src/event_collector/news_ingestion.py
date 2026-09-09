@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
+from event_collector.article_processing import process_article
 from event_collector.article_content import (
     CONTENT_VALIDATOR_VERSION,
     ArticleContentFetcher,
@@ -257,56 +258,21 @@ def ingest_raw_inputs(
             _update_progress(progress, **_build_progress_stats(items))
             continue
 
-        if unchanged:
-            record = storage.get_article_record(article_id)
-            items.append(
-                _build_outcome(
-                    input_index,
-                    raw_input,
-                    record,
-                    article_id=article_id,
-                    status="accepted",
-                    created=created,
-                    failure_reason=None,
-                    canonical_url_override=canonical_url,
-                    final_url_override=final_url,
-                    unchanged=True,
-                )
-            )
-            _update_progress(progress, **_build_progress_stats(items))
-            continue
-
-        if summary_agent is None:
-            summary_agent = SummarizationAgent()
-
-        try:
-            summary = summary_agent.summarize_article(
+        def summarize(article):
+            nonlocal summary_agent
+            if summary_agent is None:
+                summary_agent = SummarizationAgent()
+            return summary_agent.summarize_article(
                 ArticleForSummarization(
-                    article_id=article_id,
-                    title=article.title,
-                    description=article.description,
-                    content=article.content,
-                    url=article.url,
+                    article_id=article_id, title=article.title,
+                    description=article.description, content=article.content, url=article.url,
                 )
             )
-            storage.update_article_summary(article_id, summary)
-            summary_status = "ready"
-            article.summary = summary
-        except Exception:
-            storage.mark_article_processing_status(article_id, summary_status="failed")
-            summary_status = "failed"
-            stage_failure = "summary_failed"
 
-        if vector_store is not None:
-            try:
-                vector_store.add_article(article_id, article)
-                storage.mark_article_index_ready(article_id, content_sha256)
-                index_status = "ready"
-            except Exception:
-                storage.mark_article_processing_status(article_id, index_status="failed")
-                index_status = "failed"
-                if stage_failure is None:
-                    stage_failure = "index_failed"
+        processing = process_article(storage, article_id, vector_store, summarize=summarize)
+        summary_status, index_status = processing.summary_status, processing.index_status
+        stage_failure = processing.failure_reason
+        unchanged = unchanged and not processing.summarized and not processing.indexed and stage_failure is None
 
         record = storage.get_article_record(article_id)
         items.append(
@@ -323,7 +289,7 @@ def ingest_raw_inputs(
                 index_status_override=index_status,
                 canonical_url_override=canonical_url,
                 final_url_override=final_url,
-                unchanged=False,
+                unchanged=unchanged,
             )
         )
         _update_progress(progress, **_build_progress_stats(items))

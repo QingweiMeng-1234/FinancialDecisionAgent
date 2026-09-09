@@ -21,7 +21,7 @@ class EmptyStorage(FakeStorage):
 
 
 class FakeVectorStore:
-    def __init__(self, persist_dir, collection_name):
+    def __init__(self, persist_dir, collection_name, *, db_path):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
 
@@ -31,7 +31,7 @@ def test_main_generates_recommendation_and_report(monkeypatch, capsys):
     cli_path = "event_collector.cli.recommend_stock"
 
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     response = type(
         "Recommendation",
@@ -92,7 +92,7 @@ def test_main_generates_recommendation_and_report(monkeypatch, capsys):
 def test_main_handles_empty_database(monkeypatch, capsys):
     cli_path = "event_collector.cli.recommend_stock"
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", EmptyStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     result = recommend_stock.main(["--target", "MSFT"])
     captured = capsys.readouterr()
@@ -104,7 +104,7 @@ def test_main_handles_empty_database(monkeypatch, capsys):
 def test_main_surfaces_recommendation_error(monkeypatch, capsys):
     cli_path = "event_collector.cli.recommend_stock"
     monkeypatch.setattr(f"{cli_path}.SQLiteNewsStore", FakeStorage)
-    monkeypatch.setattr(f"{cli_path}.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(f"{cli_path}.create_corpus_vector_store", FakeVectorStore)
 
     def fake_recommend_target(target, vector_store, storage, top_k=3, retrieval_top_k=5, retrieval_intent="direct"):
         raise RuntimeError("recommendation unavailable")

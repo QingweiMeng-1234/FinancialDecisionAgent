@@ -10,7 +10,7 @@ import os
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.retrieval_intent import DEFAULT_RETRIEVAL_INTENT
 from event_collector.service_defaults import load_service_defaults
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.corpus_retrieval import create_corpus_vector_store
 from event_collector.watchlist_triage import WatchlistRunRequest, normalize_tickers, render_watchlist_summary
 from event_collector.watchlist_workflow import run_watchlist_triage_workflow
 
@@ -50,7 +50,7 @@ def main(argv=None):
         print("No tickers provided. Use --tickers or --ticker.")
         return 1
     storage = SQLiteNewsStore(db_path=args.db_path)
-    vector_store = ChromaVectorStore(persist_dir=args.persist_dir, collection_name=args.collection_name)
+    vector_store = create_corpus_vector_store(db_path=args.db_path, persist_dir=args.persist_dir, collection_name=args.collection_name)
     total = storage.count_articles()
     print(f"Database has {total} articles")
     if total == 0:

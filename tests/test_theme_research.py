@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import os
 import tempfile
 
+import pytest
+
 from event_collector.news_storage import NewsArticle, SQLiteNewsStore
 from event_collector.theme_research import (
     SearchResult,
@@ -214,8 +216,37 @@ def test_acquisition_persists_discovered_urls_and_indexes_articles():
         assert records[0].article.content_status == "ready"
         assert records[0].article.summary_status == "ready"
         assert records[0].article.index_status == "ready"
+        assert records[0].id in storage.list_retrieval_eligible_article_ids()
         assert vector_store.added == [(records[0].id, "NVIDIA discusses rack scale demand")]
         assert result.evidence[0].is_newly_ingested is True
+        storage.close()
+
+
+def test_theme_research_resumes_failed_index_on_existing_content(tmp_path):
+    storage = SQLiteNewsStore(db_path=str(tmp_path / "news.db"))
+    url = "https://example.com/power"
+    request = ThemeResearchRequest(theme="Power", analysis_goal="capacity", seed_query="power",
+                                   research_root=str(tmp_path / "research"), local_retrieval_top_k=0)
+    provider = FakeSearchProvider({"power": [SearchResult(title="Power", url=url, snippet="Capacity")]})
+    fetcher = FakeFetcher({url: {"content": "Power capacity is expanding."}})
+
+    class RetryIndex(FakeVectorStore):
+        def add_article(self, article_id, article):
+            result = super().add_article(article_id, article)
+            if len(self.added) == 1:
+                raise RuntimeError("index unavailable")
+            return result
+
+    index = RetryIndex()
+    try:
+        with pytest.raises(RuntimeError, match="index unavailable"):
+            run_theme_research(request, storage=storage, vector_store=index,
+                               search_provider=provider, content_fetcher=fetcher)
+        result = run_theme_research(request, storage=storage, vector_store=index,
+                                   search_provider=provider, content_fetcher=fetcher)
+        assert result.evidence[0].article_id in storage.list_retrieval_eligible_article_ids()
+        assert fetcher.calls == [url]
+    finally:
         storage.close()
 
 

@@ -278,6 +278,7 @@ def test_summarize_stored_articles_reindexes_existing_article_cleanly(storage, t
 
     assert stats["processed"] == 1
     assert stats["indexed"] == 1
+    assert article_id in storage.list_retrieval_eligible_article_ids()
     assert vector_store.collection.count() == 1
     results = vector_store.search("tighter availability expectations", top_k=1)
     assert results[0]["id"] == str(article_id)
@@ -285,7 +286,67 @@ def test_summarize_stored_articles_reindexes_existing_article_cleanly(storage, t
     vector_store.client = None
 
 
-def test_summarize_articles_script_skips_existing_summaries_without_openai_key(storage, temp_chroma_dir):
+def test_summary_backfill_retries_index_without_repeating_successful_summary(storage, monkeypatch):
+    article_id = storage.save_article(NewsArticle(
+        source="manual", title="Retry", description="", content="An article to index.",
+        url="manual://retry-index", published_at=datetime.now(),
+    ))
+    client = FakeSummarizationClient()
+    agent = SummarizationAgent(llm_client=client)
+
+    class Index:
+        calls = 0
+
+        def add_article(self, article_id, article):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("index unavailable")
+            return [f"{article_id}:0"]
+
+    index = Index()
+    with pytest.raises(ArticleSummarizationError):
+        summarize_stored_articles(storage, index, agent)
+    assert storage.get_article_record(article_id).summary_status == "ready"
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    result = summarize_stored_articles(storage, index)
+    assert result["indexed"] == 1
+    assert len(client.calls) == 1
+    assert article_id in storage.list_retrieval_eligible_article_ids()
+
+
+def test_backfill_repairs_empty_summary_even_if_status_says_ready(storage):
+    article_id = storage.save_article(NewsArticle(
+        source="manual", title="Summary", description="", content="An article requiring a summary.",
+        url="manual://empty-summary", published_at=datetime.now(),
+    ))
+    storage.update_article_summary(article_id, "  ")
+    result = summarize_stored_articles(storage, summarizer=SummarizationAgent(FakeSummarizationClient()))
+    assert result["processed"] == 1
+    assert storage.get_article(article_id).summary.strip()
+
+
+def test_backfill_limit_counts_unfinished_articles_not_completed_rows(storage):
+    ids = []
+    for days in (0, 1):
+        article_id = storage.save_article(NewsArticle(
+            source="manual", title="Backfill", description="", content="Article awaiting derived work.",
+            url=f"manual://limit-{days}", published_at=datetime.now() - timedelta(days=days),
+            summary="Existing summary",
+        ))
+        ids.append(article_id)
+    storage.mark_article_index_ready(ids[0], storage.get_article(ids[0]).content_sha256)
+
+    class Index:
+        def add_article(self, article_id, article):
+            return [f"{article_id}:0"]
+
+    result = summarize_stored_articles(storage, Index(), limit=1)
+    assert result["indexed"] == 1
+    assert ids[1] in storage.list_retrieval_eligible_article_ids()
+
+
+def test_summarize_articles_script_indexes_existing_summary_without_openai_key(storage, temp_chroma_dir):
     storage.save_article(
         NewsArticle(
             source="news",
@@ -318,4 +379,5 @@ def test_summarize_articles_script_skips_existing_summaries_without_openai_key(s
 
     assert result.returncode == 0
     assert "Articles processed: 0" in result.stdout
-    assert "Skipped:            1" in result.stdout
+    assert "Indexed:            1" in result.stdout
+    assert "Skipped:            0" in result.stdout

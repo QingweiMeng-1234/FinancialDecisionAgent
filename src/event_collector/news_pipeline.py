@@ -8,6 +8,7 @@ from event_collector.news_ingestion import NewsIngestionRequest, run_news_ingest
 from event_collector.query_workflow import run_question
 from event_collector.news_storage import SQLiteNewsStore
 from event_collector.vector_store import ChromaVectorStore
+from event_collector.corpus_retrieval import create_corpus_vector_store
 
 
 @dataclass
@@ -50,7 +51,8 @@ def run_news_pipeline(
         vector_store=vector_store,
         collectors=collectors,
     )
-    runtime_vector_store = vector_store or ChromaVectorStore(
+    runtime_vector_store = vector_store or create_corpus_vector_store(
+        db_path=request.db_path,
         persist_dir=request.persist_dir,
         collection_name=request.collection_name,
     )

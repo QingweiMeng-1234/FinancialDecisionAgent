@@ -38,7 +38,7 @@ from event_collector.reranking import (
     RAGRerankingAgent,
 )
 from event_collector.ticker_kb import load_ticker_identities, load_ticker_list
-from event_collector.vector_store import ChromaVectorStore
+from event_collector.corpus_retrieval import create_corpus_vector_store
 
 
 def parse_args(argv=None):
@@ -255,7 +255,8 @@ def main(argv=None):
     else:
         tickers = load_ticker_list(args.ticker_list_path)
 
-    vector_store = ChromaVectorStore(
+    vector_store = create_corpus_vector_store(
+        db_path=args.db_path,
         persist_dir=args.persist_dir,
         collection_name=args.collection_name,
     )

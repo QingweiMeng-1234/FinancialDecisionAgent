@@ -732,9 +732,11 @@ def test_small_parameter_surface_uses_shared_defaults(tmp_path, monkeypatch):
     server = create_financial_agent_server(
         FinancialAgentRuntimeConfig(
             service_defaults_path=str(defaults_path),
+            db_path=str(tmp_path / "news.db"),
             reports_dir=str(tmp_path / "reports"),
         )
     )
+    monkeypatch.setattr(server, "_make_vector_store", lambda: object())
     captured: dict[str, object] = {}
 
     def fake_answer_query(question, vector_store, top_k=3, retrieval_top_k=5, retrieval_intent="direct"):

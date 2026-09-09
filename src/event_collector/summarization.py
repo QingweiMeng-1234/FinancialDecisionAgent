@@ -150,46 +150,45 @@ def summarize_stored_articles(
     force: bool = False,
 ) -> dict:
     """Summarize stored articles and optionally upsert them into the vector store."""
+    from event_collector.article_processing import needs_article_processing, process_article
+
+    candidate_records = storage.list_article_records(source=source)
     if force:
-        candidate_records = storage.list_article_records(source=source, limit=limit)
-        records = candidate_records
+        records = candidate_records[:limit] if limit is not None else candidate_records
         skipped = 0
     else:
-        candidate_records = storage.list_article_records(source=source, limit=limit)
-        records = storage.list_article_records_missing_summary(source=source, limit=limit)
+        records = [
+            record for record in candidate_records
+            if needs_article_processing(record, include_index=vector_store is not None)
+        ]
         skipped = len(candidate_records) - len(records)
+        if limit is not None:
+            records = records[:limit]
 
     processed = 0
     indexed = 0
 
-    agent = summarizer or SummarizationAgent() if records else None
+    agent = summarizer
 
     for record in records:
-        article = ArticleForSummarization(
-            article_id=record.id,
-            title=record.article.title,
-            description=record.article.description,
-            content=record.article.content,
-            url=record.article.url,
+        def summarize(article):
+            nonlocal agent
+            if agent is None:
+                agent = SummarizationAgent()
+            return agent.summarize_article(
+                ArticleForSummarization(
+                    article_id=record.id, title=article.title,
+                    description=article.description, content=article.content, url=article.url,
+                )
+            )
+
+        result = process_article(
+            storage, record.id, vector_store, summarize=summarize, force_summary=force,
         )
-
-        try:
-            summary = agent.summarize_article(article)
-            storage.update_article_summary(record.id, summary)
-            record.article.summary = summary
-            processed += 1
-
-            if vector_store:
-                try:
-                    vector_store.add_article(record.id, record.article)
-                    storage.mark_article_processing_status(record.id, index_status="ready")
-                    indexed += 1
-                except Exception:
-                    storage.mark_article_processing_status(record.id, index_status="failed")
-                    raise
-        except Exception as exc:
-            storage.mark_article_processing_status(record.id, summary_status="failed")
-            raise ArticleSummarizationError(record.id, str(exc)) from exc
+        if result.error is not None:
+            raise ArticleSummarizationError(record.id, str(result.error)) from result.error
+        processed += int(result.summarized)
+        indexed += int(result.indexed)
 
     return {
         "processed": processed,
