@@ -1,0 +1,13 @@
+ASML is the only maker of EUV lithography systems, the huge $300 million machines needed to produce the tiny circuitry on cutting-edge chips. Each takes about a year to build, one of the factors that limit how quickly AI infrastructure can expand.
+
+ASML, which aims to ship 60 EUV tools this year and 80 next year, has said it could theoretically ship up to 90 without adding physical capacity, though JPMorgan analysts have said they believe it could make as many as 110.
+
+"Beyond the 90 we are looking at creative ways to help customers," ASML said in a statement to Reuters. Options include upgrades to older tools, faster machine assembly and quicker installation.
+
+ASML says it has also secured extra supplies of parts that take a long time to produce, including lenses and mirrors from German supplier Zeiss and high-power lasers from Germany's Trumpf.
+
+"We are fully prepared to meet ASML's EUV demand over the next three years," said Trumpf spokesperson Manuel Thoma.
+
+--- Exact quote (G16R6-E05) ---
+
+ASML, which aims to ship 60 EUV tools this year and 80 next year, has said it could theoretically ship up to 90 without adding physical capacity.

@@ -1,0 +1,368 @@
+--- PAGE 1 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+SATYA KUMAR, CORPORATE VICE PRESIDENT, INVESTOR RELATIONS AND TREASURY  
+Thank you, and welcome to Micron Technology’s fiscal third-quarter (Q3) 2026 financial conference call. 
+On the call with me today are Sanjay Mehrotra, our chairman, president and CEO, and Mark Murphy, our 
+CFO. Today’s call is being webcast from our Investor Relations site at investors.micron.com, including 
+audio and slides. In addition, the press release detailing our quarterly results has been posted on the 
+website, along with the prepared remarks for this call. 
+Today's discussion contains forward-looking statements that are subject to risks and uncertainties. These 
+forward-looking statements include statements regarding our future financial and operating performance 
+and our business model, as well as trends and expectations in our business, customers, market, industry, 
+products, and regulatory and other matters. 
+These statements are based on our current assumptions, and we assume no obligation to update these 
+statements. Please refer to our most recent financial report on Forms 10-K, Forms 10-Q and our other 
+filings with the SEC (U.S. Securities and Exchange Commission) for more information on the risks and 
+uncertainties that could cause actual results to differ materially from expectations. Today’s discussion of 
+financial results is presented on a non-GAAP (generally accepted accounting principles) financial basis 
+unless otherwise specified. A reconciliation of GAAP to non-GAAP financial measures can be found on our 
+website. 
+I'll now turn the call over to Sanjay. 
+SANJAY MEHROTRA, CHAIRMAN, PRESIDENT AND CHIEF EXECUTIVE OFFICER 
+Thank you, Satya. 
+Micron delivered an exceptional fiscal Q3, with significant records in revenue, gross margin and EPS  
+(earnings per share) — all exceeding the high end of our guidance. Demonstrating Micron’s position as a 
+leader enabling the AI era, our data center revenue exceeded $25 billion in fiscal Q3, or an annualized run  
+rate of over $100 billion. Our data center SSD revenue exceeded $5 billion, more than doubling 
+sequentially. DRAM and NAND industry demand continues to significantly exceed industry supply. We 
+expect tight conditions to persist beyond calendar 2027 as a result of AI-driven demand across all 
+segments coupled with structural supply constraints. We are excited to announce that we have now 
+signed 16 strategic customer agreements, or SCAs, which we expect will fundamentally transform our 
+business model. 
+
+--- PAGE 2 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+Industry trends 
+The memory industry has been structurally transformed by the proliferation of AI. We are only in the early 
+innings of the significant innovation and productivity that can be unleashed in every part of the global 
+economy over time. Data center-driven growth will be increasingly complemented by AI-enabled features 
+in smartphones, high-end PCs and new consumer devices, as well as in automotive, industrial applications 
+and robotics. Exciting possibilities enabled by robotics and humanoids, as well as fully auto nomous 
+vehicles, portend a robust long-term demand environment for memory and storage. 
+With respect to supply, our customers are recognizing that supply shortages in memory and storage will 
+take considerable time to improve. Even as we expect industry supply to improve gradually in 2028, we 
+currently do not have line of sight as to when memory supply will be able to catch up with increasing 
+demand. Memory industry supply growth is dependent on significant greenfield fab expansions. These 
+greenfield projects are large, complex and time consuming. Further, the pace is constrained by several 
+factors, including long lead time for fab construction across the world, shortage of workers with critical 
+trade skills, complex regulations including permitting, and the need for enhanced energy infrastructure. 
+Meanwhile, memory process technology, which is among the most advanced to develop and manufacture 
+in semiconductors, is getting more complex with every new node. Technology transitions are driving 
+slower bit growth over time, wafer growth needs are significantly increasing cleanroom space and 
+greenfield fab requirements, and HBM’s growth and increasing trade ratio with every new generation 
+further pressures non-HBM supply. In NAND, industry suppliers redirecting cleanroom space from NAND 
+to DRAM and overall limited cleanroom space constrain NAND bit supply growth. These factors taken 
+together mean supply is structurally constrained in its growth and ability to meet industry demand, 
+despite our comprehensive efforts to increase supply. 
+AI systems are powered by GPU, ASIC and CPU designs from an increasingly broad set of suppliers. 
+However, they all share one important characteristic — AI system performance is architecturally 
+dependent on memory subsystem performance and capacity. This has given rise to a more complex 
+memory hierarchy that is providing greater differentiation opportunities for Micron than at any time in 
+our history. It has also elevated the role of memory in the AI world to a strategic asset.  
+Business model transformation and strategic customer agreements 
+Strong long-term demand growth, structurally constrained supply growth and memory’s strategic 
+importance have caused customers to recognize that their product roadmaps rely on access to advanced 
+memory technology and dependable and committed long-term memory supply. Micron has been a 
+pioneer in our industry in creating a new class of strategic customer agreements, or SCAs, with very robust 
+terms. We are pleased to announce that we have completed 16 SCAs with customers across the data 
+center, consumer and auto market segments. These SCAs accelerate the transformation of our business 
+
+--- PAGE 3 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+model, enhance partnership in technology and innovation, and provide customers with contracted supply 
+assurance. 
+Typically, these agreements have a five-year term, from calendar 2026 through the end of calendar 2030. 
+Automotive agreements generally have a three-year term. The 16 signed agreements represent roughly 
+20% of our DRAM volume and a third of our NAND volume over this period. These SCAs include four very 
+large customers and three medium-sized customers. The remaining agreements relate to smaller 
+customers from the automotive industry and represent our commitment to this important sector.  
+When completed, we expect approximately half or more of our company revenue to be under these SCAs 
+with customers across end markets. Our customers value our U.S. supply plans, and this is reflected in our 
+SCAs. 
+These SCAs are structured as take-or-pay agreements, with binding commitments to purchase specific 
+volumes over this multi-year term. 
+The largest agreements generally have a ceiling price for existing products at the current CQ2 (calendar 
+Q2) market price, and a floor price through the term of the agreement. Several SCAs, which account for a 
+modest portion of the SCA-related revenue, include either fixed prices or have no price bands associated 
+with them where pricing will be subject to market conditions. When all planned SCAs are executed, 
+agreements with either fixed prices or price ceilings at or close to current CQ2 market prices are expected 
+to be approximately 40% of our revenue. For SCAs which do contain such price bands, pricing is designed 
+to stay within this floor to ceiling level through the course of the term. This pricing visibility will help our 
+SCA customers across market segments to better manage their business and grow their demand. 
+For our SCAs with price bands, the floor price enables a very robust gross margin for Micron, well above 
+our peak quarterly margins in any past cycle. 
+Fourteen of the 16 SCAs that we have signed have a cumulative revenue at minimum price per our 
+contracts of approximately $100 billion over the remaining agreement term. They also strengthen our 
+long-term financial performance, margins and free cash flow expectations, with higher visibility and 
+improved stability in our business performance. Under the SCAs we have signed so far, we project to 
+receive cash deposits and related financial commitments of $22 billion. This further demonstrates 
+customer commitment to this new business model. Mark will provide additional details. 
+Our SCAs with customers across data center to consumer devices to auto and industrial applications 
+create a new paradigm for us to strengthen our customer relationships. They provide committed DRAM, 
+including HBM as appropriate, and NAND supply to our customers over a multi-year time horizon. In a 
+period of significant shortage, this supply visibility is extremely beneficial to our customers. This visibility 
+enables our customers to leverage SCA supply to make progress on their strategic plans, drive growth  and 
+
+--- PAGE 4 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+enable their end consumers to benefit from their products and services. We are very appreciative of our 
+customers, who have worked with us through this period of tight supply with a strong collaborative spirit 
+to create win-win outcomes for the long term for the entire ecosystem and end consumers. 
+Technology and product leadership 
+AI’s insatiable appetite for memory bandwidth and capacity, with low latency and low power, is driving 
+memory architectural choices, memory product mix shifts and manufacturing process technology 
+decisions, all of which increase the complexity of memory and storage roadmap for the industry. 
+Micron is building on its technology leadership. Our 1γ (1-gamma) DRAM node and G9 NAND node are 
+both ramping well and on track to become the highest-volume nodes in Micron's history. Development of 
+our next-generation DRAM and NAND nodes are also progressing well and are on track to begin volume 
+production in the second half of calendar 2027. 
+We are leveraging our leadership DRAM and NAND nodes across our product portfolio. HBM4 12 -high 
+volume ramp is tracking twice as fast as HBM3E 12-high, and we have already shipped over $1 billion in 
+HBM4 revenue. We expect to reach mature yields on HBM4 12-high significantly faster than HBM3E 12-
+high. 
+Please see our earnings press release for other highlights across our HBM, high -capacity DDR and LP 
+server DRAM, data center SSD, PC, smartphone, and automotive product portfolios.  
+We expect future memory demand will continue to skew towards higher performance and higher value 
+products, whose complexity carries higher cost per bit. Transitions like LP5 to LP6, DDR5 to DDR6 and 
+newer generations of HBM all come with rising bit costs. This trend, along with the ramp of significant 
+greenfield capacity in the years ahead, is projected to cause the blended DRAM cost per bit to rise from 
+current levels. Our customer SCAs provide for appropriate price premiums for such new products to be 
+negotiated in the future. 
+End markets 
+Turning to our end markets. 
+Data center 
+AI is driving unprecedented growth in data centers, with industry data center DRAM and NAND bit 
+shipments in calendar 2026 expected to more than double from two years ago. Agentic AI is structurally 
+reshaping data center infrastructure, extending beyond accelerator-only racks to include CPU racks for the 
+agent control plane and program execution, and storage racks for rapidly expanding context store. We 
+now expect calendar 2026 industry server units to grow high-teens percent, above our prior expectations 
+
+--- PAGE 5 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+of low double digits, driven by mid-teens growth in traditional servers and even stronger growth in 
+servers with AI accelerators. We estimate that this increase in our server unit growth expectation is 
+enabled by a modest reduction in average server DRAM content growth as customers focus on 
+maximizing unit shipments amid a very tight allocation of memory. In NAND, AI context memory storage 
+and HDD displacement opportunities are expanding the addressable market for SSDs.  
+PC and mobile 
+PC and smartphone industry revenue is expected to grow despite unit volume declines, reflecting resilient 
+demand for high-end devices at higher prices across end-device categories. Agentic AI platforms such as 
+OpenClaw and NemoClaw elevate the value of edge devices, enabling improved tokenomics, greater 
+privacy and latency, and more efficient orchestration of AI between the cloud and edge. Over time, we 
+expect the value of on-device AI combined with pent-up unit replacement demand to drive memory 
+demand growth in PCs and smartphones. 
+Automotive and robotics 
+In automotive, ADAS (advanced driver-assistance systems) remains a powerful driver of content growth. 
+L2+ and above vehicles, which feature progressively increasing levels of autonomy, have over five times 
+the memory and storage content of an average vehicle. The mix of L2+ and above vehicles is more than 
+doubling this year to over 20% and expected to exceed 40% by 2030. Average auto memory and storage 
+content is expected to further increase as mix shifts towards higher levels of autonomy with progressively  
+higher levels of content. 
+In robotics, continued advances in simulation, foundation models, and integrated hardware and software 
+stacks are accelerating physical AI. This creates a growing, content-rich opportunity for high-bandwidth, 
+low-power memory and storage that powers real-time perception, inference and control. Humanoid 
+robots carry 10 times the amount of memory as an average L2+ vehicle, and we expect a sustained, 
+substantial multi-decade memory demand cycle to begin in the latter part of this decade.  
+Market outlook 
+Now turning to our market outlook. 
+We now expect supply-demand conditions for both DRAM and NAND to remain tight beyond calendar 
+2027. 
+In DRAM, we expect industry DRAM bit shipments in calendar 2026 to grow in the low - to mid-20s 
+percentage range, slightly above our prior outlook. 
+
+--- PAGE 6 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+In NAND, we expect industry NAND bit shipments in calendar 2026 to grow approximately 20%, 
+unchanged from prior expectations. 
+We expect Micron DRAM supply to grow approximately in line with the industry supply growth, while 
+Micron NAND supply grows somewhat less than the industry supply growth in calendar 2026.  
+Micron supply efforts 
+Our SCAs provide enhanced visibility on our long-term demand and provide us greater confidence on our 
+capex (capital expenditures) and R&D (research and development) investments. 
+We are focused on maximizing output from our fabs, including collaboration with our suppliers to 
+accelerate tool acquisition, fab tool installation and ramp, and tool replacements and upgrades to 
+improve productivity. Recently, we concluded a multi-year EUV (extreme ultraviolet) supply agreement 
+with ASML, supporting our increased adoption of EUV at the 1δ (1-delta) node and future generations. 
+We are also making good progress on expanding our global manufacturing footprint to increase supply 
+over time. This includes our significant investments in U.S. leading-edge DRAM manufacturing, with our 
+ID1 and ID2 fabs in Idaho, whose construction is well underway, as well as the first of our N ew York fab 
+cluster, where we broke ground in January this year. ID1 is on track for first wafer output in mid -calendar 
+2027 and ID2 in late calendar 2028. We recently launched first production starts of our 1α (1-alpha) DDR4 
+technology in our Manassas, Virginia, fab, which will add to our capability to support the legacy product 
+needs of our customers in auto, industrial, medical, aerospace and defense markets.  
+In our newly acquired Tongluo site in Taiwan, we expect to support meaningful product shipments from 
+the existing 300,000-square-feet fab in mid-calendar 2027, about a quarter earlier than our prior 
+expectations. Adding to the existing fab, we have begun construction of a similar-sized second cleanroom 
+at this site. This cleanroom will support EUV equipment. Our construction activities and timeline s are on 
+track for our other facilities in Japan and Singapore. 
+Complementing our advanced packaging capabilities in Taiwan, our Singapore site will become another 
+center of excellence for advanced packaging. We expect this facility will contribute meaningfully to 
+Micron’s HBM packaging capacity beginning in the first half of calendar year 2027. 
+As we make these investments, we will remain disciplined in our approach and will be responsive to the 
+market environment to appropriately align our supply plans. 
+I will now turn it over to Mark for our fiscal Q3 financial results and outlook.  
+
+--- PAGE 7 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+MARK MURPHY, EXECUTIVE VICE PRESIDENT AND CHIEF FINANCIAL OFFICER 
+Thank you, Sanjay, and good afternoon everyone. 
+Opening 
+Micron delivered exceptional fiscal Q3 results, with revenue, gross margin and EPS exceeding the high end 
+of our guidance. Our results and today’s outlook underscore the increasing value of memory in the AI era 
+and the structural strength of our business. 
+Strategic customer agreements 
+As mentioned, we have entered into 16 strategic customer agreements. For SCAs with defined price, 
+either fixed or subject to floor and ceiling pricing, in accordance with the revenue accounting standard, we 
+are disclosing remaining performance obligations (RPO) starting this May quarter. RPO at the end of fiscal 
+Q3 (FQ3) was over $5 billion. For the SCAs that we have entered into so far, including ones executed after 
+the end of FQ3, RPO is approximately $100 billion. RPO is determined based on minimum committed 
+volumes and minimum pricing, and reflects inherently conservative estimates. RPO is not indicative of the 
+total revenue we expect to recognize in future periods. As such, we expect revenue to well exceed 
+associated RPOs over the term of the agreements. 
+As Sanjay mentioned, we project to receive cash deposits and related financial commitments of $2 2 billion 
+under the SCAs we have signed so far. The overwhelming majority of these commitments, approximately 
+$18 billion, will be in the form of cash deposits. When all targeted SCAs are completed, we expect to have 
+substantially higher levels of SCA customer deposits and related commitments.  
+These customer deposits will show up on our balance sheet more in FQ4. The cash flows associated with 
+customer deposits appear in financing-related cash flows and will not affect our free cash flow. This cash 
+will be returned to customers over time, towards the latter half of the agreement term. 
+We are excited with our progress in signing these SCAs, which will strengthen our long -term financial 
+performance, and drive enduring, robust ROI for the company over time. 
+Revenue 
+Total fiscal Q3 revenue was $41.5 billion, up 74% sequentially and up 346% year over year, representing 
+our fifth consecutive quarterly revenue record. The $17.6 billion sequential increase is the largest in our 
+history, eclipsing last quarter’s $10.2 billion record. 
+
+--- PAGE 8 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+DRAM 
+Fiscal Q3 DRAM revenue was a record $31.3 billion, up 343% year over year, and represented 76% of total 
+revenue. Sequentially, DRAM revenue increased 67%. Bit shipments were up low-single-digit percentage 
+range. Prices increased in the low-60s percentage range, driven by tight industry conditions and favorable 
+mix. 
+NAND 
+Fiscal Q3 NAND revenue was a record $9.9 billion, up 361% year over year, and represented 24% of total 
+revenue. Sequentially, NAND revenue increased 99%. Bit shipments increased in the mid -single-digit 
+percentage range. Prices increased in the mid-80s percentage range, driven by tight NAND industry 
+conditions and a favorable mix. 
+Gross margin 
+The consolidated gross margin for fiscal Q3 was 84.9%, up 10 percentage points sequentially. This 
+improvement was driven primarily by higher pricing and also benefited from continuing strong execution 
+and favorable mix. Fiscal Q3 gross margin more than doubled from a year ago and was a new company 
+record. 
+Operating results 
+Financial performance by business unit 
+Now turning to quarterly financial performance by business unit. 
+Cloud Memory Business Unit (CMBU) revenue was a record $13.8 billion and represented 33% of total 
+company revenue. CMBU revenue was up 78% sequentially, driven by higher pricing and bit shipments. 
+CMBU gross margins were 83%, up 9 percentage points sequentially, driven by higher pricing. 
+Core Data Center Business Unit (CDBU) revenue was a record $11.5 billion and represented 28% of total 
+company revenue. CDBU revenue was up 103% sequentially, driven by higher pricing and a favorable mix. 
+CDBU gross margins were 87%, up 12 percentage points sequentially, driven by higher pricing. 
+Mobile and Client Business Unit (MCBU) revenue was a record $11.5 billion and represented 28% of total 
+company revenue. MCBU revenue was up 49% sequentially, driven by higher pricing, partially offset by 
+lower bit shipments. MCBU gross margins were 87%, up 9 percentage points sequentially, driven primarily 
+by higher pricing and helped by favorable mix. 
+Automotive and Embedded Business Unit (AEBU) revenue was a record $4.6 billion and represented 11% 
+of total company revenue. AEBU revenue was up 71% sequentially, driven by higher pricing and higher bit 
+
+--- PAGE 9 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+shipments. AEBU gross margins were 79%, up 11 percentage points sequentially, driven by higher pricing 
+and favorable mix. 
+Opex 
+Operating expenses in fiscal Q3 were $1.5 billion, up $97 million quarter over quarter. The sequential 
+increase was due to higher variable compensation expense from the strong performance of the business.  
+Operating income 
+We generated operating income of $33.7 billion in fiscal Q3, resulting in an operating margin of 81.2%, up 
+12 percentage points sequentially and 54 percentage points year over year. 
+Taxes 
+Fiscal Q3 taxes were $5.1 billion on an effective tax rate of 14.9%. 
+Earnings per share 
+Non-GAAP diluted earnings per share in fiscal Q3 was $25.11, up 106% sequentially.  
+Cash flow and capital expenditures 
+Turning to cash flow and capital expenditures, in fiscal Q3, operating cash flows were $25.4 billion. Capital 
+expenditures were $7.1 billion, resulting in free cash flow of $18.3 billion. Fiscal Q3 free cash flow was a 
+quarterly record for the company. 
+Inventory 
+Ending inventory for fiscal Q3 was $8.6 billion, with days of inventory at 120. DRAM inventories are very 
+tight and below 120 days. 
+Total cash/debt 
+We reached record levels of cash and investments of $30.2 billion at quarter -end. During fiscal Q3, we 
+reduced debt by $4.4 billion, including a cash tender offer that reduced senior notes by $4.3 billion. The 
+weighted average maturity on our outstanding debt is April 2035. We closed the quarter with $5.7 billion 
+of debt and a net cash balance of $24.4 billion. This fiscal year we received upgrades from all three major 
+credit rating agencies, including an upgrade to BBB+, on the strength of our technology a nd product 
+position, financial outlook and strong balance sheet. Our balance sheet has never been stronger, and we 
+project it to strengthen further even as we increase investment in technology and needed capacity.  
+
+--- PAGE 10 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+Guidance 
+Now turning to our guidance. 
+We expect FQ4 revenue to be a record $50.0 billion, plus or minus $1.0 billion; gross margin to be 
+approximately 86.0%; and operating expenses to be approximately $1.65 billion. Based on a share count 
+of approximately 1.15 billion shares, we expect EPS to be a record $31.00 per share, plus or minus $1.00. 
+Our fiscal Q4 gross margin outlook reflects a meaningful moderation in the rate of price increases.  
+We project operating expenses to increase by approximately $1 billion in fiscal 2027 as we expand R&D to 
+support an unprecedented set of opportunities in memory and storage. We expect operating expense 
+increases to be weighted to second half. 
+We expect a fiscal Q4 and fiscal year 2026 tax rate of around 15.0%. 
+Micron continues to invest in a disciplined manner across our global footprint to address customer 
+demand. As a reminder, our capex is net of anticipated government incentives. In fiscal Q4, we project 
+capex of around $10 billion, bringing full-year fiscal 2026 capital spending to approximately $27 billion. 
+We expect quarterly capex in fiscal 2027 to be above fiscal Q4 levels, with more than half the increase year 
+over year in fiscal 2027 from construction capex as we pull in cleanroom capacity required to address 
+long-term demand. 
+We forecast free cash flow to increase substantially again in fiscal Q4. From Dec. 9, 2026, the second 
+anniversary of the signature of our definitive CHIPS agreements, we intend to increase our capital return. 
+Over time, we expect to return 100% of our excess cash to shareholders. 
+Any impacts that may occur due to trade or geopolitical developments are not included in our guidance.  
+I’ll now turn it over to Sanjay to close. 
+SANJAY MEHROTRA, CHAIRMAN, PRESIDENT AND CHIEF EXECUTIVE OFFICER 
+Closing 
+Thank you, Mark. 
+AI has elevated the value of memory. Micron is collaborating closely with our customers and suppliers 
+across technology, product, manufacturing and commercial teams in this tight industry environment. 
+Strategic customer agreements are ushering in an exciting era for Micron. We expect these SCAs to 
+significantly enhance the durability and predictability of Micron’s strong financial performance, 
+accelerating the transformation of our business model. I am thankful to Micron's  team members 
+
+--- PAGE 11 ---
+  Micron Technology, Inc. 
+  Fiscal Q3 2026 Earnings Call Prepared Remarks 
+ 
+© 2026 Micron Technology, Inc.  June 24, 2026 
+worldwide, whose relentless focus on execution on all fronts has positioned Micron as a leader in this new 
+AI era, as we continue to advance our mission to accelerate intelligence to enrich life for all.  
+We will now open for questions. 

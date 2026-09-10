@@ -1,0 +1,4 @@
+*.txt -text
+*.json -text
+*.pdf -text
+micron-q3-fy26-prepared-remarks.txt -whitespace

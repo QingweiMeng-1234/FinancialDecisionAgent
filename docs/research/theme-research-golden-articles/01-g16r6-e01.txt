@@ -1,0 +1,9 @@
+SEOUL, May 29 (Reuters) - Samsung Electronics on Friday said it started shipping samples of its latest high-bandwidth memory (HBM) chip to customers, pulling ahead of rivals in distributing a new version of the product critical to AI data centers and sending its shares higher.
+
+The South Korean tech company said the new chip, the 12-layer HBM4E, is more than 20% faster than its previous-generation HBM4 products. The move also comes just three months after Samsung began shipping its HBM4 chips to customers in February, showcasing the company's efforts to strengthen its position in the next-generation AI memory market by supplying samples of its latest products.
+
+"In the HBM market, early movers tend to secure the bulk of orders, so gaining market share in the initial stages is critical," said Jeff Kim, head of research at KB Securities-Jefferies. Kim noted that Samsung had entered the HBM3 and HBM3E markets later than rivals, which limited the volume of orders it was able to secure.
+
+"But if Samsung successfully completes the qualification process for HBM4E, the HBM vendor structure, which has largely centred on SK Hynix and Micron, that could shift toward SK Hynix and Samsung, considering Samsung's manufacturing capacity," Kim added.
+
+SK Hynix led the global HBM market with a 57% share in the fourth quarter of 2025, followed by Samsung at 22% and Micron at 21%, according to Counterpoint Research.

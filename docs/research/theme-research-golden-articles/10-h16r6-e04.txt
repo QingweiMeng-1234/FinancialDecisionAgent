@@ -1,0 +1,15 @@
+It is often observed that discontinuities exist between factory acceptance and field commissioning tests of power transformers. Ideally, the two test sessions are well-coordinated, allowing measurements captured at the transformer manufacturer to be easily replicated once the transformer is prepared for service.
+
+This article discusses observations of the gaps between these two test sessions and provides recommendations to improve the communication of expectations and results throughout this process. It is intended for technicians, engineers, procurement personnel, and asset managers involved in developing transformer purchasing specifications, factory acceptance testing, field commissioning testing, and final acceptance of the transformer.
+
+Factory-performed tests of transformers and bushings are driven by industry standards such as IEEE and IEC, as well as company purchasing specifications. A significant effort is focused on developing and enhancing these requirements based on experience and technology improvement.
+
+For distribution- and power-class transformers built in accordance with IEEE Std. C57.12.00, the manufacturer should provide certified test reports to the purchaser, and many purchasers condition the shipment of the transformer on the approval of the transformer’s certified test report. This report gives the purchaser an opportunity to identify any concerns with the test records and request remedial action, if warranted. While all transformers should be manufactured with the same attention to detail, the additional tollgate of test-report approval necessitates that the manufacturer properly audit the test records.
+
+When a transformer fails a factory acceptance test, some level of investigation and repair/replacement activity is undertaken to remediate the condition before repeating the tests. Best practice is to involve the transformer purchaser and their subject matter experts in this process to ensure that appropriate repairs are made and an acceptable retest plan is prescribed.
+
+The steps in preparing a transformer for shipment depend largely on its dimensions, weight, transportation permitting restrictions, and purchasing specifications. A distribution transformer may be cleaned and packaged for local transportation after completing the factory acceptance tests without requiring significant attention. On the other hand, transporting a large power transformer to its destination may require the removal of its insulating liquid and partial disassembly.
+
+Once the transformer is placed onto its permanent or temporary foundation, assembly efforts are often required to bring it into operational condition.
+
+The objective of the factory and field commissioning tests is to ensure that the transformer will operate reliably and that there have been no unintended changes throughout its early life.

@@ -1,0 +1,13 @@
+SEOUL, July 29 (Reuters) - South Korean chipmaker SK Hynix reported bumper quarterly results on Wednesday but fell short of lofty investor expectations, heightening market concerns about slower AI spending by big tech firms.
+
+Shares in SK Hynix closed down 9.6% on Wednesday, as the weaker-than-expected earnings reinforced jitters about the sustainability of aggressive AI spending by tech firms. "There are concerns that tech firms will take a breather in infrastructure spending," Lee Min-hee, an analyst at BNK Investment & Securities, said.
+
+DEMAND REMAINS STRONG
+
+Despite the market selloff, SK Hynix said demand for AI memory chips remained strong. "Major customers are still requesting more memory supply," SK Hynix President Song Hyun-jong said on an earnings call, adding that it was seeking more long-term supply agreements to better manage chip price volatility.
+
+The move underscores how chipmakers are trying to convert today's AI-driven boom into longer-term demand certainty amid concerns that spending on AI infrastructure could eventually cool. Long-term agreements, which SK Hynix said are typically for five years, include financial safeguards such as deposits to ensure contract implementation. The company has concluded talks on around 10 such deals and is continuing discussions with other major industry players, it said.
+
+Reflecting its confidence in future demand, SK Hynix said it plans to raise capital spending to the high-40 trillion won ($27.6 billion) range this year from 30.2 trillion won in 2025. The company downplayed concerns that its capacity expansion could lead to oversupply, saying it would adjust investments in line with market demand.
+
+Analysts said the earnings miss reflected slower-than-expected HBM4 shipments, delaying revenue recognition during the quarter.

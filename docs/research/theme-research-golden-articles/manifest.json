@@ -1,0 +1,151 @@
+{
+  "evidence_pack": "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/post-adjudication-blind-package/calibration/evidence-pack-v1.6.json",
+  "evidence_pack_sha256": "8cf8059500bfa33416df21d61343c6b6c2e3627cdbbdb926e49919c56189da39",
+  "source_count": 12,
+  "evidence_count": 13,
+  "articles": [
+    {
+      "title": "Samsung Electronics ships faster HBM4E chip samples to customers; shares jump",
+      "url": "https://www.aol.com/articles/samsung-electronics-ships-faster-hbm4e-023021000.html",
+      "evidence_ids": [
+        "G16R6-E01"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "01-g16r6-e01.txt",
+      "sha256": "b32c1d8c43af2828ffdc3b6b1a93ed4e5a9b6fb9d4508f6d38807957b6075901"
+    },
+    {
+      "title": "Fiscal Q3 2026 Earnings Call Prepared Remarks",
+      "url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "evidence_ids": [
+        "G16R6-E02",
+        "G16R6-E03"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "02-g16r6-e02.txt",
+      "sha256": "3bc25cbb1593612094c81e82f73fd833aa2b7f44cd3de95bbb8e7df28800e79e"
+    },
+    {
+      "title": "ASML capacity upgrade soothes AI chip bottleneck fears",
+      "url": "https://live.euronext.com/en/financial-news/asml-capacity-upgrade-soothes-ai-chip-bottleneck-fears",
+      "evidence_ids": [
+        "G16R6-E04"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "03-g16r6-e04.txt",
+      "sha256": "73976a1f18ec4d1404dc707b16932d55616d2f549ba7440c8cd56ef81b625778"
+    },
+    {
+      "title": "Chip toolmaker ASML expected to shine light on capacity, China challenges",
+      "url": "https://www.reuters.com/world/china/chip-toolmaker-asml-expected-shine-light-capacity-china-challenges-2026-07-14/",
+      "evidence_ids": [
+        "G16R6-E05"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "04-g16r6-e05.txt",
+      "sha256": "6ca13e64256f8e0239cba813ba60266215c422377c8d736d0baae408c2fe133c"
+    },
+    {
+      "title": "ASML says first chips made with High-NA machines to arrive in months",
+      "url": "https://www.reuters.com/business/asml-says-first-chips-new-high-na-machines-arrive-months-2026-05-19/",
+      "evidence_ids": [
+        "G16R6-E06"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "05-g16r6-e06.txt",
+      "sha256": "9fbda71306f4d2ba512d32b605496f319a183f7a04507ea9d18fc397f34ce757"
+    },
+    {
+      "title": "SK Hynix's record profit misses forecasts, shares slump 10% despite robust AI chip demand",
+      "url": "https://www.reuters.com/world/asia-pacific/sk-hynix-q2-profit-jumps-557-ai-chip-demand-misses-forecasts-2026-07-28/",
+      "evidence_ids": [
+        "G16R6-E07"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "06-g16r6-e07.txt",
+      "sha256": "c9b2eb12761f6109d5b2dcbb37367d7c1ed3552700c1f26a5adab79b057066ca"
+    },
+    {
+      "title": "US power transformer buyers scramble for imports, factory slots",
+      "url": "https://www.kitco.com/news/off-the-wire/2026-05-11/us-power-transformer-buyers-scramble-imports-factory-slots",
+      "evidence_ids": [
+        "H16R6-E01"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "07-h16r6-e01.txt",
+      "sha256": "19b17fe75c6b9a43c37406f6ffa5ce8a044fb4a47481df6f01bc43d17b419df2"
+    },
+    {
+      "title": "US power companies scramble to secure equipment as surging data center demand strains supplies",
+      "url": "https://www.aol.com/articles/us-power-companies-scramble-secure-093646000.html",
+      "evidence_ids": [
+        "H16R6-E02"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "08-h16r6-e02.txt",
+      "sha256": "f0cc00d8b9c814bdbd3e6da3cb15e4482a9c7d64a4ed645be63d3e5680514997"
+    },
+    {
+      "title": "Power developers adapt gas turbine strategies to mitigate tight supply",
+      "url": "https://www.reuters.com/business/energy/power-developers-adapt-gas-turbine-strategies-mitigate-tight-supply--reeii-2026-03-02/",
+      "evidence_ids": [
+        "H16R6-E03"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "09-h16r6-e03.txt",
+      "sha256": "dfb834cf2731c2869ec3e8a2b81312980844c329a65b4f332d4ff88c9765cedd"
+    },
+    {
+      "title": "Improving Connections: Transformer Factory Acceptance and Field Commissioning Tests",
+      "url": "https://netaworldjournal.org/2026/02/johnjfoschia/features/improving-connections-transformer-factory-acceptance-and-field-commissioning-tests/",
+      "evidence_ids": [
+        "H16R6-E04"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "10-h16r6-e04.txt",
+      "sha256": "a7822c4b8600ce594d2816c6f950697c03171647e9ccf7a6d53d817fa7433736"
+    },
+    {
+      "title": "Grid equipment makers invest in US to ease supply shortage",
+      "url": "https://www.reuters.com/business/energy/grid-equipment-makers-invest-us-ease-supply-shortage--reeii-2025-12-02/",
+      "evidence_ids": [
+        "H16R6-E05"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "11-h16r6-e05.txt",
+      "sha256": "3942ccadd7e755cedca40f12decf7131ef6aab69e8c63cffb9eb92561d9cdf7e"
+    },
+    {
+      "title": "Bridging the gap: Transforming power plant reliability with high-fidelity simulation",
+      "url": "https://www.gevernova.com/gas-power/resources/articles/2026/plant-control-simulation-high-fidelity-reliability",
+      "evidence_ids": [
+        "H16R6-E06"
+      ],
+      "coverage": "evidence_excerpt_with_context",
+      "path": "12-h16r6-e06.txt",
+      "sha256": "a60d0a9493d2968910b89084aa4ae00b2e6ed9bb19feee6affe63a85d4f90247"
+    },
+    {
+      "title": "Fiscal Q3 2026 Earnings Call Prepared Remarks",
+      "url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "evidence_ids": [
+        "G16R6-E02",
+        "G16R6-E03"
+      ],
+      "coverage": "full_document",
+      "path": "micron-q3-fy26-prepared-remarks.pdf",
+      "sha256": "a3ce62b84a059e35fae80c2bfd5c89f9af334193fd6aceff698fc3008e7d4c27"
+    },
+    {
+      "title": "Fiscal Q3 2026 Earnings Call Prepared Remarks",
+      "url": "https://s25.q4cdn.com/621799436/files/doc_financials/2026/q3/Q3-FY26-Prepared-Remarks.pdf",
+      "evidence_ids": [
+        "G16R6-E02",
+        "G16R6-E03"
+      ],
+      "coverage": "full_document_extracted_text",
+      "path": "micron-q3-fy26-prepared-remarks.txt",
+      "sha256": "d6140ad76a6768e16141b10fb9c150ffee65658223be0dc54e8013d48211af27"
+    }
+  ]
+}

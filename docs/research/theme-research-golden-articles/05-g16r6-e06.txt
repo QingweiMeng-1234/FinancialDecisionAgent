@@ -1,0 +1,13 @@
+ASML expects the first chips made with its next-generation High-NA EUV machines to be delivered within months, Chief Executive Christophe Fouquet said on Tuesday, as the Dutch company addresses concerns about the new technology's costs.
+
+The computer chip equipment maker's top customer TSMC said last month High-NA machines, which can cost up to $400 million each, were too expensive to use for now. Fouquet, however, expressed confidence in the technology's adoption.
+
+"In the next few months, we will be looking at the first few products, in memory, in logic, being exposed on the High-NA system", he told a conference organised by research firm imec in Antwerp.
+
+"Those technologies are expensive. They are requiring qualification. But they are always designed with the idea that over time they will lower the cost of patterning," Fouquet said.
+
+Demand from advanced chipmakers for ASML's EUV, or extreme ultraviolet, lithography tools used to print tiny chip circuits, has helped the Dutch manufacturer become Europe's most valuable company. Chipmakers are now testing the High NA, or high numerical aperture, version of the tool, which will be able to produce features up to 66% smaller - similar to having a better focus on a camera.
+
+Intel has been the most aggressive in preparing to adopt ASML's High-NA tool, in an attempt to leapfrog competitors TSMC and Samsung. Memory chip makers including SK Hynix have also said they intend to use the new technology.
+
+TSMC has not ruled it out, but executive Kevin Zhang said it will stick with ASML's current EUV product for the next several generations of chips as the company keeps squeezing out advances through innovative chip designs that don't require smaller lines.

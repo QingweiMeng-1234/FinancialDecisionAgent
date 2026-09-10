@@ -1,0 +1,11 @@
+The power generation world can be high-stakes, and the transition from design intent to real-world performance is often the most critical phase of a project. Historically, engineering meets reality in the commissioning phase, a period of intense pressure, potential risk, and high costs.
+
+In a recent on-demand webinar, GE Vernova experts explored why simulation matters and how Software Witness Demonstration (SWD) showcases customer-specific software in action, from startup and shutdown procedures to protective actions and operator station functionality.
+
+For systems such as gas turbine flange-to-flange, steam turbine, integrated carbon capture, or gasification cycles, which define the plant’s performance, we deploy high-fidelity, first-principles, physics-driven modeling for high accuracy and complex, integrated plant dynamics.
+
+Before commissioning begins, we invite our customers to interact with their actual application software, HMI screens, and I/O configurations, hosted on GE Vernova simulators. Beyond being a demonstration, it’s also a trial run. By validating protection logic, closed-loop control, and operator station functionality in a virtual environment, we reduce any surprises that have historically plagued site startups.
+
+Initial simulation models are developed in parallel with control software development and are primarily used to validate controls logic. Once control strategy development is complete, the platform is enhanced to include malfunctions, plant upsets, and training scenarios. At that point, the simulator is ready to be shipped to site as an operator training simulator, typically around three months after software delivery for commissioning. The total time to fully build a simulation model generally ranges from 9 to 15 months, depending on the complexity of the plant configuration and setup.
+
+The simulator is often available during commissioning, and if control logic or control structure changes are needed, those can be validated on the simulator before being introduced back into the real plant.

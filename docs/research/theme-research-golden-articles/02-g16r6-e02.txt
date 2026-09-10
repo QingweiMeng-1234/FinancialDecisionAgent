@@ -1,0 +1,13 @@
+Meanwhile, memory process technology, which is among the most advanced to develop and manufacture in semiconductors, is getting more complex with every new node. Technology transitions are driving slower bit growth over time, wafer growth needs are significantly increasing cleanroom space and greenfield fab requirements, and HBM’s growth and increasing trade ratio with every new generation further pressures non-HBM supply. These factors taken together mean supply is structurally constrained in its growth and ability to meet industry demand, despite our comprehensive efforts to increase supply.
+
+AI systems are powered by GPU, ASIC and CPU designs from an increasingly broad set of suppliers. However, they all share one important characteristic — AI system performance is architecturally dependent on memory subsystem performance and capacity.
+
+Complementing our advanced packaging capabilities in Taiwan, our Singapore site will become another center of excellence for advanced packaging. We expect this facility will contribute meaningfully to Micron’s HBM packaging capacity beginning in the first half of calendar year 2027.
+
+---
+
+HBM4 12-high volume ramp is tracking twice as fast as HBM3E 12-high, and we have already shipped over $1 billion in HBM4 revenue. We expect to reach mature yields on HBM4 12-high significantly faster than HBM3E 12-high.
+
+AI is driving unprecedented growth in data centers, with industry data center DRAM and NAND bit shipments in calendar 2026 expected to more than double from two years ago. We now expect calendar 2026 industry server units to grow high-teens percent, driven by mid-teens growth in traditional servers and even stronger growth in servers with AI accelerators.
+
+In DRAM, we expect industry DRAM bit shipments in calendar 2026 to grow in the low- to mid-20s percentage range.

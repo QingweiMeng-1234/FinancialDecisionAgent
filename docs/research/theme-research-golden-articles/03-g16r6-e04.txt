@@ -1,0 +1,5 @@
+ASML said it would increase capacity by 30% in each of the coming two years to meet what CEO Christophe Fouquet described as "extremely strong" customer demand for its lithography "chip-printing" tools required to make advanced AI chips.
+
+The Dutch company is the world's only maker of extreme ultraviolet lithography (EUV) tools, which are needed to create the nanometre-scale circuitry of advanced logic and memory chips that go into data centres built by Google and Amazon and run the models built by OpenAI and Anthropic.
+
+ASML said it intended to expand capacity by nearly a third per year for its flagship EUV tools, though Fouquet said nearly all of its expanded EUV capacity through 2027 is already fully booked.
