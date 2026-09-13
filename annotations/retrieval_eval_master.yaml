@@ -5,7 +5,7 @@ articles:
   excerpt: OpenAI Launches Daybreak for AI-Powered Vulnerability Detection and Patch
     Validation - The Hacker News. OpenAI launched Daybreak with GPT-5.5-Cyber tools
     as AI accelerates vulnerability discovery and exploit timelines.
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\177.txt
+  content_path: data/articles/177.txt
   dedupe_key: openai-launches-daybreak-for-ai-powered-vulnerability-detection
   notes: ''
   ticker_impacts:
@@ -38,7 +38,7 @@ articles:
     read yet on whether the artificial intelligence (AI) build-out that has consumed
     the AI chipmaker's order book is still gaining steam. The stock has quietly climbed
     i...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\181.txt
+  content_path: data/articles/181.txt
   dedupe_key: nvidia-s-earnings-are-hours-away-here-are
   notes: ''
   ticker_impacts:
@@ -66,7 +66,7 @@ articles:
     Traders also looked ahead to the release of Nvidia's first-quarter earnings report.
     The Dow Jones Industrial Average advanced 645.47 points, or 1.31%, closing at
     50,0...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\182.txt
+  content_path: data/articles/182.txt
   dedupe_key: s-p-500-futures-fall-as-traders-await
   notes: ''
   ticker_impacts:
@@ -93,7 +93,7 @@ articles:
     and reported that net sales grew more than 6% year over year as the retailer tries
     to win back customers amid slumping sales. Target's same-store sales jumped 5.6%,
     its first positive same-store sales number in five quarters. Even so, T...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\183.txt
+  content_path: data/articles/183.txt
   dedupe_key: target-is-set-to-report-first-quarter-earnings
   notes: ''
   ticker_impacts:
@@ -115,7 +115,7 @@ articles:
     \ borrowed from the automaker\u2019s XX concept that last year made history by\
     \ driving 24,901 miles in under 8 days at Nard\xF2 Ring in southern Italy. Mercedes\u2019\
     \ electric AMG..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\185.txt
+  content_path: data/articles/185.txt
   dedupe_key: mercedes-electric-amg-gt-4-door-coupe-can
   notes: ''
   ticker_impacts:
@@ -137,7 +137,7 @@ articles:
     positions. - Meta is also shifting more than 7,000 employees to AI initiatives.
     The chapter that Meta employees have dreaded for a month is here. On Wednesday,
     emails we...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\186.txt
+  content_path: data/articles/186.txt
   dedupe_key: meta-begins-cutting-thousands-of-jobs-in-sweeping
   notes: ''
   ticker_impacts:
@@ -159,7 +159,7 @@ articles:
     \ companies directly influenced by his policies NEW YORK (AP) \u2014 Call him\
     \ the Trader in Chief. Recent presidents have stayed away from trading stocks\
     \ in companies whose fortun..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\192.txt
+  content_path: data/articles/192.txt
   dedupe_key: trump-discloses-thousands-of-stock-trades-some-in
   notes: ''
   ticker_impacts:
@@ -187,7 +187,7 @@ articles:
     \ Volvo said it\u2019s lowering the threshold for a premium electric SUV after\
     \ opening orders for the all-new EX60 on Monday. The 2027 Volvo EX60 starts at\
     \ $58,400, which is nearly $23,000..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\194.txt
+  content_path: data/articles/194.txt
   dedupe_key: volvo-s-new-ev-costs-the-same-to
   notes: ''
   ticker_impacts:
@@ -208,7 +208,7 @@ articles:
     \ the benchmark 10-year Treasury yield climbed to its highest level in more than\
     \ a year on mounting inflation concerns as oil prices stayed elevated and investors\
     \ were anxious ab..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\197.txt
+  content_path: data/articles/197.txt
   dedupe_key: wall-st-ends-lower-as-inflation-worries-push
   notes: ''
   ticker_impacts:
@@ -234,7 +234,7 @@ articles:
     \ Musk\u2019s case was a weak one, in part because he waited so long to file it.\
     \ Watching the closing arguments last week, OpenAI\u2019s attorneys detailed point\
     \ by point how the law w..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\198.txt
+  content_path: data/articles/198.txt
   dedupe_key: elon-musk-said-sam-altman-stole-a-non
   notes: ''
   ticker_impacts:
@@ -259,7 +259,7 @@ articles:
     \ Billions of Dollars of Commerce For Immediate Release Office of Public Affairs\
     \ Seven Chinese executives and four of the world\u2019s largest shipping container\
     \ manufacturing co..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\199.txt
+  content_path: data/articles/199.txt
   dedupe_key: four-of-the-world-s-largest-container-manufacturing
   notes: ''
   ticker_impacts:
@@ -288,7 +288,7 @@ articles:
     \ casts a shadow over career prospects, it is becoming an unwelcome subject at\
     \ this season\u2019s college commencements. At several campuses, graduates have\
     \ interrupted speaker..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\201.txt
+  content_path: data/articles/201.txt
   dedupe_key: graduates-are-booing-pep-talks-on-ai-at
   notes: ''
   ticker_impacts:
@@ -310,7 +310,7 @@ articles:
     sales are already popping up at the biggest retailers across the web. Of course,
     weeding through all of the markdowns can be overwhelming and time-consuming, which
     is...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\204.txt
+  content_path: data/articles/204.txt
   dedupe_key: amazon-is-selling-a-100-craftsman-hand-vac
   notes: ''
   ticker_impacts:
@@ -329,7 +329,7 @@ articles:
     large loads that have backup generation under an emergency order issued Monday
     by the U.S. Department of Energy. - PJM on Sunday asked to be able to direct transmission
     owners and electric utilities in its Mid-Atlantic and Midwest footprint for pe...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\205.txt
+  content_path: data/articles/205.txt
   dedupe_key: pjm-gets-emergency-approval-to-curtail-data-centers
   notes: ''
   ticker_impacts:
@@ -357,7 +357,7 @@ articles:
     for its newest Starship design, the Starship V3 megarocket. See our latest updates
     here. SpaceX''s newest version of its massive Starship, the world''s largest and
     mo...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\207.txt
+  content_path: data/articles/207.txt
   dedupe_key: spacex-starship-flight-12-launch-updates-1st-starship
   notes: ''
   ticker_impacts:
@@ -379,7 +379,7 @@ articles:
     \ opposite end of the branding spectrum. Shein, one of China\u2019s most prominent\
     \ ultra-fast-fashion platforms, is acquiring the San Francisco-founded direct-to-consumer\
     \ brand. The dea..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\208.txt
+  content_path: data/articles/208.txt
   dedupe_key: everlane-customers-shocked-after-radical-transparency-retailer-is
   notes: ''
   ticker_impacts:
@@ -398,7 +398,7 @@ articles:
     HFI Research says. - The firm sees "real panic" hitting crude markets as oil inventories
     run out. - Previously, it speculated that panic buying and hoarding could send
     crude prices past $150 a barrel. Market watchers have puzzled over the reasons...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\209.txt
+  content_path: data/articles/209.txt
   dedupe_key: point-of-no-return-a-research-firm-says
   notes: ''
   ticker_impacts:
@@ -438,7 +438,7 @@ articles:
     \ of hundreds that had gathered outside the door. The much-hyped Swatch x Audemars\
     \ Piguet Royal Pop, he announced through a megaphone, had officially sold out.\
     \ \u201CSo everybody..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\211.txt
+  content_path: data/articles/211.txt
   dedupe_key: brawls-pepper-spray-and-store-closures-inside-the
   notes: ''
   ticker_impacts:
@@ -458,7 +458,7 @@ articles:
     \ the first quarter of fiscal 2026, an increase of $1.9 billion, or 4.8% from\
     \ the first quarter of fiscal 2025. Comparable sales for the first quarter of\
     \ fiscal 2026 increased 0...."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\212.txt
+  content_path: data/articles/212.txt
   dedupe_key: the-home-depot-announces-first-quarter-fiscal-2026
   notes: ''
   ticker_impacts:
@@ -478,7 +478,7 @@ articles:
     The new requirement is thanks to the Take It Down Act, a US law backed by First
     Lady Melania Trump that passed last year with bipartisan support. The Take It
     Down...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\213.txt
+  content_path: data/articles/213.txt
   dedupe_key: you-can-get-some-of-your-nudes-removed
   notes: ''
   ticker_impacts:
@@ -506,7 +506,7 @@ articles:
     \ of college, Baker broke the story that forced Stanford president Marc Tessier-Lavigne\
     \ to resign \u2014 work that earned him a George Polk Award, one of journalism\u2019\
     s highest hono..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\214.txt
+  content_path: data/articles/214.txt
   dedupe_key: theo-baker-spent-four-years-investigating-stanford-before
   notes: ''
   ticker_impacts:
@@ -524,7 +524,7 @@ articles:
     arteries in downtown Las Vegas has closed its doors after 15 years. Heart Attack
     Grill, infamous for its Quadruple Bypass Burgers, large outdoor scale (those 350
     pounds or heavier ate free), and hospital theme, closed at 9 a.m. Monday, as conf...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\215.txt
+  content_path: data/articles/215.txt
   dedupe_key: downtown-las-vegas-eatery-closes-after-15-years
   notes: ''
   ticker_impacts:
@@ -543,7 +543,7 @@ articles:
     \ Press By \u2014 Larry Neumeister, Associated Press Larry Neumeister, Associated\
     \ Press Leave your feedback Share Copy URL https://www.pbs.org/newshour/world/u-s-prosecutors-drop-fraud-charges-against-billionaire-indian-businessman-gautam-adani\
     \ Email Faceboo..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\217.txt
+  content_path: data/articles/217.txt
   dedupe_key: u-s-prosecutors-drop-fraud-charges-against-billionaire
   notes: ''
   ticker_impacts:
@@ -563,7 +563,7 @@ articles:
     \ utility in a bid to dominate the AI data center boom. It\u2019s a goal big enough\
     \ that NextEra was willing to pay a hefty premium\u2014and risk overpaying\u2014\
     to make it happen. On a call with..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\218.txt
+  content_path: data/articles/218.txt
   dedupe_key: nextera-s-67-billion-dominion-takeover-creates-world
   notes: ''
   ticker_impacts:
@@ -599,7 +599,7 @@ articles:
     $5 billion in annual payments volume, controls more than 4,200 locations across
     the country, and employs 23,000 people. The parking payment (now AI recognition
     s...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\219.txt
+  content_path: data/articles/219.txt
   dedupe_key: how-metropolis-built-a-5-billion-ai-infrastructure
   notes: ''
   ticker_impacts:
@@ -627,7 +627,7 @@ articles:
     s hands-off approach. Florida Governor Ron DeSantis, from a famously laissez-faire\
     \ state, has announced his support for legislation moving through Florida\u2019\
     s legis..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\220.txt
+  content_path: data/articles/220.txt
   dedupe_key: milken-harris-poll-80-of-americans-want-ai
   notes: ''
   ticker_impacts:
@@ -659,7 +659,7 @@ articles:
     \ amid escalating tensions - A bet on downtown resurgence - Having a pet is a\
     \ lifestyle luxury THE MARKETS - S&P 500 futures are up 0.24%. - In Europe, the\
     \ Stoxx 600 is up 0.21%..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\221.txt
+  content_path: data/articles/221.txt
   dedupe_key: the-bond-market-is-firing-a-warning-shot
   notes: ''
   ticker_impacts:
@@ -702,7 +702,7 @@ articles:
     a lot of cash. - So the plan for Versant Media, the cable TV company spun out
     of Comcast, is to use that cash to pivot out of cable TV. - CEO Mark Lazarus explains
     the strategy, which includes new spending on sports rights. Big Media companies...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\222.txt
+  content_path: data/articles/222.txt
   dedupe_key: versant-is-the-cable-tv-company-comcast-didn
   notes: ''
   ticker_impacts:
@@ -721,7 +721,7 @@ articles:
     the refrigerator running during a power outage, or carry one into the backyard
     for an outdoor movie night. They can also serve as a cleaner and quieter generator
     alterna...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\223.txt
+  content_path: data/articles/223.txt
   dedupe_key: the-best-portable-power-stations-in-2026
   notes: ''
   ticker_impacts:
@@ -749,7 +749,7 @@ articles:
     Commission, asking the agency to investigate the gaming giant for practices they
     say exploit children through manipulative monetization, addictive design features
     and c...
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\224.txt
+  content_path: data/articles/224.txt
   dedupe_key: exclusive-advocacy-groups-file-complaint-against-roblox-alleging
   notes: ''
   ticker_impacts:
@@ -771,7 +771,7 @@ articles:
     \ networks across the dense city-state. The Southeast Asian tech company will\
     \ launch a pilot of its first delivery robot in Singapore\u2019s Punggol district\
     \ in late 2026,..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\225.txt
+  content_path: data/articles/225.txt
   dedupe_key: grab-bets-on-new-delivery-robots-to-fix
   notes: ''
   ticker_impacts:
@@ -797,6 +797,7 @@ articles:
     - GOOG
     - AMZN
     - ORCL
+    - QQQ
 - article_id: 226
   title: The bond market's 2007 moment is here to throw a wrench into everyone's plans
   url: https://www.businessinsider.com/bond-market-selloff-highest-treasury-yield-2007-disruption-war-inflation-2026-5
@@ -805,7 +806,7 @@ articles:
     situation is disrupting best-laid plans for stock bulls, as well as President
     Trump''s affordability push. When comparisons to the Great Financial Crisis era
     start poppin...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\226.txt
+  content_path: data/articles/226.txt
   dedupe_key: the-bond-market-s-2007-moment-is-here
   notes: ''
   ticker_impacts:
@@ -849,7 +850,7 @@ articles:
     aesthetics, experience, and flavor. - His advice to other entrepreneurs is to
     start by creating one really good product, then expand. Popsmith cofounder Tal
     Moore beat the...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\227.txt
+  content_path: data/articles/227.txt
   dedupe_key: an-entrepreneur-who-made-oprah-s-favorite-things
   notes: ''
   ticker_impacts:
@@ -870,7 +871,7 @@ articles:
     investors are overly bullish on stocks. - Early June could be a "ripe" time for
     investors looking to take profits, strategists said. A subtle contrarian sell
     si...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\228.txt
+  content_path: data/articles/228.txt
   dedupe_key: bank-of-america-says-an-under-the-radar
   notes: ''
   ticker_impacts:
@@ -910,7 +911,7 @@ articles:
     \ The following has been edited for length and clarity. My goal was always to\
     \ be a working woman \u2014 to wear power suits, have a corner office, and be\
     \ financially independe..."
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\229.txt
+  content_path: data/articles/229.txt
   dedupe_key: i-m-the-ceo-of-a-mocktail-company
   notes: ''
   ticker_impacts:
@@ -930,7 +931,7 @@ articles:
     Goldman flags expectations are high, while Citi eyes competition and BofA watches
     for buybacks. Investors are bracing for a key update in the stock market''s hottest
     tra...'
-  content_path: C:\Users\weber\Documents\GitHub\Financial Agent\data\articles\230.txt
+  content_path: data/articles/230.txt
   dedupe_key: nvidia-earnings-face-a-high-bar-as-investors
   notes: ''
   ticker_impacts:
