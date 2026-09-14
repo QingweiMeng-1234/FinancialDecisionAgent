@@ -126,6 +126,7 @@ class CompanyExposureRedTeamService:
         expected_governance_bundle_sha256: str | None = None,
         allow_legacy_research_result: bool = False,
         enable_v15_company_chain: bool = False,
+        enable_v161_segment_chain: bool = False,
     ):
         self.repository = repository
         self.researcher = researcher
@@ -135,6 +136,7 @@ class CompanyExposureRedTeamService:
             allow_unfrozen_overlay=allow_unfrozen_overlay,
             governance_bundle_path=governance_bundle_path,
             expected_governance_bundle_sha256=expected_governance_bundle_sha256,
+            enable_v161_segment_chain=enable_v161_segment_chain,
         )
         self.allow_legacy_research_result = allow_legacy_research_result
         self.enable_v15_company_chain = enable_v15_company_chain

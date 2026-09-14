@@ -276,6 +276,103 @@ def test_tavily_reprints_share_one_event_family_and_search_dates_remain_ambiguou
     assert len({item.evidence_family_id for item in candidates}) == 1
     assert all(item.claim.source_ambiguity for item in candidates)
     assert all(not item.claim.scoring_eligible for item in candidates)
+    from event_collector.theme_chokepoint.stage3 import _validate_candidate
+    for candidate in candidates:
+        _validate_candidate(candidate)
+        assert candidate.claim.scoring_use == 'context_only'
+
+
+def test_site_scoped_search_uses_api_domain_filter_and_rejects_off_domain_hits():
+    """SELECT INVARIANT: a primary-source query actually restricts discovery domains."""
+    session = FakeSession({'results': [
+        {'url': 'https://www.energy.gov/report', 'title': 'Official report'},
+        {'url': 'https://data.sec.gov/filing', 'title': 'Issuer filing'},
+        {'url': 'https://energy.gov.market.example/report', 'title': 'Market summary'},
+    ]}, {})
+    provider = TavilySearchProvider(api_key='test', session=session)
+    hits = provider.search('transformer orders (site:gov OR site:sec.gov)')
+    assert session.posts[0][2]['include_domains'] == ['*.gov', 'sec.gov']
+    assert [hit.url for hit in hits] == ['https://www.energy.gov/report', 'https://data.sec.gov/filing']
+    provider.search('manufacturer annual report')
+    assert 'include_domains' not in session.posts[1][2]
+
+
+def test_pdf_page_wraps_are_normalized_before_hashing_and_quote_extraction(monkeypatch):
+    """SELECT INVARIANT: PDF layout whitespace does not interrupt a source sentence."""
+    text = 'Qualified supply\ngrew only five percent\t year over year.'
+    page = SimpleNamespace(extract_text=lambda: text)
+    monkeypatch.setitem(sys.modules, 'pypdf', SimpleNamespace(
+        PdfReader=lambda _: SimpleNamespace(pages=[page])))
+    url = 'https://issuer.example.com/report.pdf'
+    session = FakeSession({}, {url: FakeResponse(content=b'%PDF-1.4', url=url,
+                                               content_type='application/pdf')})
+    document = OriginalTextFetcher(session=session, minimum_text_chars=20).fetch(
+        SearchHit(url, 'Report', '', 1, None))
+    expected = 'Qualified supply grew only five percent year over year.'
+    assert document.text == expected
+    from hashlib import sha256
+    assert document.content_hash == sha256(expected.encode()).hexdigest()
+    assert document.publication_date_verified is False
+
+
+def test_original_html_publication_metadata_owns_the_verified_date():
+    """SELECT INVARIANT: publisher HTML, not search metadata, can establish publication date."""
+    url = 'https://issuer.example.com/release'
+    body = '<p>Qualified supply grew only five percent year over year.</p>'
+    html = '<html><head><meta property="article:published_time" content="2026-08-03T10:00:00Z"></head><body>' + body + '</body></html>'
+    response = FakeResponse(content=html.encode(), url=url)
+    session = FakeSession({}, {url:response})
+    hit = SearchHit(url, 'Release', '', 1, date(2026, 8, 1))
+    document = OriginalTextFetcher(session=session, minimum_text_chars=20).fetch(hit)
+    assert document.publication_date == date(2026, 8, 3)
+    assert document.publication_date_verified is True
+
+
+@pytest.mark.parametrize('metadata', [
+    '<meta property="article:modified_time" content="2026-08-03">',
+    '<meta property="article:published_time" content="2026-08-03"><meta itemprop="datePublished" content="2026-08-04">',
+])
+def test_modified_or_conflicting_metadata_cannot_verify_publication(metadata):
+    url = 'https://issuer.example.com/release'
+    html = '<html><head>' + metadata + '</head><body><p>Qualified supply remains constrained across the market.</p></body></html>'
+    session = FakeSession({}, {url:FakeResponse(content=html.encode(), url=url)})
+    document = OriginalTextFetcher(session=session, minimum_text_chars=20).fetch(SearchHit(url, 'Title', '', 1, None))
+    assert document.publication_date is None
+    assert document.publication_date_verified is False
+
+
+@pytest.mark.parametrize('graph', [False, True])
+def test_original_jsonld_publication_date_is_verified(graph):
+    """SELECT INVARIANT: an article's own JSON-LD publication date is usable provenance."""
+    import json
+    url = 'https://issuer.example.com/release'
+    article = {'@type': 'Article', 'url': url, 'datePublished': '2026-08-03T10:00:00Z',
+               'dateModified': '2026-08-12T10:00:00Z'}
+    payload = {'@graph': [article]} if graph else article
+    html = '<html><head><script type="application/ld+json">' + json.dumps(payload) + '</script></head><body><p>Qualified supply remains constrained across the market.</p></body></html>'
+    session = FakeSession({}, {url: FakeResponse(content=html.encode(), url=url)})
+    document = OriginalTextFetcher(session=session, minimum_text_chars=20).fetch(
+        SearchHit(url, 'Release', '', 1, None))
+    assert document.publication_date == date(2026, 8, 3)
+    assert document.publication_date_verified is True
+
+
+@pytest.mark.parametrize('payload', [
+    {'@type': 'Article', 'url': 'https://other.example/story', 'datePublished': '2026-08-03'},
+    {'@type': 'Organization', 'datePublished': '2026-08-03'},
+    {'@type': 'Article', 'dateModified': '2026-08-03'},
+    {'@graph': [{'@type': 'Article', 'datePublished': '2026-08-03'},
+                {'@type': 'Article', 'datePublished': '2026-08-04'}]},
+])
+def test_jsonld_unrelated_modified_or_conflicting_dates_cannot_verify(payload):
+    """SELECT INVARIANT: JSON-LD dates must describe this article unambiguously."""
+    import json
+    url = 'https://issuer.example.com/release'
+    html = '<html><head><script type="application/ld+json">' + json.dumps(payload) + '</script></head><body><p>Qualified supply remains constrained across the market.</p></body></html>'
+    session = FakeSession({}, {url: FakeResponse(content=html.encode(), url=url)})
+    document = OriginalTextFetcher(session=session, minimum_text_chars=20).fetch(
+        SearchHit(url, 'Release', '', 1, None))
+    assert document.publication_date_verified is False
 
 
 def test_tavily_fallback_family_is_stable_across_extractor_paraphrases():
@@ -535,6 +632,22 @@ def test_openai_compatible_extractor_returns_only_verbatim_original_spans():
     assert "If scoring_use is floor_only or context_only" in system_prompt
     assert "SEARCH SUMMARY" not in call["messages"][1]["content"]
     assert _document().text in call["messages"][1]["content"]
+
+
+def test_extractor_sends_versioned_round_robin_policy_to_model():
+    """SELECT INVARIANT: the actual model request explains runtime-owned fair allocation."""
+    client = FakeLLMClient({"spans": []})
+    extractor = OpenAICompatibleEvidenceSpanExtractor(client=client, model="test-model")
+    assert extractor.extract(document=_document(), node=_node(),
+                             material_field="effective_supply_concentration",
+                             query="qualified effective supply") == []
+    prompt = client.chat.completions.calls[0]["messages"][0]["content"]
+    assert "Round Robin" in prompt
+    assert "one unique evidence card per lane per turn" in prompt
+    assert "retains unconsumed results for later turns" in prompt
+    assert "REQUESTED_FIELD" in prompt
+    assert "Do not invent evidence to fill a lane" in prompt
+    assert extractor.prompt_version == "theme-chokepoint-evidence-span-v2-round-robin"
 
 
 def test_openai_compatible_extractor_rejects_paraphrase_as_exact_quote():

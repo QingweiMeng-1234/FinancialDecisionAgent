@@ -125,7 +125,9 @@ class EvidenceBoundCounterSearchProvider:
                 or not execution.provider_request_receipt_id.strip()
                 or execution.status not in {"supported", "explicit_negative", "unknown"}
                 or not execution.finding.strip()
-                or (execution.status != "unknown" and not execution.evidence_ids)
+                # Found counter evidence is independently materialized below;
+                # it need not borrow a main-thesis evidence ID to be retained.
+                or (execution.status == "explicit_negative" and not execution.evidence_ids)
                 or not set(execution.evidence_ids) <= card_ids
                 or execution.executed_at.tzinfo is None
                 or execution.executed_at.utcoffset() is None

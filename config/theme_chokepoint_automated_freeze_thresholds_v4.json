@@ -1,0 +1,30 @@
+{
+  "policy_id": "theme-chokepoint-automated-freeze-thresholds-v4",
+  "status": "active",
+  "effective_on": "2026-09-13",
+  "supersedes": "theme-chokepoint-automated-freeze-thresholds-v3",
+  "thresholds": {
+    "hard_gate_agreement_min": 0.85,
+    "final_state_agreement_min": 0.75,
+    "linear_weighted_kappa_min": 0.70,
+    "exact_exact_pairs_min": 1,
+    "high_risk_boundary_disagreements_max": 1
+  },
+  "change": {
+    "gate_id": "hard_gate_agreement",
+    "old_threshold": 0.95,
+    "new_threshold": 0.85,
+    "reason": "Owner explicitly requested a hard-gate agreement threshold of 85% on 2026-09-13."
+  },
+  "semantics": {
+    "symmetric_boundary_check": true,
+    "count_when_exactly_one_side_is_candidate_or_strong_candidate": true,
+    "does_not_imply_model_upward_error": true
+  },
+  "historical_integrity": {
+    "rewrite_prior_manifests": false,
+    "rewrite_prior_metrics": false,
+    "apply_only_to_new_manifests": true,
+    "reevaluate_preserved_responses_in_new_reports": true
+  }
+}

@@ -1,0 +1,27 @@
+name: Theme Research retrieval policy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  retrieval-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install focused test dependencies
+        run: python -m pip install pytest requests python-dotenv pydantic openai PyYAML trafilatura pyarrow "pypdf>=5.0"
+      - name: Verify retrieval invariants
+        run: python tools/theme-chokepoint/check-retrieval-policy.py

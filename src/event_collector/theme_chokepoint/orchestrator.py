@@ -91,6 +91,7 @@ class RootStageOrchestrator:
         manifest_root: str | Path,
         executable_contract_id: str,
         executable_contract_sha256: str,
+        contract_id: str = 'theme-chokepoint-scoring-v1.4',
     ):
         if not executable_contract_id.strip():
             raise ValueError("root orchestrator executable contract ID is required")
@@ -110,6 +111,7 @@ class RootStageOrchestrator:
         self.manifest_root = Path(manifest_root)
         self.executable_contract_id = executable_contract_id.strip()
         self.executable_contract_sha256 = normalized_sha
+        self.contract_id = contract_id
 
     def start(self, request) -> Stage1To7RunManifest:
         result = self.stage1.start(request)
@@ -124,7 +126,7 @@ class RootStageOrchestrator:
         )
         manifest = Stage1To7RunManifest(
             run_id=request.run_id,
-            contract_id="theme-chokepoint-scoring-v1.4",
+            contract_id=self.contract_id,
             executable_contract_id=self.executable_contract_id,
             executable_contract_sha256=self.executable_contract_sha256,
             stages=(receipt,),

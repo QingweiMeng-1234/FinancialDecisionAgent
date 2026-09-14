@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import replace
 from hashlib import sha256
 import json
@@ -49,6 +50,22 @@ STAGE4_ADMISSIBLE_SEGMENT_STATES = {
     "strong_candidate_chokepoint",
 }
 
+# Questions target the facts consumed by the scorer, not its dimension labels.
+SCORING_FACT_QUERIES = {
+    'demand_pressure': ('annual orders shipments year over year growth',
+                        'customer procurement backlog capacity reservations demand growth'),
+    'downstream_criticality': ('production dependency shortage shutdown affected output',
+                             'technical specification required material failure production impact'),
+    'effective_supply_concentration': ('qualified suppliers capacity market shares imports',
+                                       'supplier qualified capacity customer approvals available output'),
+    'qualification_barrier': ('customer qualification months testing certification requirements',
+                              'supplier approval testing duration qualification process'),
+    'capacity_inelasticity': ('capacity expansion lead time months construction ramp up',
+                              'new production line commissioning equipment delivery qualified output'),
+    'substitute_weakness': ('substitute alternative material performance qualification availability',
+                           'alternative technology adoption capacity switching cost technical limitations'),
+}
+
 
 class EvidenceAcquirer(Protocol):
     def acquire(
@@ -93,6 +110,7 @@ class FrozenScoringContract:
         allow_unfrozen_overlay: bool = False,
         governance_bundle_path: str | Path | None = None,
         expected_governance_bundle_sha256: str | None = None,
+        enable_v161_segment_chain: bool = False,
     ):
         governance_bundle = None
         if allow_unfrozen_overlay:
@@ -187,6 +205,9 @@ class FrozenScoringContract:
             if governance_bundle is not None
             else None
         )
+        if enable_v161_segment_chain:
+            from event_collector.theme_chokepoint.runtime_v161 import configure_contract
+            configure_contract(self)
 
     def weights_for(self, family: str) -> dict[str, float]:
         weights = self._score_families.get(family, {}).get("weighted_dimensions", {})
@@ -215,6 +236,7 @@ class EvidenceChokepointLoop:
         allow_unfrozen_overlay: bool = False,
         governance_bundle_path: str | Path | None = None,
         expected_governance_bundle_sha256: str | None = None,
+        enable_v161_segment_chain: bool = False,
         relief_provider: ReliefScenarioProvider | None = None,
         critic=None,
         monotonic_clock=monotonic,
@@ -228,7 +250,9 @@ class EvidenceChokepointLoop:
             allow_unfrozen_overlay=allow_unfrozen_overlay,
             governance_bundle_path=governance_bundle_path,
             expected_governance_bundle_sha256=expected_governance_bundle_sha256,
+            enable_v161_segment_chain=enable_v161_segment_chain,
         )
+        self.enable_v161_segment_chain = enable_v161_segment_chain
         self.relief_provider = relief_provider
         self.critic = critic
         self.monotonic_clock = monotonic_clock
@@ -236,6 +260,17 @@ class EvidenceChokepointLoop:
 
     def run(self, run_id: str) -> Stage3Result:
         return self._run(run_id)
+
+    def run_v161_shadow(self, run_id: str, *, extractor, artifact_root, shadow_id: str,
+                        counter_executor=None, facts_only=False):
+        """Score persisted Stage 3 evidence into a separate v1.6.1 shadow receipt."""
+        from event_collector.theme_chokepoint.stage3_shadow_v161 import run_shadow
+
+        return run_shadow(
+            self.repository, run_id, extractor=extractor,
+            artifact_root=artifact_root, shadow_id=shadow_id,
+            counter_executor=counter_executor, facts_only=facts_only,
+        )
 
     def run_candidate(self, run_id: str, *, execution) -> Stage3Result:
         """Explicit local RPC shadow; no production status or canonical writes.
@@ -296,6 +331,10 @@ class EvidenceChokepointLoop:
             if remaining_sources <= 0:
                 break
             new_candidates: list[EvidenceCandidate] = []
+            context_count = sum(
+                card.scoring_use == 'context_only' or not card.scoring_eligible or card.source_ambiguity
+                for card in cards_by_id.values()
+            )
             if execution is not None:
                 batch = execution.acquire_round(
                     run=run, iteration=iterations + 1, pairs=pairs,
@@ -313,35 +352,41 @@ class EvidenceChokepointLoop:
                 cost_usd_spent = usage["cost_microusd"] / 1_000_000
                 elapsed_seconds = usage["elapsed_seconds"]
                 provider_request_receipt_ids.extend(batch.request_receipt_ids)
-            for node, field in (() if execution is not None else pairs):
+            # One unique card per lane per turn. Retain each search's remaining
+            # results for later turns so large batches cannot starve other gaps.
+            lanes = deque(
+                (node, field, None)
+                for node, field in (() if execution is not None else pairs)
+            )
+            while lanes and len(new_candidates) < remaining_sources:
                 elapsed_seconds = self.monotonic_clock() - started_at
                 if elapsed_seconds >= run.request.max_time_seconds:
                     budget_stop_reason = (
                         f"max_time_seconds:{run.request.max_time_seconds}"
                     )
                     break
-                if len(new_candidates) >= remaining_sources:
-                    break
-                query = self._targeted_query(run.request, node, field)
-                acquired_result = self.acquirer.acquire(
-                    query=query,
-                    run=run,
-                    node=node,
-                    material_field=field,
-                )
-                if isinstance(acquired_result, EvidenceAcquisitionBatch):
-                    if acquired_result.cost_usd < 0:
-                        raise ValueError("provider acquisition cost cannot be negative")
-                    cost_usd_spent += acquired_result.cost_usd
-                    provider_request_receipt_ids.extend(
-                        acquired_result.request_receipt_ids
+                node, field, acquired = lanes.popleft()
+                if acquired is None:
+                    query = self._targeted_query(run.request, node, field, iteration=iterations + 1)
+                    acquired_result = self.acquirer.acquire(
+                        query=query,
+                        run=run,
+                        node=node,
+                        material_field=field,
                     )
-                    if cost_usd_spent > run.request.max_cost_usd:
-                        budget_stop_reason = f"max_cost_usd:{run.request.max_cost_usd}"
-                        break
-                    acquired = acquired_result.candidates
-                else:
-                    acquired = acquired_result
+                    if isinstance(acquired_result, EvidenceAcquisitionBatch):
+                        if acquired_result.cost_usd < 0:
+                            raise ValueError("provider acquisition cost cannot be negative")
+                        cost_usd_spent += acquired_result.cost_usd
+                        provider_request_receipt_ids.extend(
+                            acquired_result.request_receipt_ids
+                        )
+                        if cost_usd_spent > run.request.max_cost_usd:
+                            budget_stop_reason = f"max_cost_usd:{run.request.max_cost_usd}"
+                            break
+                        acquired = iter(acquired_result.candidates)
+                    else:
+                        acquired = iter(acquired_result)
                 for candidate in acquired:
                     if candidate.source_mode == "search_summary":
                         continue
@@ -351,9 +396,17 @@ class EvidenceChokepointLoop:
                         _candidate_fact_key(item) == key for item in new_candidates
                     ):
                         continue
+                    context_only = (candidate.claim.scoring_use == 'context_only'
+                                    or not candidate.claim.scoring_eligible
+                                    or candidate.claim.source_ambiguity)
+                    # Retain context, but reserve at least half the card capacity
+                    # for admissible scoring evidence across later gap rounds.
+                    if context_only and context_count >= run.request.max_sources // 2:
+                        continue
                     new_candidates.append(candidate)
-                    if len(new_candidates) >= remaining_sources:
-                        break
+                    context_count += context_only
+                    lanes.append((node, field, acquired))
+                    break
             if budget_stop_reason is not None:
                 break
             self._materialize(
@@ -383,8 +436,12 @@ class EvidenceChokepointLoop:
         _validate_segment_scoring_ownership(
             drafts.values(), claims_by_id, cards_by_id
         )
+        finalizer = _finalize_assessment
+        if self.enable_v161_segment_chain:
+            from event_collector.theme_chokepoint.runtime_v161 import finalize_assessment
+            finalizer = finalize_assessment
         assessments = tuple(
-            _finalize_assessment(
+            finalizer(
                 drafts[node.node_id],
                 self.contract.weights,
                 set(cards_by_id),
@@ -408,6 +465,9 @@ class EvidenceChokepointLoop:
         elif budget_stop_reason is not None:
             status = RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
             incomplete_reasons = (budget_stop_reason,)
+        elif self.enable_v161_segment_chain and all(item.primary_state is None for item in assessments):
+            status = RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
+            incomplete_reasons = ('v161_state_eligibility_unproven',)
         elif unresolved:
             status = RunStatus.INCOMPLETE_BUDGET_EXHAUSTED
             if iterations >= run.request.max_iterations:
@@ -545,11 +605,15 @@ class EvidenceChokepointLoop:
 
     @staticmethod
     def _targeted_query(
-        request: ResearchRequest, node: SupplyChainNode, material_field: str
+        request: ResearchRequest, node: SupplyChainNode, material_field: str, *, iteration: int = 1
     ) -> str:
+        questions = SCORING_FACT_QUERIES.get(material_field, (material_field.replace('_', ' '),) * 2)
+        question = questions[(iteration - 1) % 2]
+        sources = '(site:gov OR site:sec.gov)' if iteration % 2 else 'manufacturer technical disclosure annual report'
+        downstream = ' '.join(request.seed_products) or request.theme
         return (
-            f'"{node.normalized_name}" {material_field.replace("_", " ")} '
-            f'{request.region} as of {request.as_of_date.isoformat()} original source'
+            f'{node.normalized_name} {downstream} {request.region} {question} '
+            f'{sources} as of {request.as_of_date.isoformat()}'
         )
 
     @staticmethod

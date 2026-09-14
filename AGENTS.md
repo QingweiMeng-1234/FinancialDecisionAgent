@@ -49,3 +49,19 @@ For mixed tasks, apply strict TDD to the application-code portion and operationa
 - Unit or integration tests do not prove deployment success, external-provider behavior, production data correctness, or user-visible delivery.
 - Deployment health does not replace application tests.
 - Preserve existing user changes and stage only files owned by the current task.
+
+## Theme Research retrieval invariants
+
+Before changing Theme Chokepoint retrieval, provider prompts, search budgets, or
+original-source parsing, read [retrieval policy v1](docs/research/theme-retrieval-policy-v1.md).
+Preserve these invariants: factual gap queries with distinct follow-ups; Round
+Robin with at most half the card budget allocated to context; provider-enforced
+domain constraints with local host checks; verified original publication dates
+and PDF whitespace normalization before hashing and quote extraction.
+
+Run `python tools/theme-chokepoint/check-retrieval-policy.py` after changes in
+this area. Add focused tests before changing runtime behavior. If the retrieval
+policy must evolve, update its documented version, rationale and tests together;
+do not remove guards, promote context, fabricate dates or reuse cross-dimension
+evidence merely to make a live run pass. A passing retrieval gate does not prove
+live access, evidence sufficiency, valid scoring, or full E2E completion.

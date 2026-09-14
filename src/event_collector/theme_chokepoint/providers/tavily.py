@@ -5,12 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from hashlib import sha256
+from html.parser import HTMLParser
 from io import BytesIO
 import ipaddress
+import json
 import os
 import re
 from typing import Protocol
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import requests
 import trafilatura
@@ -91,6 +93,8 @@ class TavilySearchProvider:
     def search(self, query: str) -> tuple[SearchHit, ...]:
         if not query.strip():
             raise ValueError("Tavily search query is required")
+        sites = tuple(dict.fromkeys(re.findall(r'\bsite:([a-zA-Z0-9.*-]+)', query)))
+        domains = [site if '.' in site else '*.' + site for site in sites]
         try:
             response = self.session.post(
                 TAVILY_SEARCH_URL,
@@ -105,6 +109,7 @@ class TavilySearchProvider:
                     "include_answer": False,
                     "include_raw_content": False,
                     "include_images": False,
+                    **({'include_domains': domains} if domains else {}),
                 },
                 timeout=self.timeout_seconds,
             )
@@ -116,6 +121,13 @@ class TavilySearchProvider:
         hits = []
         for item in results:
             if not isinstance(item, dict) or not str(item.get("url", "")).strip():
+                continue
+            hostname = (urlsplit(str(item['url'])).hostname or '').casefold()
+            if domains and not any(
+                hostname == domain.casefold().lstrip('*.')
+                or hostname.endswith('.' + domain.casefold().lstrip('*.'))
+                for domain in domains
+            ):
                 continue
             hits.append(
                 SearchHit(
@@ -175,10 +187,15 @@ class OriginalTextFetcher:
         if len(content) > self.max_content_bytes:
             return None
         content_type = response.headers.get("Content-Type", "").casefold()
+        verified_date = None
         if "application/pdf" in content_type or urlsplit(final_url).path.casefold().endswith(".pdf"):
             text = _extract_pdf_text(content)
             source_type = "original_pdf"
         else:
+            dates = _PublicationDates(final_url)
+            dates.feed(response.text)
+            if len(dates.values) == 1:
+                verified_date = next(iter(dates.values))
             text = trafilatura.extract(
                 response.text,
                 include_links=False,
@@ -200,9 +217,10 @@ class OriginalTextFetcher:
             title=hit.title,
             publisher=(urlsplit(canonical_url).hostname or "unknown").casefold(),
             source_type=source_type,
-            publication_date=hit.publication_date,
+            publication_date=verified_date or hit.publication_date,
             text=text,
             content_hash=content_hash,
+            publication_date_verified=verified_date is not None,
         )
 
 
@@ -241,7 +259,8 @@ class TavilyOriginalEvidenceAcquirer:
                         (node.node_id, material_field, document.article_id, str(ordinal), quote)
                     ).encode("utf-8")
                 ).hexdigest()[:20]
-                if span.scoring_use in {"primary", "floor_only"} and not node.product_anchor_id:
+                scoring_use = span.scoring_use if document.publication_date_verified else 'context_only'
+                if scoring_use in {"primary", "floor_only"} and not node.product_anchor_id:
                     raise ValueError("scoring evidence requires an atomic product scope")
                 scope = AssessmentScope(
                     company_id=None,
@@ -312,7 +331,7 @@ class TavilyOriginalEvidenceAcquirer:
                             statement=span.statement.strip(),
                             material_field=material_field,
                             primary_scoring_dimension=span.primary_scoring_dimension,
-                            scoring_use=span.scoring_use,
+                            scoring_use=scoring_use,
                             fact_key=fact_key,
                             assessment_scope=scope,
                             condition_ids=(f"{scoring_dimension}.source_fact",),
@@ -333,6 +352,58 @@ def _parse_date(value) -> date | None:
         return date.fromisoformat(text[:10])
     except ValueError:
         return None
+
+
+class _PublicationDates(HTMLParser):
+    """Only explicit publication metadata from the fetched HTML; never URL guesses."""
+
+    def __init__(self, document_url):
+        super().__init__()
+        self.document_url = canonicalize_source_url(document_url).rstrip('/')
+        self.values = set()
+        self.jsonld = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == 'script' and attrs.get('type', '').casefold() == 'application/ld+json':
+            self.jsonld = []
+        field = (attrs.get('property') or attrs.get('name') or attrs.get('itemprop') or '').casefold()
+        if tag in {'meta', 'time'} and field in {'article:published_time', 'datepublished', 'pubdate'}:
+            value = _parse_date(attrs.get('content') or attrs.get('datetime'))
+            if value is not None:
+                self.values.add(value)
+
+    def handle_data(self, data):
+        if self.jsonld is not None:
+            self.jsonld.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == 'script' and self.jsonld is not None:
+            try:
+                self._read_jsonld(json.loads(''.join(self.jsonld)))
+            except (ValueError, RecursionError):
+                pass
+            self.jsonld = None
+
+    def _read_jsonld(self, value):
+        if isinstance(value, list):
+            for item in value:
+                self._read_jsonld(item)
+        elif isinstance(value, dict):
+            published = _parse_date(value.get('datePublished'))
+            types = value.get('@type', [])
+            if isinstance(types, str):
+                types = [types]
+            page_url = value.get('url') or value.get('@id')
+            same_page = page_url is None or (
+                isinstance(page_url, str) and
+                canonicalize_source_url(urljoin(self.document_url, page_url)).rstrip('/') == self.document_url
+            )
+            if (published is not None and same_page and isinstance(types, list)
+                    and any(t in ('Article', 'NewsArticle', 'Report', 'TechArticle',
+                                  'BlogPosting', 'ScholarlyArticle', 'WebPage') for t in types)):
+                self.values.add(published)
+            self._read_jsonld(value.get('@graph'))
 
 
 def _is_public_http_url(value: str) -> bool:
@@ -366,7 +437,8 @@ def _extract_pdf_text(content: bytes) -> str:
         raise RuntimeError("PDF original-text extraction requires pypdf>=5.0") from error
     try:
         reader = PdfReader(BytesIO(content))
-        return "\n\n".join(page.extract_text() or "" for page in reader.pages)
+        # Normalize page layout before content hashes and exact-quote offsets exist.
+        return "\n\n".join(" ".join((page.extract_text() or "").split()) for page in reader.pages)
     except Exception:
         return ""
 

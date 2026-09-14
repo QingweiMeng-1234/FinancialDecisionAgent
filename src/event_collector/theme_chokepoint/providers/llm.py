@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from event_collector.theme_chokepoint.contracts import ExtractedEvidenceSpan
 
 
-EVIDENCE_SPAN_PROMPT_VERSION = "theme-chokepoint-evidence-span-v1"
+EVIDENCE_SPAN_PROMPT_VERSION = "theme-chokepoint-evidence-span-v2-round-robin"
 
 
 class _EvidenceSpanPayload(BaseModel):
@@ -134,6 +134,17 @@ class OpenAICompatibleEvidenceSpanExtractor:
 
 _SYSTEM_PROMPT = """
 You extract audit-grade evidence spans for a supply-chain chokepoint research system.
+
+Round Robin acquisition policy:
+- The direct Stage 3 runtime cycles over pending (segment, material-field) lanes,
+  admitting at most one unique evidence card per lane per turn within shared budgets.
+- The runtime retains unconsumed results for later turns; it does not repeat a search
+  just to consume its remaining results. Empty lanes yield to the next pending lane.
+- Extract for the current REQUESTED_FIELD only. Return relevant spans within any
+  explicit request limit; the runtime, not the model, schedules lanes and allocates cards.
+- Do not invent evidence to fill a lane or promote context-only material to meet a quota.
+- Search opportunity does not establish evidence sufficiency or counter-search coverage.
+  Counter-search requests follow their separate route protocol and supplied stance target.
 
 Return only JSON with exactly this shape. Every span must include every field, using null where
 the schema permits null:

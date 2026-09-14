@@ -298,7 +298,8 @@ def test_root_orchestrator_fails_closed_when_stage_status_commits_before_receipt
     assert [item["stage"] for item in payload["stages"]] == [1]
 
 
-def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path):
+@pytest.mark.parametrize('v161', [False, True])
+def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path, v161):
     """SELECT INVARIANT: one persisted run crosses the real Stage 1-7 services."""
     repository = ThemeChokepointRepository(tmp_path / "theme.db")
     stage1 = AssistedThemeFramingService(
@@ -417,10 +418,18 @@ def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path):
         counter_max_cost_usd=1.0,
     )
 
+    scorer = ProgressiveScorer()
+    if v161:
+        from event_collector.theme_chokepoint.runtime_v161 import V161SegmentScorer
+        from tests.test_theme_chokepoint_stage3_shadow_v161 import setup_shadow
+        from tests.test_theme_chokepoint_shadow_counter_v161 import positive_extractor
+        _, _, _, _, extractor, completions = setup_shadow(tmp_path/'fact-fixture')
+        scorer = V161SegmentScorer(positive_extractor(extractor, completions))
     stage3 = EvidenceChokepointLoop(
         repository,
         ControlledAcquirer(),
-        ProgressiveScorer(),
+        scorer,
+        enable_v161_segment_chain=v161,
         expected_contract_sha256=CONTROLLED_OVERLAY_SHA256,
         allow_unfrozen_overlay=True,
         expected_governance_bundle_sha256=CONTROLLED_GOVERNANCE_BUNDLE_SHA256,
@@ -639,6 +648,7 @@ def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path):
     stage4 = CompanyExposureRedTeamService(
         repository,
         provider_composition.company_researcher,
+        enable_v161_segment_chain=v161,
         expected_contract_sha256=CONTROLLED_OVERLAY_SHA256,
         allow_unfrozen_overlay=True,
         expected_governance_bundle_sha256=CONTROLLED_GOVERNANCE_BUNDLE_SHA256,
@@ -656,8 +666,9 @@ def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path):
         stage6=stage6,
         stage7=stage7,
         manifest_root=tmp_path / "manifests",
-        executable_contract_id=CONTROLLED_OVERLAY_ID,
-        executable_contract_sha256=CONTROLLED_OVERLAY_SHA256,
+        executable_contract_id=stage3.contract.executable_contract_id,
+        executable_contract_sha256=stage3.contract.executable_contract_sha256,
+        contract_id=stage3.contract.version,
     )
     run_request = request(run_id="controlled-stage1-7-e2e", max_depth=1)
 
@@ -672,6 +683,7 @@ def test_controlled_local_e2e_uses_real_stages_sqlite_and_artifacts(tmp_path):
     assert awaiting.final_status is RunStatus.AWAITING_PRODUCT_CONFIRMATION
     assert completed.final_status is RunStatus.SIGNAL_EXPORT_READY
     assert [item.stage for item in completed.stages] == [1, 2, 3, 4, 5, 6, 7]
+    assert completed.contract_id == stage3.contract.version
     stage3_result = repository.get_stage3_result(run_request.run_id)
     assert stage3_result.status is RunStatus.CHOKEPOINT_ASSESSMENT_READY
     assert stage3_result.assessments[0].primary_state == "candidate_chokepoint"

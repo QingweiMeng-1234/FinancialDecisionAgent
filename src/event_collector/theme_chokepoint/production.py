@@ -14,8 +14,10 @@ from event_collector.theme_chokepoint.orchestrator import (
 )
 from event_collector.theme_chokepoint.providers import (
     DeepSeekUpstreamDependencyProposer,
+    TavilyOriginalEvidenceAcquirer,
     build_default_provider_composition,
 )
+from event_collector.theme_chokepoint.providers.live_counter import OriginalSourceCounterExecutor
 from event_collector.theme_chokepoint.providers.company import (
     CompanyBusinessFactAssertionWriter,
 )
@@ -70,6 +72,7 @@ class ProductionThemeChokepointConfig:
     dependency_timeout_seconds: float = 60.0
     dependency_max_input_chars: int = 12_000
     enable_v15_company_chain: bool = False
+    enable_v161_segment_chain: bool = False
 
 
 @dataclass(frozen=True)
@@ -107,7 +110,7 @@ def build_production_theme_chokepoint_runtime(
     product_anchor_proposer,
     evidence_acquirer,
     segment_scorer,
-    counter_search_executor,
+    counter_search_executor=None,
     dependency_proposer=None,
     relief_provider=None,
     monitoring_stage=None,
@@ -142,6 +145,13 @@ def build_production_theme_chokepoint_runtime(
         raise ValueError("production fact verifier execution identities are required")
     if config.verifier_execution_id == config.assertion_producer_execution_id:
         raise ValueError("production fact verifier must be independent from producer")
+
+    if counter_search_executor is None:
+        if not isinstance(evidence_acquirer, TavilyOriginalEvidenceAcquirer):
+            raise ValueError('automatic counter-search requires an original-source Tavily acquirer')
+        counter_search_executor = OriginalSourceCounterExecutor(
+            evidence_acquirer.search_provider, evidence_acquirer.fetcher, evidence_acquirer.extractor,
+        )
 
     if dependency_proposer is None:
         dependency_proposer = DeepSeekUpstreamDependencyProposer(
@@ -215,6 +225,7 @@ def build_production_theme_chokepoint_runtime(
         "allow_unfrozen_overlay": config.allow_unfrozen_overlay,
         "governance_bundle_path": config.governance_bundle_path,
         "expected_governance_bundle_sha256": config.governance_bundle_sha256,
+        "enable_v161_segment_chain": config.enable_v161_segment_chain,
     }
     stage1 = AssistedThemeFramingService(
         repository, theme_framer, product_anchor_proposer
@@ -253,6 +264,7 @@ def build_production_theme_chokepoint_runtime(
         manifest_root=config.manifest_root,
         executable_contract_id=stage3.contract.executable_contract_id,
         executable_contract_sha256=stage3.contract.executable_contract_sha256,
+        contract_id=stage3.contract.version,
     )
     return ProductionThemeChokepointRuntime(
         repository=repository,

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import sqlite3
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -134,6 +135,27 @@ def test_counter_search_persists_request_raw_response_and_parsed_result_boundari
     assert all(route.request_record_id for route in receipt.route_findings)
     assert all(route.response_record_id for route in receipt.route_findings)
     assert all(route.result_record_id for route in receipt.route_findings)
+
+
+def test_new_counter_sources_do_not_require_preexisting_primary_credit(tmp_path):
+    """SELECT INVARIANT: independent counter discovery works even while main evidence is missing."""
+    repository = ThemeChokepointRepository(tmp_path/'counter.db')
+    class NewSourceExecutor(RawExecutor):
+        def execute(self, **kwargs):
+            raw = super().execute(**kwargs)
+            payload = json.loads(raw.raw_body)
+            payload['evidence_ids'] = []
+            if kwargs['route_id'] == 'alternatives':
+                payload.update(status='unknown', coverage_state='unknown')
+            return replace(raw, raw_body=json.dumps(payload).encode())
+    provider = EvidenceBoundCounterSearchProvider(NewSourceExecutor(repository), repository=repository,
+        max_queries=3, max_time_seconds=60, max_cost_usd=1)
+    node, _, request = _inputs()
+    receipt = provider.search(node=node, ordinal_draft=SimpleNamespace(), claims=(), evidence_cards=(), request=request)
+    assert receipt.demand_evidence_ids == receipt.supply_evidence_ids == ()
+    assert len(receipt.route_findings) == 3
+    assert len(receipt.route_findings[0].new_counter_evidence_ids) == 1
+    assert repository.load_reconciled_counter_evidence(receipt.route_findings[0].reconciliation_receipt_id)
 
 
 def test_counter_search_rejects_string_only_new_ids_without_materialized_evidence(

@@ -766,6 +766,113 @@ def _all_dimension_candidates():
     return candidates
 
 
+@pytest.mark.parametrize("max_sources", [2, 6, 16])
+@pytest.mark.parametrize("responses", ["full", "empty_and_duplicates", "all_empty"])
+def test_stage3_round_robin_shares_card_budget_across_missing_dimensions(tmp_path, max_sources, responses):
+    """SELECT INVARIANT: each missing lane gets one card before any gets a second."""
+    from event_collector.theme_chokepoint.contracts import EvidenceAcquisitionBatch
+
+    empty_fields = (DIMENSIONS if responses == "all_empty" else
+                    (DIMENSIONS[1],) if responses == "empty_and_duplicates" else ())
+
+    class AllMissingScorer:
+        def assess(self, node, *args, **kwargs):
+            return _unknown_score(node.node_id, missing=DIMENSIONS)
+
+    class PerDimensionAcquirer:
+        def __init__(self):
+            self.fields = []
+
+        def acquire(self, *, material_field, **kwargs):
+            self.fields.append(material_field)
+            base = next(c for c in _all_dimension_candidates()
+                        if c.claim.material_field == material_field)
+            candidates = []
+            for index in range(5):
+                text = f"Original fact {index} for {material_field}."
+                candidates.append(replace(
+                    base, article_id=f"{material_field}-{index}",
+                    canonical_url=f"https://example.com/{material_field}/{index}",
+                    origin_event_id=f"event-{material_field}-{index}",
+                    original_text=text, exact_quote=text, quote_start=0, quote_end=len(text),
+                    claim=replace(base.claim, claim_id=f"claim-{material_field}-{index}",
+                                  statement=text),
+                ))
+            if material_field in empty_fields:
+                candidates = []
+            elif responses == "empty_and_duplicates":
+                candidates = [replace(base, source_mode="search_summary"),
+                              *[c for candidate in candidates for c in (candidate, candidate)]]
+            return EvidenceAcquisitionBatch(
+                candidates=tuple(candidates), cost_usd=0.1,
+                request_receipt_ids=(f"search-{material_field}",),
+            )
+
+    repository = ThemeChokepointRepository(tmp_path / "theme.db")
+    request = _seed_run(repository, request=_request(max_iterations=1, max_sources=max_sources))
+    acquirer = PerDimensionAcquirer()
+    result = _controlled_loop(repository, acquirer, AllMissingScorer()).run(request.run_id)
+
+    active_fields = [field for field in DIMENSIONS if field not in empty_fields]
+    expected_queries = list(DIMENSIONS)
+    if max_sources <= len(active_fields):
+        expected_queries = list(DIMENSIONS[:DIMENSIONS.index(active_fields[max_sources - 1]) + 1])
+    assert acquirer.fields == expected_queries
+    assert [card.primary_scoring_dimension for card in result.evidence_cards] == (
+        active_fields * 5
+    )[:max_sources]
+    assert result.cost_usd_spent == round(0.1 * len(expected_queries), 6)
+    assert result.provider_request_receipt_ids == tuple(f"search-{field}" for field in expected_queries)
+    assert repository.get_stage3_result(request.run_id) == result
+
+
+def test_stage3_reserves_card_budget_for_scoring_evidence_after_context_round(tmp_path):
+    """SELECT INVARIANT: context-only cards cannot prevent a later evidence round."""
+    class ContextThenEvidence:
+        calls = 0
+
+        def acquire(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return [replace(c, claim=replace(c.claim, scoring_use='context_only',
+                            scoring_eligible=False, source_ambiguity=True))
+                        for c in _all_dimension_candidates() if c.claim.claim_id != 'claim-1']
+            return [_candidate()]
+
+    repository = ThemeChokepointRepository(tmp_path / 'theme.db')
+    request = _seed_run(repository, request=_request(max_sources=4, max_iterations=2))
+    acquirer = ContextThenEvidence()
+    result = _controlled_loop(repository, acquirer, NeverResolvedScorer()).run(request.run_id)
+    assert acquirer.calls == 2
+    assert len(result.evidence_cards) == 3
+    assert sum(card.scoring_use == 'context_only' for card in result.evidence_cards) == 2
+    assert any(card.scoring_eligible and card.scoring_use == 'primary' for card in result.evidence_cards)
+    assert repository.get_stage3_result(request.run_id) == result
+
+
+def test_stage3_gap_queries_ask_for_scoring_facts_and_change_on_followup(tmp_path):
+    """SELECT INVARIANT: missing dimensions search scoped facts, with a distinct follow-up."""
+    class AllMissingScorer:
+        def assess(self, node, *args, **kwargs):
+            return _unknown_score(node.node_id, missing=DIMENSIONS)
+
+    repository = ThemeChokepointRepository(tmp_path / 'theme.db')
+    request = _seed_run(repository, request=_request(max_iterations=2))
+    acquirer = RecordingAcquirer([])
+    _controlled_loop(repository, acquirer, AllMissingScorer()).run(request.run_id)
+    assert len(acquirer.queries) == 12
+    fact_terms = ('orders', 'production', 'qualified suppliers', 'qualification months',
+                  'expansion lead time', 'substitute')
+    for i, fact in enumerate(fact_terms):
+        first, second = acquirer.queries[i][0], acquirer.queries[i + 6][0]
+        assert fact in first
+        assert request.theme in first
+        assert request.region in first
+        assert 'site:gov' in first
+        assert 'annual report' in second
+        assert first != second
+
+
 def test_stage3_refuses_to_run_before_supply_chain_graph_is_committed(tmp_path):
     """SELECT INVARIANT: Stage 2 committed state is a hard Stage 3 gate."""
     repository = ThemeChokepointRepository(tmp_path / "theme.db")
