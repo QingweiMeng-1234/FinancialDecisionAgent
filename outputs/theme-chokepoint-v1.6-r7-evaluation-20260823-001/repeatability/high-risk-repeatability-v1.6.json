@@ -1,0 +1,226 @@
+{
+  "report_id": "theme-chokepoint-high-risk-repeatability-r7-v1.6",
+  "case_id": "H16R7-C03",
+  "run_count": 5,
+  "validation_pass_5_of_5": true,
+  "full_item_consistency_rate": 0.6,
+  "final_state_pass_power_5": true,
+  "unstable_item_ids": [
+    "H16R7-O03-03",
+    "H16R7-O03-04",
+    "H16R7-O03-05",
+    "H16R7-O03-06"
+  ],
+  "items": [
+    {
+      "item_id": "H16R7-O03-01",
+      "kind": "ordinal",
+      "values": [
+        {
+          "tuple": "unknown|none|0|4",
+          "bound_derivation": "unresolved"
+        },
+        {
+          "tuple": "unknown|none|0|4",
+          "bound_derivation": "unresolved"
+        },
+        {
+          "tuple": "unknown|none|0|4",
+          "bound_derivation": "unresolved"
+        },
+        {
+          "tuple": "unknown|none|0|4",
+          "bound_derivation": "unresolved"
+        },
+        {
+          "tuple": "unknown|none|0|4",
+          "bound_derivation": "unresolved"
+        }
+      ],
+      "all_five_same": true
+    },
+    {
+      "item_id": "H16R7-O03-02",
+      "kind": "ordinal",
+      "values": [
+        {
+          "tuple": "supported|exact|2|2",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|2|2",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|2|2",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|2|2",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|2|2",
+          "bound_derivation": "direct_measurement"
+        }
+      ],
+      "all_five_same": true
+    },
+    {
+      "item_id": "H16R7-O03-03",
+      "kind": "ordinal",
+      "values": [
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "human_inferred"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "human_inferred"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "human_inferred"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "human_inferred"
+        },
+        {
+          "tuple": "supported|lower_bound|2|4",
+          "bound_derivation": "human_inferred"
+        }
+      ],
+      "all_five_same": false
+    },
+    {
+      "item_id": "H16R7-O03-04",
+      "kind": "ordinal",
+      "values": [
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "rule_derived"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "rule_derived"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "rule_derived"
+        },
+        {
+          "tuple": "supported|lower_bound|1|4",
+          "bound_derivation": "rule_derived"
+        }
+      ],
+      "all_five_same": false
+    },
+    {
+      "item_id": "H16R7-O03-05",
+      "kind": "ordinal",
+      "values": [
+        {
+          "tuple": "supported|interval|3|4",
+          "bound_derivation": "rule_derived"
+        },
+        {
+          "tuple": "supported|interval|3|4",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|lower_bound|3|4",
+          "bound_derivation": "rule_derived"
+        },
+        {
+          "tuple": "supported|interval|3|4",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|interval|3|4",
+          "bound_derivation": "direct_measurement"
+        }
+      ],
+      "all_five_same": false
+    },
+    {
+      "item_id": "H16R7-O03-06",
+      "kind": "ordinal",
+      "values": [
+        {
+          "tuple": "supported|exact|3|3",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|3|3",
+          "bound_derivation": "rule_derived"
+        },
+        {
+          "tuple": "supported|exact|3|3",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|3|3",
+          "bound_derivation": "direct_measurement"
+        },
+        {
+          "tuple": "supported|exact|3|3",
+          "bound_derivation": "direct_measurement"
+        }
+      ],
+      "all_five_same": false
+    },
+    {
+      "item_id": "H16R7-H03-01",
+      "kind": "hard_gate",
+      "values": [
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown"
+      ],
+      "all_five_same": true
+    },
+    {
+      "item_id": "H16R7-H03-02",
+      "kind": "hard_gate",
+      "values": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "all_five_same": true
+    },
+    {
+      "item_id": "H16R7-H03-03",
+      "kind": "hard_gate",
+      "values": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "all_five_same": true
+    },
+    {
+      "item_id": "H16R7-S03",
+      "kind": "state",
+      "values": [
+        "__WITHHELD__",
+        "__WITHHELD__",
+        "__WITHHELD__",
+        "__WITHHELD__",
+        "__WITHHELD__"
+      ],
+      "all_five_same": true
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+name: Theme Chokepoint v1.6.8 freeze gate
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/theme-chokepoint-v1.6.8-freeze.yml"
+      - "config/theme_chokepoint_*"
+      - "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/**"
+      - "src/event_collector/theme_chokepoint/**"
+      - "tests/test_theme_chokepoint_scoring_v16.py"
+      - "tools/theme-chokepoint/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/theme-chokepoint-v1.6.8-freeze.yml"
+      - "config/theme_chokepoint_*"
+      - "outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/**"
+      - "src/event_collector/theme_chokepoint/**"
+      - "tests/test_theme_chokepoint_scoring_v16.py"
+      - "tools/theme-chokepoint/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-frozen-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify v1.6.8 frozen assets and automated gates
+        run: node outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/verify-high-risk-threshold-and-freeze-r7.mjs
+      - name: Verify Staging Shadow release boundary and rolling pool
+        run: node tools/theme-chokepoint/verify-release-v1.6.8.mjs
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Prepare isolated v1.6 test package
+        run: |
+          mkdir -p .ci-python/event_collector/theme_chokepoint
+          cp src/event_collector/theme_chokepoint/scoring_v16.py .ci-python/event_collector/theme_chokepoint/
+          cp src/event_collector/theme_chokepoint/validation_v16.py .ci-python/event_collector/theme_chokepoint/
+          touch .ci-python/event_collector/__init__.py
+          touch .ci-python/event_collector/theme_chokepoint/__init__.py
+      - name: Run v1.6 deterministic scoring regression
+        run: python -m pytest --noconftest tests/test_theme_chokepoint_scoring_v16.py -q
+        env:
+          PYTHONPATH: .ci-python
+      - name: Run isolated Staging Shadow smoke
+        run: python tools/theme-chokepoint/smoke-staging-v1.6.8.py
+        env:
+          PYTHONPATH: .ci-python

@@ -1,0 +1,335 @@
+{
+  "task_id": "theme-chokepoint-calibration-post-adjudication-r7-v1.6.1",
+  "task_type": "real_source_calibration_blind_reannotation_after_policy_adjudication",
+  "contract_id": "theme-chokepoint-scoring-v1.6+human-inference-overlay-v1.6.1",
+  "machine_contract_id": "theme-chokepoint-semantic-task-contract-v1.6",
+  "machine_contract_sha256": "c736ffd60eb0a905d93ff7707292e913dff4a5ca3a5c5a6699d53e9e4699e046",
+  "evidence_pack_id": "theme-chokepoint-calibration-r7-v1.6",
+  "blinding": {
+    "independent_submissions_required": 1,
+    "adjudication_visible_before_submission": false,
+    "expected_labels_in_pack": false,
+    "forbidden_paths": [
+      "sealed",
+      "agreement",
+      "adjudication"
+    ]
+  },
+  "allowed_annotator_roles": [
+    "blind_model_annotator"
+  ],
+  "segment_weights": {
+    "demand_pressure": 15,
+    "downstream_criticality": 20,
+    "effective_supply_concentration": 15,
+    "qualification_barrier": 15,
+    "capacity_inelasticity": 15,
+    "substitute_weakness": 20
+  },
+  "ordinal_tasks": [
+    {
+      "item_id": "G16R6-O01-01",
+      "case_id": "G16R6-C01",
+      "score_family": "segment",
+      "dimension": "demand_pressure"
+    },
+    {
+      "item_id": "G16R6-O01-02",
+      "case_id": "G16R6-C01",
+      "score_family": "segment",
+      "dimension": "downstream_criticality"
+    },
+    {
+      "item_id": "G16R6-O01-03",
+      "case_id": "G16R6-C01",
+      "score_family": "segment",
+      "dimension": "effective_supply_concentration"
+    },
+    {
+      "item_id": "G16R6-O01-04",
+      "case_id": "G16R6-C01",
+      "score_family": "segment",
+      "dimension": "qualification_barrier"
+    },
+    {
+      "item_id": "G16R6-O01-05",
+      "case_id": "G16R6-C01",
+      "score_family": "segment",
+      "dimension": "capacity_inelasticity"
+    },
+    {
+      "item_id": "G16R6-O01-06",
+      "case_id": "G16R6-C01",
+      "score_family": "segment",
+      "dimension": "substitute_weakness"
+    },
+    {
+      "item_id": "G16R6-O02-01",
+      "case_id": "G16R6-C02",
+      "score_family": "segment",
+      "dimension": "demand_pressure"
+    },
+    {
+      "item_id": "G16R6-O02-02",
+      "case_id": "G16R6-C02",
+      "score_family": "segment",
+      "dimension": "downstream_criticality"
+    },
+    {
+      "item_id": "G16R6-O02-03",
+      "case_id": "G16R6-C02",
+      "score_family": "segment",
+      "dimension": "effective_supply_concentration"
+    },
+    {
+      "item_id": "G16R6-O02-04",
+      "case_id": "G16R6-C02",
+      "score_family": "segment",
+      "dimension": "qualification_barrier"
+    },
+    {
+      "item_id": "G16R6-O02-05",
+      "case_id": "G16R6-C02",
+      "score_family": "segment",
+      "dimension": "capacity_inelasticity"
+    },
+    {
+      "item_id": "G16R6-O02-06",
+      "case_id": "G16R6-C02",
+      "score_family": "segment",
+      "dimension": "substitute_weakness"
+    },
+    {
+      "item_id": "H16R6-O01-01",
+      "case_id": "H16R6-C01",
+      "score_family": "segment",
+      "dimension": "demand_pressure"
+    },
+    {
+      "item_id": "H16R6-O01-02",
+      "case_id": "H16R6-C01",
+      "score_family": "segment",
+      "dimension": "downstream_criticality"
+    },
+    {
+      "item_id": "H16R6-O01-03",
+      "case_id": "H16R6-C01",
+      "score_family": "segment",
+      "dimension": "effective_supply_concentration"
+    },
+    {
+      "item_id": "H16R6-O01-04",
+      "case_id": "H16R6-C01",
+      "score_family": "segment",
+      "dimension": "qualification_barrier"
+    },
+    {
+      "item_id": "H16R6-O01-05",
+      "case_id": "H16R6-C01",
+      "score_family": "segment",
+      "dimension": "capacity_inelasticity"
+    },
+    {
+      "item_id": "H16R6-O01-06",
+      "case_id": "H16R6-C01",
+      "score_family": "segment",
+      "dimension": "substitute_weakness"
+    },
+    {
+      "item_id": "H16R6-O02-01",
+      "case_id": "H16R6-C02",
+      "score_family": "segment",
+      "dimension": "demand_pressure"
+    },
+    {
+      "item_id": "H16R6-O02-02",
+      "case_id": "H16R6-C02",
+      "score_family": "segment",
+      "dimension": "downstream_criticality"
+    },
+    {
+      "item_id": "H16R6-O02-03",
+      "case_id": "H16R6-C02",
+      "score_family": "segment",
+      "dimension": "effective_supply_concentration"
+    },
+    {
+      "item_id": "H16R6-O02-04",
+      "case_id": "H16R6-C02",
+      "score_family": "segment",
+      "dimension": "qualification_barrier"
+    },
+    {
+      "item_id": "H16R6-O02-05",
+      "case_id": "H16R6-C02",
+      "score_family": "segment",
+      "dimension": "capacity_inelasticity"
+    },
+    {
+      "item_id": "H16R6-O02-06",
+      "case_id": "H16R6-C02",
+      "score_family": "segment",
+      "dimension": "substitute_weakness"
+    }
+  ],
+  "hard_gate_tasks": [
+    {
+      "item_id": "G16R6-H01-01",
+      "case_id": "G16R6-C01",
+      "gate": "segment_discovery",
+      "description": "Segment discovery eligibility"
+    },
+    {
+      "item_id": "G16R6-H01-02",
+      "case_id": "G16R6-C01",
+      "gate": "counter_search_complete",
+      "description": "Counter-search completion"
+    },
+    {
+      "item_id": "G16R6-H01-03",
+      "case_id": "G16R6-C01",
+      "gate": "strong_candidate_evidence",
+      "description": "Strong-candidate evidence quality"
+    },
+    {
+      "item_id": "G16R6-H02-01",
+      "case_id": "G16R6-C02",
+      "gate": "segment_discovery",
+      "description": "Segment discovery eligibility"
+    },
+    {
+      "item_id": "G16R6-H02-02",
+      "case_id": "G16R6-C02",
+      "gate": "counter_search_complete",
+      "description": "Counter-search completion"
+    },
+    {
+      "item_id": "G16R6-H02-03",
+      "case_id": "G16R6-C02",
+      "gate": "strong_candidate_evidence",
+      "description": "Strong-candidate evidence quality"
+    },
+    {
+      "item_id": "H16R6-H01-01",
+      "case_id": "H16R6-C01",
+      "gate": "segment_discovery",
+      "description": "Segment discovery eligibility"
+    },
+    {
+      "item_id": "H16R6-H01-02",
+      "case_id": "H16R6-C01",
+      "gate": "counter_search_complete",
+      "description": "Counter-search completion"
+    },
+    {
+      "item_id": "H16R6-H01-03",
+      "case_id": "H16R6-C01",
+      "gate": "strong_candidate_evidence",
+      "description": "Strong-candidate evidence quality"
+    },
+    {
+      "item_id": "H16R6-H02-01",
+      "case_id": "H16R6-C02",
+      "gate": "segment_discovery",
+      "description": "Segment discovery eligibility"
+    },
+    {
+      "item_id": "H16R6-H02-02",
+      "case_id": "H16R6-C02",
+      "gate": "counter_search_complete",
+      "description": "Counter-search completion"
+    },
+    {
+      "item_id": "H16R6-H02-03",
+      "case_id": "H16R6-C02",
+      "gate": "strong_candidate_evidence",
+      "description": "Strong-candidate evidence quality"
+    }
+  ],
+  "state_tasks": [
+    {
+      "item_id": "G16R6-S01",
+      "case_id": "G16R6-C01",
+      "state_family": "segment",
+      "ordinal_item_ids": [
+        "G16R6-O01-01",
+        "G16R6-O01-02",
+        "G16R6-O01-03",
+        "G16R6-O01-04",
+        "G16R6-O01-05",
+        "G16R6-O01-06"
+      ],
+      "hard_gate_item_ids": [
+        "G16R6-H01-01",
+        "G16R6-H01-02",
+        "G16R6-H01-03"
+      ]
+    },
+    {
+      "item_id": "G16R6-S02",
+      "case_id": "G16R6-C02",
+      "state_family": "segment",
+      "ordinal_item_ids": [
+        "G16R6-O02-01",
+        "G16R6-O02-02",
+        "G16R6-O02-03",
+        "G16R6-O02-04",
+        "G16R6-O02-05",
+        "G16R6-O02-06"
+      ],
+      "hard_gate_item_ids": [
+        "G16R6-H02-01",
+        "G16R6-H02-02",
+        "G16R6-H02-03"
+      ]
+    },
+    {
+      "item_id": "H16R6-S01",
+      "case_id": "H16R6-C01",
+      "state_family": "segment",
+      "ordinal_item_ids": [
+        "H16R6-O01-01",
+        "H16R6-O01-02",
+        "H16R6-O01-03",
+        "H16R6-O01-04",
+        "H16R6-O01-05",
+        "H16R6-O01-06"
+      ],
+      "hard_gate_item_ids": [
+        "H16R6-H01-01",
+        "H16R6-H01-02",
+        "H16R6-H01-03"
+      ]
+    },
+    {
+      "item_id": "H16R6-S02",
+      "case_id": "H16R6-C02",
+      "state_family": "segment",
+      "ordinal_item_ids": [
+        "H16R6-O02-01",
+        "H16R6-O02-02",
+        "H16R6-O02-03",
+        "H16R6-O02-04",
+        "H16R6-O02-05",
+        "H16R6-O02-06"
+      ],
+      "hard_gate_item_ids": [
+        "H16R6-H02-01",
+        "H16R6-H02-02",
+        "H16R6-H02-03"
+      ]
+    }
+  ],
+  "required_ordinal_field": "bound_derivation",
+  "allowed_bound_derivations": [
+    "direct_measurement",
+    "rule_derived",
+    "human_inferred",
+    "unresolved"
+  ],
+  "policy_overlay": {
+    "id": "theme-chokepoint-human-inference-overlay-v1.6.1",
+    "sha256": "9565dfaa89af26aa25605b445e43530f6652a08e0d78ff2d25f947268ebac5e6",
+    "file": "human-inference-overlay-v1.6.1.zh-CN.md"
+  }
+}

@@ -1,0 +1,448 @@
+{
+  "review_id": "theme-chokepoint-r7-top10-badcase-v1.6",
+  "completed_at": "2026-08-23T20:15:00+08:00",
+  "reviewer_role": "model_assisted_root_cause_reviewer",
+  "review_scope": "Top-10 annotation and state badcases, not the separate company-ranking Top-10 production gate",
+  "counts": {
+    "candidates": 10,
+    "completed": 10
+  },
+  "systemic_findings": [
+    "现有R6真实案例的一致性门失败，主要来自代理证据能否形成floor，而不是机械评分器错误。",
+    "第二盲标者存在过度Unknown、替代方向错误和模板化rationale，不能直接替代第三方人工裁决。",
+    "bound_derivation定义仍不够操作化：直接事实与合同映射之间经常被混分为direct_measurement或rule_derived。",
+    "相同数值区间[3,4]被交替编码为lower_bound或interval，Validator尚未强制唯一表示。"
+  ],
+  "policy_decisions": [
+    "human_inferred默认进入人工路由，不得自动支持高风险升级。",
+    "同一[3,4]只有floor=3而无独立ceiling时必须编码为lower_bound，不得编码为interval。",
+    "原文事实经过评分阈值、公式或流程映射后统一标记rule_derived；direct_measurement保留给原文直接给出最终评分所需完整组件且无需计算的情况。",
+    "Final State和Hard Gate分歧必须回到上游Ordinal裁决，不允许单独覆盖派生结果。"
+  ],
+  "candidates": [
+    {
+      "rank": 1,
+      "item_id": "G16R6-S02",
+      "priority_score": 140,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "ASML Demand把30%产能扩张代理为同Scope年度净需求，且Concentration、Qualification、Capacity和Substitute的Scope/锚点也发生独立分歧，导致reference=candidate而blind=withheld。",
+      "adjudicated_action": "不自动改写R6；冻结前必须由人类第三方按严格v1.6重新裁决Demand与Discovery。若不接受需求代理，状态必须重新机械计算。",
+      "regression_action": "新增capacity_growth_is_not_net_demand边界测试，并要求Final State报告列出所有human_inferred上游项。",
+      "comparison": {
+        "annotator_a": {
+          "primary_state": "candidate_chokepoint",
+          "achieved_hard_gates": [
+            "G16R6-H02-01",
+            "G16R6-H02-02",
+            "G16R6-H02-03"
+          ],
+          "derived_metrics": {
+            "score_min": 70,
+            "score_max": 100,
+            "presence_coverage": 1,
+            "resolved_coverage": 1,
+            "decision_coverage": 0.7
+          },
+          "withheld_reason": null,
+          "rationale": "ASML EUV六维机械派生分数区间为[70,100]，presence与resolved coverage均为1，decision coverage为0.7。Discovery、Counter-search Completion及Strong-candidate Evidence Quality三个Gate全部通过；score_min至少65、decision coverage至少0.65、Demand和Criticality floor至少2、直接需求与供应证据存在且无mandatory conflict，因此进入candidate_chokepoint。由于score_min未达到80且decision coverage未达到0.80，不能进入strong_candidate_chokepoint，人工确认该派生状态。"
+        },
+        "annotator_b": {
+          "primary_state": null,
+          "achieved_hard_gates": [
+            "G16R6-H02-02",
+            "G16R6-H02-03"
+          ],
+          "derived_metrics": {
+            "score_min": 31.3,
+            "score_max": 100,
+            "presence_coverage": 0.5,
+            "resolved_coverage": 0.5,
+            "decision_coverage": 0.3125
+          },
+          "withheld_reason": "Insufficient eligibility under semantic contract.",
+          "rationale": "Mechanical derivation."
+        }
+      },
+      "category": "downstream_state_amplification",
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05",
+        "G16R6-E06"
+      ]
+    },
+    {
+      "rank": 2,
+      "item_id": "H16R6-S01",
+      "priority_score": 140,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "第二标注者把可计算的变压器Demand、结构Criticality和已采用翻新路线大面积降为Unknown；同时Concentration确有代理推断争议。多项保守降级叠加使reference=watch而blind=withheld。",
+      "adjudicated_action": "保留watch作为既有人工参考，但不得用本次一致率关闭冻结门；第三方需分别裁决Demand、Criticality、Concentration和Substitute，不能只裁最终State。",
+      "regression_action": "加入CAGR计算、结构测试和credible substitute方向性三个定向回归；禁止用通用模板rationale提交。",
+      "comparison": {
+        "annotator_a": {
+          "primary_state": "watch_segment",
+          "achieved_hard_gates": [
+            "H16R6-H01-01",
+            "H16R6-H01-02",
+            "H16R6-H01-03"
+          ],
+          "derived_metrics": {
+            "score_min": 57.5,
+            "score_max": 86.2,
+            "presence_coverage": 1,
+            "resolved_coverage": 1,
+            "decision_coverage": 0.7125
+          },
+          "withheld_reason": null,
+          "rationale": "美国GSU及高容量电力变压器六维机械派生分数区间经确定性评分器一位小数舍入为[57.5,86.2]，presence与resolved coverage均为1，decision coverage为0.7125。Discovery、Counter-search Completion及Strong-candidate Evidence Quality三个Gate全部通过，满足Watch的Discovery、coverage和score_max条件；但score_min低于Candidate所需65，主要受Substitute Weakness [0,2]及其他宽区间影响，因此人工确认primary_state为watch_segment。"
+        },
+        "annotator_b": {
+          "primary_state": null,
+          "achieved_hard_gates": [
+            "H16R6-H01-02",
+            "H16R6-H01-03"
+          ],
+          "derived_metrics": {
+            "score_min": 37.5,
+            "score_max": 100,
+            "presence_coverage": 0.5,
+            "resolved_coverage": 0.5,
+            "decision_coverage": 0.375
+          },
+          "withheld_reason": "Insufficient eligibility under semantic contract.",
+          "rationale": "Mechanical derivation."
+        }
+      },
+      "category": "blind_annotator_over_abstention",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ]
+    },
+    {
+      "rank": 3,
+      "item_id": "H16R6-S02",
+      "priority_score": 140,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "第二标注者将燃机Demand、Criticality、Qualification降级，并把燃气发动机真实替代路线误写为Substitute Weakness的lower bound，方向与合同相反，导致watch与withheld分歧。",
+      "adjudicated_action": "保留watch作为既有人工参考；将替代路线方向错误列为P0标注错误，第三方重标后再计算State。",
+      "regression_action": "新增credible_alternative_creates_ceiling_not_floor测试，并在Validator加入Substitute方向一致性检查。",
+      "comparison": {
+        "annotator_a": {
+          "primary_state": "watch_segment",
+          "achieved_hard_gates": [
+            "H16R6-H02-01",
+            "H16R6-H02-02",
+            "H16R6-H02-03"
+          ],
+          "derived_metrics": {
+            "score_min": 61.2,
+            "score_max": 90,
+            "presence_coverage": 1,
+            "resolved_coverage": 1,
+            "decision_coverage": 0.7125
+          },
+          "withheld_reason": null,
+          "rationale": "美国数据中心驱动大型燃气轮机六维机械派生分数区间经确定性评分器一位小数舍入为[61.2,90]，presence与resolved coverage均为1，decision coverage为0.7125。Discovery、Counter-search Completion及Strong-candidate Evidence Quality三个Gate全部通过，满足Watch条件；Candidate的其他条件已满足，但score_min仍低于65，主要受燃气发动机替代使Substitute Weakness保持[0,2]影响，因此人工确认primary_state为watch_segment。"
+        },
+        "annotator_b": {
+          "primary_state": null,
+          "achieved_hard_gates": [
+            "H16R6-H02-02",
+            "H16R6-H02-03"
+          ],
+          "derived_metrics": {
+            "score_min": 36.3,
+            "score_max": 100,
+            "presence_coverage": 0.55,
+            "resolved_coverage": 0.55,
+            "decision_coverage": 0.3625
+          },
+          "withheld_reason": "Insufficient eligibility under semantic contract.",
+          "rationale": "Mechanical derivation."
+        }
+      },
+      "category": "blind_annotator_over_abstention_and_bound_direction",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ]
+    },
+    {
+      "rank": 4,
+      "item_id": "G16R6-O01-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "整体HBM三家份额被映射到HBM4/HBM4E合格有效产出。该映射能约束供应商集合，但缺少当前Scope的良率、分配与90天Failover，reference给[1,4]而blind给Unknown。",
+      "adjudicated_action": "继续标记human_inferred；在独立人类裁决前不得把该floor用于高风险升级，也不得视作direct concentration measurement。",
+      "regression_action": "增加broader_market_share_vs_atomic_effective_output边界样本。",
+      "comparison": {
+        "annotator_a": {
+          "evidence_state": "supported",
+          "bound_type": "lower_bound",
+          "rating_min": 1,
+          "rating_max": 4,
+          "bound_derivation": "human_inferred",
+          "evidence_ids": [
+            "G16R6-E01"
+          ],
+          "rationale": "G16R6-E01显示全球HBM供应由SK Hynix、Samsung和Micron三家构成，所列份额合计100%，因此有效供应商数量至多为3，且Top1份额至少为三分之一，可形成整体1档保守floor。披露的是整体HBM市场份额而非当前HBM4/HBM4E Scope的合格有效产出份额，且未解析良率、客户分配和90天合格未占用Failover产能，故较高档仍未关闭，人工确认为lower_bound [1,4]。"
+        },
+        "annotator_b": {
+          "evidence_state": "unknown",
+          "bound_type": "none",
+          "rating_min": 0,
+          "rating_max": 4,
+          "bound_derivation": "unresolved",
+          "evidence_ids": [
+            "G16R6-E01"
+          ],
+          "rationale": "Derived from supplied evidence under v1.6."
+        }
+      },
+      "category": "scope_proxy_concentration",
+      "evidence_ids": [
+        "G16R6-E01"
+      ]
+    },
+    {
+      "rank": 5,
+      "item_id": "G16R6-O02-01",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "30%是EUV产能扩张计划并由强需求驱动，但不是合同要求的同Scope可比年度净需求序列；reference采用人工代理floor [3,4]，blind保持Unknown。",
+      "adjudicated_action": "严格v1.6下优先Unknown；除非第三方明确批准一项版本化例外，不得把产能增长作为Demand Pressure floor。",
+      "regression_action": "新增capacity_plan_vs_net_demand和backlog_vs_net_demand测试。",
+      "comparison": {
+        "annotator_a": {
+          "evidence_state": "supported",
+          "bound_type": "lower_bound",
+          "rating_min": 3,
+          "rating_max": 4,
+          "bound_derivation": "human_inferred",
+          "evidence_ids": [
+            "G16R6-E04"
+          ],
+          "rationale": "按人工确认的代理口径，G16R6-E04披露ASML计划在未来两年每年将EUV相关产能提高30%，明确归因于extremely strong客户需求，且扩增至2027年的EUV能力几乎全部预订，可为当前Scope需求形成3档保守floor。30%是产能增长而非经库存和backlog调整的同口径净需求增长；G16R6-E05中的出货目标及理论产能是相关反证和背景，但同样不是规范净需求序列，因此4档仍未解析，人工确认为lower_bound [3,4]。"
+        },
+        "annotator_b": {
+          "evidence_state": "unknown",
+          "bound_type": "none",
+          "rating_min": 0,
+          "rating_max": 4,
+          "bound_derivation": "unresolved",
+          "evidence_ids": [
+            "G16R6-E04"
+          ],
+          "rationale": "Derived from supplied evidence under v1.6."
+        }
+      },
+      "category": "demand_proxy_violation",
+      "evidence_ids": [
+        "G16R6-E04"
+      ]
+    },
+    {
+      "rank": 6,
+      "item_id": "G16R6-O02-06",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "EUV必要性和搜索未发现成熟非EUV路线不能直接量化不同路线覆盖率。reference给[1,4]，blind给Unknown。",
+      "adjudicated_action": "在Ready/Production覆盖率无法约束时保持Unknown；搜索无命中不能单独形成正向floor。",
+      "regression_action": "新增empty_search_does_not_create_substitute_floor测试。",
+      "comparison": {
+        "annotator_a": {
+          "evidence_state": "supported",
+          "bound_type": "lower_bound",
+          "rating_min": 1,
+          "rating_max": 4,
+          "bound_derivation": "human_inferred",
+          "evidence_ids": [
+            "G16R6-E04",
+            "G16R6-E06"
+          ],
+          "rationale": "G16R6-E04明确说明EUV是制造先进逻辑与存储芯片纳米级电路所需工具且ASML为唯一制造商；G16R6-E06显示TSMC现实缓解方案仍是使用ASML当前EUV并通过设计延缓更小线宽需求，而不是已量产的非EUV路线。两轮反证检索未发现具备Ready/Production状态、资格认证、可用产量及至少30%同Scope覆盖率的权威不同路线证据，因此保守排除0档并形成1档floor。无搜索命中不能证明覆盖为零，非EUV路线注册表及覆盖率仍未完全解析，故人工确认为lower_bound [1,4]。"
+        },
+        "annotator_b": {
+          "evidence_state": "unknown",
+          "bound_type": "none",
+          "rating_min": 0,
+          "rating_max": 4,
+          "bound_derivation": "unresolved",
+          "evidence_ids": [
+            "G16R6-E04"
+          ],
+          "rationale": "Derived from supplied evidence under v1.6."
+        }
+      },
+      "category": "absence_of_substitute_as_floor",
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E06"
+      ]
+    },
+    {
+      "rank": 7,
+      "item_id": "H16R6-O01-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "多年交付期、需求约为供应两倍和提前采购是功能性紧张代理，但不是合同组件N_eff、Top1或90天合格未占用Failover的直接测量。",
+      "adjudicated_action": "保留为human_inferred争议项；自动路径应Unknown，人类可以给floor但必须记录推断桥梁且不得关闭exact/Strong门。",
+      "regression_action": "增加lead_time_does_not_equal_90_day_failover及human_inferred路由测试。",
+      "comparison": {
+        "annotator_a": {
+          "evidence_state": "supported",
+          "bound_type": "lower_bound",
+          "rating_min": 2,
+          "rating_max": 4,
+          "bound_derivation": "human_inferred",
+          "evidence_ids": [
+            "H16R6-E01",
+            "H16R6-E02",
+            "H16R6-E05"
+          ],
+          "rationale": "按人工裁决，H16R6-E01所示最高四年排队、H16R6-E02所示GSU交付期超过160周及项目提前五年采购、H16R6-E05所示2025年GSU需求约比供应高100%，共同支持当前Scope在90天内不存在足以形成有效缓冲的合格未占用产能，因此为功能性供应集中形成2档保守floor。多家厂商扩产与diversifying sourcing是真实缓解事实，但厂商有效份额、良率、美国Scope分配及精确90天Failover数量仍未披露，无法判定3或4档及Exact，人工确认为lower_bound [2,4]。"
+        },
+        "annotator_b": {
+          "evidence_state": "unknown",
+          "bound_type": "none",
+          "rating_min": 0,
+          "rating_max": 4,
+          "bound_derivation": "unresolved",
+          "evidence_ids": [
+            "H16R6-E01"
+          ],
+          "rationale": "Derived from supplied evidence under v1.6."
+        }
+      },
+      "category": "human_inferred_failover",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E05"
+      ]
+    },
+    {
+      "rank": 8,
+      "item_id": "H16R6-O02-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "五年以上交付期、组件和劳动力瓶颈被用来推断90天无有效缓冲；缺少有效份额和合格闲置产出测量。",
+      "adjudicated_action": "保留为human_inferred争议项；自动路径Unknown，第三方人工裁决是否允许[2,4]例外。",
+      "regression_action": "与变压器共用functional_scarcity_proxy测试，并分别记录行业Scope。",
+      "comparison": {
+        "annotator_a": {
+          "evidence_state": "supported",
+          "bound_type": "lower_bound",
+          "rating_min": 2,
+          "rating_max": 4,
+          "bound_derivation": "human_inferred",
+          "evidence_ids": [
+            "H16R6-E03"
+          ],
+          "rationale": "按与大型变压器一致的人工裁决口径，H16R6-E03所示大型燃气轮机超过五年交付期、组件与技术劳动力瓶颈、NRG预留产能到2029至2030年才上线，支持当前Scope在90天内不存在足以形成有效缓冲的同路线合格闲置产能，因此形成2档保守floor。未来12个月增加15 GW制造能力是真实缓解事实，但部分可能供应美国以外市场；厂商有效份额、良率、美国数据中心分配及精确90天Failover仍未披露，无法判定3或4档及Exact，人工确认为lower_bound [2,4]。"
+        },
+        "annotator_b": {
+          "evidence_state": "unknown",
+          "bound_type": "none",
+          "rating_min": 0,
+          "rating_max": 4,
+          "bound_derivation": "unresolved",
+          "evidence_ids": [
+            "H16R6-E03"
+          ],
+          "rationale": "Derived from supplied evidence under v1.6."
+        }
+      },
+      "category": "human_inferred_failover",
+      "evidence_ids": [
+        "H16R6-E03"
+      ]
+    },
+    {
+      "rank": 9,
+      "item_id": "H16R7-O03-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "受控案例只给四年排队和需求约为供应两倍。Annotator A给Unknown，五次重复中四次给[1,4]、一次给[2,4]；说明代理推断既影响是否给floor，也影响floor高度。",
+      "adjudicated_action": "封存金标暂定Unknown [0,4]；human_inferred只能进入人工路由，不能由AI自动产生评分floor。",
+      "regression_action": "将该项设为高风险固定回归，目标为五次全部Unknown，直到合同正式定义允许的代理规则。",
+      "comparison": {
+        "annotator_a": {
+          "evidence_state": "unknown",
+          "bound_type": "none",
+          "rating_min": 0,
+          "rating_max": 4,
+          "bound_derivation": "unresolved",
+          "evidence_ids": [
+            "H16R7-E13"
+          ],
+          "rationale": "Derived from supplied evidence under v1.6."
+        },
+        "annotator_b": {
+          "evidence_state": "supported",
+          "bound_type": "lower_bound",
+          "rating_min": 1,
+          "rating_max": 4,
+          "bound_derivation": "human_inferred",
+          "evidence_ids": [
+            "H16R7-E15"
+          ],
+          "rationale": "Evidence directly supports the effective supply concentration bound under the contract."
+        }
+      },
+      "category": "repeatability_human_inference",
+      "evidence_ids": [
+        "H16R7-E15"
+      ]
+    },
+    {
+      "rank": 10,
+      "item_id": "G16R6-H02-01",
+      "priority_score": 130,
+      "disagreement_observed": true,
+      "review_status": "completed",
+      "root_cause": "ASML Segment Discovery的Pass依赖Demand [3,4]代理。严格盲标把Demand置Unknown，因此Gate随之Unknown。",
+      "adjudicated_action": "Gate不得独立人工拍板；先裁决Demand代理是否合法，再由代码机械重算。当前冻结状态保持blocked。",
+      "regression_action": "新增Gate上游lineage检查，报告必须列出触发Gate的具体ordinal floor及derivation类型。",
+      "comparison": {
+        "annotator_a": {
+          "label": "pass",
+          "evidence_ids": [
+            "G16R6-E04"
+          ],
+          "rationale": "G16R6-E04将未来两年每年30%的扩产明确归因于extremely strong客户需求，形成直接需求证据；同一原文说明ASML是全球唯一EUV制造商并且EUV是先进逻辑和存储芯片所需工具，形成直接供应证据与Criticality支持。已确认Demand floor为3、Criticality为4，且多个供应维度floor至少为2，故Segment Discovery Gate全部机械条件满足，人工确认为Pass。"
+        },
+        "annotator_b": {
+          "label": "unknown",
+          "evidence_ids": [
+            "G16R6-E04"
+          ],
+          "rationale": "Mechanical derivation."
+        }
+      },
+      "category": "gate_depends_on_disputed_proxy",
+      "evidence_ids": [
+        "G16R6-E04"
+      ]
+    }
+  ],
+  "closure": {
+    "top10_badcase_root_cause_review": "complete",
+    "calibration_freeze_gate": "fail",
+    "human_adjudication_required": true,
+    "company_top10_production_gate_closed": false
+  },
+  "proof_boundary": "Root-cause review and policy actions are complete. This does not claim two-human adjudication, mutate R6 labels, or close the separate company Top-10 production gate."
+}

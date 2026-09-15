@@ -1,0 +1,60 @@
+{
+  "report_id": "theme-chokepoint-post-adjudication-calibration-agreement-v1.6.1",
+  "policy_overlay_sha256": "9565dfaa89af26aa25605b445e43530f6652a08e0d78ff2d25f947268ebac5e6",
+  "blind_result_validation": {
+    "valid": true,
+    "errors": []
+  },
+  "counts": {
+    "ordinal_pairs": 24,
+    "hard_gate_pairs": 12,
+    "state_pairs": 4,
+    "exact_exact_pairs": 1
+  },
+  "ordinal_diagnostics": {
+    "full_tuple_agreement": 0.625,
+    "derivation_agreement": 0.6667,
+    "interval_overlap_rate": 1
+  },
+  "linear_weighted_kappa": 1,
+  "hard_gate_agreement": 1,
+  "final_state_agreement": 0.75,
+  "disagreements": {
+    "ordinal_tuple": [
+      "G16R6-O01-02",
+      "G16R6-O01-05",
+      "G16R6-O02-03",
+      "G16R6-O02-05",
+      "H16R6-O01-01",
+      "H16R6-O01-02",
+      "H16R6-O01-03",
+      "H16R6-O02-02",
+      "H16R6-O02-03"
+    ],
+    "bound_derivation": [
+      "G16R6-O01-02",
+      "G16R6-O02-03",
+      "H16R6-O01-02",
+      "H16R6-O01-03",
+      "H16R6-O01-06",
+      "H16R6-O02-02",
+      "H16R6-O02-03",
+      "H16R6-O02-06"
+    ],
+    "hard_gate": [],
+    "final_state": [
+      "G16R6-S02"
+    ],
+    "high_risk_state": [
+      "G16R6-S02"
+    ]
+  },
+  "post_adjudication_gate": {
+    "hard_gate": "pass",
+    "final_state": "fail",
+    "kappa": "fail",
+    "high_risk_upgrades": "fail",
+    "overall": "fail"
+  },
+  "proof_boundary": "Agreement against the human-owner Adjudicated Gold after policy clarification. It is an independent model blind run, not a second-human signature."
+}

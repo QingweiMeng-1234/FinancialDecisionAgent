@@ -1,0 +1,11 @@
+{
+  "pool_id": "theme-chokepoint-rolling-shadow-pool-v1",
+  "schema_version": "v1",
+  "created_on": "2026-08-24",
+  "mode": "append_only",
+  "source_release_id": "theme-chokepoint-v1.6.8-staging-shadow",
+  "next_sequence": 1,
+  "entries": [],
+  "holdout_content_included": false,
+  "gold_answers_included": false
+}

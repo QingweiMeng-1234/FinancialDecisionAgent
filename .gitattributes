@@ -1,0 +1,14 @@
+.gitattributes -text
+.github/workflows/theme-chokepoint-v1.6.8-freeze.yml -text
+config/theme_chokepoint_automated_freeze_thresholds_v3.json -text
+config/theme_chokepoint_human_gate_policy_v1.json -text
+config/theme_chokepoint_release_v1.6.8.json -text
+config/theme_chokepoint_shadow_pool_policy_v1.json -text
+outputs/theme-chokepoint-v1.6-r7-evaluation-20260823-001/** -text
+src/event_collector/theme_chokepoint/scoring_v16.py -text
+src/event_collector/theme_chokepoint/validation_v16.py -text
+tests/test_theme_chokepoint_scoring_v16.py -text
+tools/theme-chokepoint/schemas/theme-chokepoint-segment-facts-v1.6.schema.json -text
+tools/theme-chokepoint/semantic-task-contract-v1.6.json -text
+tools/theme-chokepoint/smoke-staging-v1.6.8.py -text
+tools/theme-chokepoint/verify-release-v1.6.8.mjs -text

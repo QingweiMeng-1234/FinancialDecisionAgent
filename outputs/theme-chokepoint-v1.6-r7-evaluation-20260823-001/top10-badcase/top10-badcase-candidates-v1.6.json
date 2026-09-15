@@ -1,0 +1,112 @@
+{
+  "review_id": "theme-chokepoint-r7-top10-badcase-v1.6",
+  "generated_from": [
+    "calibration_agreement",
+    "holdout_agreement",
+    "repeatability",
+    "special_sets"
+  ],
+  "candidates": [
+    {
+      "rank": 1,
+      "item_id": "G16R6-S02",
+      "priority_score": 140,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 2,
+      "item_id": "H16R6-S01",
+      "priority_score": 140,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 3,
+      "item_id": "H16R6-S02",
+      "priority_score": 140,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 4,
+      "item_id": "G16R6-O01-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 5,
+      "item_id": "G16R6-O02-01",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 6,
+      "item_id": "G16R6-O02-06",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 7,
+      "item_id": "H16R6-O01-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 8,
+      "item_id": "H16R6-O02-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 9,
+      "item_id": "H16R7-O03-03",
+      "priority_score": 135,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    },
+    {
+      "rank": 10,
+      "item_id": "G16R6-H02-01",
+      "priority_score": 130,
+      "disagreement_observed": true,
+      "review_status": "pending_manual_review",
+      "root_cause": null,
+      "adjudicated_action": null,
+      "regression_action": null
+    }
+  ],
+  "proof_boundary": "Risk-ranked candidate list only; manual root-cause review is not yet claimed."
+}

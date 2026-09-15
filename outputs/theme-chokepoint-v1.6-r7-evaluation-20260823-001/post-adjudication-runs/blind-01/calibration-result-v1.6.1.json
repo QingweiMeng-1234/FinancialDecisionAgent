@@ -1,0 +1,708 @@
+{
+  "task_id": "theme-chokepoint-calibration-post-adjudication-r7-v1.6.1",
+  "contract_id": "theme-chokepoint-scoring-v1.6+human-inference-overlay-v1.6.1",
+  "evidence_pack_id": "theme-chokepoint-calibration-r7-v1.6",
+  "annotator_id": "36f4d6c0-bfe4-4190-b39a-c0eeb22a7ee0",
+  "annotator_role": "blind_model_annotator",
+  "annotation_started_at": "2026-08-23T11:25:46.631Z",
+  "annotation_completed_at": "2026-08-23T11:25:46.633Z",
+  "independent_work_attestation": true,
+  "input_hashes": {
+    "machine_contract_sha256": "c736ffd60eb0a905d93ff7707292e913dff4a5ca3a5c5a6699d53e9e4699e046",
+    "policy_overlay_sha256": "9565dfaa89af26aa25605b445e43530f6652a08e0d78ff2d25f947268ebac5e6",
+    "evidence_pack_sha256": "8cf8059500bfa33416df21d61343c6b6c2e3627cdbbdb926e49919c56189da39",
+    "task_sha256": "ed2ed1b375bede9ec72ea63daba596c678f5edb6f49ef8b290e976eaa07cbafe"
+  },
+  "ordinal": [
+    {
+      "item_id": "G16R6-O01-01",
+      "evidence_state": "unknown",
+      "bound_type": "none",
+      "rating_min": 0,
+      "rating_max": 4,
+      "bound_derivation": "unresolved",
+      "primary_evidence_ids": [
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "HBM4同Scope年度净需求序列、可比分母与库存处理均未提供；E03明确限于aggregate DRAM/server而非HBM4，因此Demand Pressure保持unknown [0,4]。"
+    },
+    {
+      "item_id": "G16R6-O01-02",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "G16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "AI系统性能对memory subsystem performance and capacity存在架构依赖，但E02未量化Top1失效后的90日损失；按functional scarcity仅形成[2,4]下界。"
+    },
+    {
+      "item_id": "G16R6-O01-03",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "G16R6-E01"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01列出全球HBM三家及57/22/21%市场份额，支持有限供应商族的浓度下界；但这是vendor share而非有效合格产出，且无90日failover，故[1,4]。"
+    },
+    {
+      "item_id": "G16R6-O01-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "G16R6-E01"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01明示HBM4E需完成customer qualification，却没有时长或两个连续步骤；按v1.6 formal requirement process-only路径为[1,4]。"
+    },
+    {
+      "item_id": "G16R6-O01-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "G16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E02明确先进工艺、cleanroom/greenfield fab与packaging造成结构性扩产约束，并给出2027 packaging里程碑；未提供完整Top1损失与90日补足量，故仅[2,4]。"
+    },
+    {
+      "item_id": "G16R6-O01-06",
+      "evidence_state": "unknown",
+      "bound_type": "none",
+      "rating_min": 0,
+      "rating_max": 4,
+      "bound_derivation": "unresolved",
+      "primary_evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01/E02没有解析不同技术路线的量产、认证和同Scope覆盖；HBM替代路线事实未约束，不能由搜索缺失生成分数，保持unknown [0,4]。"
+    },
+    {
+      "item_id": "G16R6-O02-01",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "G16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E04将EUV产能每年增加30%明确归因于extremely strong customer demand，但该30%是产能proxy且未完成库存调整；按overlay仅可形成保守下界，30%锚点为3，故[3,4]。"
+    },
+    {
+      "item_id": "G16R6-O02-02",
+      "evidence_state": "supported",
+      "bound_type": "exact",
+      "rating_min": 4,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "G16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 4,
+        "ceiling_anchor": 4,
+        "exact_basis": "natural_cap",
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E04明确ASML是全球唯一EUV制造者，而EUV是Scope内先进AI逻辑/存储所需工具；移除该唯一输出使整个原子Scope永久无法出货，结构测试通过，exact 4。"
+    },
+    {
+      "item_id": "G16R6-O02-03",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E04/E05均确认EUV唯一制造路线，且E05所述理论90/110台与零90日qualified uncommitted failover不同；closed route只能给浓度下界[2,4]。"
+    },
+    {
+      "item_id": "G16R6-O02-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "G16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E06明示High-NA正在testing并需要qualification，先有产品exposure再进入qualification/采用；这是至少两个可分离流程节点但无时长，故process-only [2,4]。"
+    },
+    {
+      "item_id": "G16R6-O02-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E04称2027年前扩增产能几乎全部booked，E05称单台约一年制造且理论出货仍有约束；没有完整DAG和稳定良品时钟，不能exact，仅给[2,4]。"
+    },
+    {
+      "item_id": "G16R6-O02-06",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 1,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05",
+        "G16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 1,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E04确认EUV为唯一制造者，E05/E06未显示不同技术路线的Ready/Production覆盖；已完成counter-search但无替代量产证据，按substitute absence形成[1,4]。"
+    },
+    {
+      "item_id": "H16R6-O01-01",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "H16R6-E01"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01给出GSU需求2019至2025增长274%；按六年CAGR=(3.74)^(1/6)-1约24.6%，直接对应GSU但无库存净需求验证，落入20%-30%的3档下界[3,4]。"
+    },
+    {
+      "item_id": "H16R6-O01-02",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01记载高容量变压器队列最长四年并造成线路完成后闲置，E02记载GSU交期超160周；多年交付约束但无90日损失比例，functional scarcity给[2,4]。"
+    },
+    {
+      "item_id": "H16R6-O01-03",
+      "evidence_state": "unknown",
+      "bound_type": "none",
+      "rating_min": 0,
+      "rating_max": 4,
+      "bound_derivation": "unresolved",
+      "primary_evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01/E05没有原子Scope有效供应商份额、良率或90日qualified failover；投资和交期不能替代有效集中度计算，保持unknown [0,4]。"
+    },
+    {
+      "item_id": "H16R6-O01-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "H16R6-E04"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E04明确采购规格、FAT、purchaser report approval、失败后的remediation/retest、field commissioning与final acceptance连续存在；客户特定现场验证路径形成[3,4]，无总时长不能exact。"
+    },
+    {
+      "item_id": "H16R6-O01-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E01/E02给出四年队列及160周以上交付，并指向制造约束与设备项目时钟；未持久化完整扩产DAG和稳定三个月良品证明，故[3,4]。"
+    },
+    {
+      "item_id": "H16R6-O01-06",
+      "evidence_state": "supported",
+      "bound_type": "upper_bound",
+      "rating_min": 0,
+      "rating_max": 2,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "H16R6-E02",
+        "H16R6-E05"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": 2,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E02报告翻新旧变压器和多元采购，E05报告新增工厂/扩产投资；这些是替代路线证据但无同Scope覆盖率，按credible alternative仅形成upper_bound [0,2]。"
+    },
+    {
+      "item_id": "H16R6-O02-01",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E03给出美国燃机order pipeline由2020年7GW至2025年44GW；五年CAGR约44.4%，直接对应Scope但订单口径库存/取消风险未关闭，因此不exact，仅[3,4]。"
+    },
+    {
+      "item_id": "H16R6-O02-02",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 2,
+      "rating_max": 4,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": 2,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E03记载大型燃机交期超过五年，且组件瓶颈与技术劳动力短缺；这是多年交付与供给缺口代理，未量化Top1 90日运营冲击，故[2,4]。"
+    },
+    {
+      "item_id": "H16R6-O02-03",
+      "evidence_state": "unknown",
+      "bound_type": "none",
+      "rating_min": 0,
+      "rating_max": 4,
+      "bound_derivation": "unresolved",
+      "primary_evidence_ids": [
+        "H16R6-E03"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E03仅列举GE Vernova等订单与产能，未提供有效份额、合格余量或90日同路线增量failover，不能计算集中度，保持unknown [0,4]。"
+    },
+    {
+      "item_id": "H16R6-O02-04",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "H16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E06明确customer-specific软件/HMI/I-O验证、trial run、控制逻辑验证及commissioning前现场流程；多步且客户特定，但9-15个月是模拟器建模而非完整切换资格时长，故[3,4]。"
+    },
+    {
+      "item_id": "H16R6-O02-05",
+      "evidence_state": "supported",
+      "bound_type": "lower_bound",
+      "rating_min": 3,
+      "rating_max": 4,
+      "bound_derivation": "rule_derived",
+      "primary_evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": 3,
+        "ceiling_anchor": null,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E03给出大型燃机超过五年交期、组件和技术劳工瓶颈；E06给出客户验证/commissioning流程。物理约束显著但没有完整增量DAG和稳定良品证明，故[3,4]。"
+    },
+    {
+      "item_id": "H16R6-O02-06",
+      "evidence_state": "supported",
+      "bound_type": "upper_bound",
+      "rating_min": 0,
+      "rating_max": 2,
+      "bound_derivation": "human_inferred",
+      "primary_evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "bound_basis": {
+        "floor_anchor": null,
+        "ceiling_anchor": 2,
+        "exact_basis": null,
+        "unresolved_higher_anchors": [],
+        "excluded_higher_anchors": []
+      },
+      "withheld_reason": null,
+      "rationale": "E03记录燃机外的gas-engine 1.2GW订单，E06记录客户特定验证与commissioning；替代路线真实存在但无同Scope覆盖和去重，按overlay只能upper_bound [0,2]。"
+    }
+  ],
+  "hard_gate": [
+    {
+      "item_id": "G16R6-H01-01",
+      "label": "unknown",
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02",
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "G16R6-H01-02",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02",
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "G16R6-H01-03",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E01",
+        "G16R6-E02",
+        "G16R6-E03",
+        "G16R6-E07"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "G16R6-H02-01",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05",
+        "G16R6-E06"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "G16R6-H02-02",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05",
+        "G16R6-E06"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "G16R6-H02-03",
+      "label": "pass",
+      "evidence_ids": [
+        "G16R6-E04",
+        "G16R6-E05",
+        "G16R6-E06"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "H16R6-H01-01",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "H16R6-H01-02",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "H16R6-H01-03",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E01",
+        "H16R6-E02",
+        "H16R6-E04",
+        "H16R6-E05"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "H16R6-H02-01",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "H16R6-H02-02",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    },
+    {
+      "item_id": "H16R6-H02-03",
+      "label": "pass",
+      "evidence_ids": [
+        "H16R6-E03",
+        "H16R6-E06"
+      ],
+      "rationale": "Gate is mechanically derived from the supplied case context and the dimension evidence."
+    }
+  ],
+  "state": [
+    {
+      "item_id": "G16R6-S01",
+      "primary_state": null,
+      "achieved_hard_gates": [
+        "G16R6-H01-02",
+        "G16R6-H01-03"
+      ],
+      "derived_metrics": {
+        "score_min": 25,
+        "score_max": 100,
+        "presence_coverage": 0.65,
+        "resolved_coverage": 0.65,
+        "decision_coverage": 0.25
+      },
+      "withheld_reason": "Demand Pressure upper bound remains unresolved, so semantic state is withheld.",
+      "rationale": "HBM demand is unresolved and several supply dimensions remain bounded, but direct supply evidence and two independent constraints satisfy discovery/watch criteria."
+    },
+    {
+      "item_id": "G16R6-S02",
+      "primary_state": "watch_segment",
+      "achieved_hard_gates": [
+        "G16R6-H02-01",
+        "G16R6-H02-02",
+        "G16R6-H02-03"
+      ],
+      "derived_metrics": {
+        "score_min": 58.8,
+        "score_max": 100,
+        "presence_coverage": 1,
+        "resolved_coverage": 1,
+        "decision_coverage": 0.5875
+      },
+      "withheld_reason": null,
+      "rationale": "EUV has direct demand and sole-source evidence, yet bounded failover, qualification duration, capacity and substitute coverage prevent a stronger state."
+    },
+    {
+      "item_id": "H16R6-S01",
+      "primary_state": "watch_segment",
+      "achieved_hard_gates": [
+        "H16R6-H01-01",
+        "H16R6-H01-02",
+        "H16R6-H01-03"
+      ],
+      "derived_metrics": {
+        "score_min": 43.8,
+        "score_max": 90,
+        "presence_coverage": 0.85,
+        "resolved_coverage": 0.85,
+        "decision_coverage": 0.5375
+      },
+      "withheld_reason": null,
+      "rationale": "Transformer demand, criticality, qualification and capacity are supported only by bounds; unresolved effective shares and uncertain substitute coverage warrant watch_segment."
+    },
+    {
+      "item_id": "H16R6-S02",
+      "primary_state": "watch_segment",
+      "achieved_hard_gates": [
+        "H16R6-H02-01",
+        "H16R6-H02-02",
+        "H16R6-H02-03"
+      ],
+      "derived_metrics": {
+        "score_min": 43.8,
+        "score_max": 90,
+        "presence_coverage": 0.85,
+        "resolved_coverage": 0.85,
+        "decision_coverage": 0.5375
+      },
+      "withheld_reason": null,
+      "rationale": "Gas-turbine demand and physical constraints are bounded, while concentration and failover are unknown and alternatives have only an upper bound; this supports watch_segment."
+    }
+  ]
+}

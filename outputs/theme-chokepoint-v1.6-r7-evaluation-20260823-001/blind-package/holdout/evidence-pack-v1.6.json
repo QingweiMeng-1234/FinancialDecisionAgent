@@ -1,0 +1,328 @@
+{
+  "evidence_pack_id": "theme-chokepoint-sealed-holdout-r7-v1.6",
+  "contract_id": "theme-chokepoint-scoring-v1.6",
+  "pack_type": "sealed_controlled_semantic_holdout",
+  "assessment_window": {
+    "start": "2025-08-23",
+    "end": "2026-08-23"
+  },
+  "evidence": [
+    {
+      "evidence_id": "H16R7-E01",
+      "case_id": "H16R7-C01",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "demand_pressure",
+      "quote_context": "Control marker sealed-372571c992. For the identical atomic Scope, qualified net demand was 100 units in the complete base twelve-month period and 140 units in the complete comparison twelve-month period. Customer orders directly specify the assessed Segment. Cancellations, duplicate orders, channel inventory, customer inventory and advance purchases were fully reconciled; the two values are comparable net demand.",
+      "limitations": null,
+      "content_sha256": "fc5ee48435fc82558566f5a8357dfd83e780a74f240b012b9266ee2465befc5b"
+    },
+    {
+      "evidence_id": "H16R7-E02",
+      "case_id": "H16R7-C01",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "downstream_criticality",
+      "quote_context": "Permanent removal of every qualified unit of the assessed Segment prevents every unit of Platform Orion in the atomic Scope from meeting its mandatory optical interconnect specification. Existing inventory and same-route failover do not change that permanent structural result.",
+      "limitations": null,
+      "content_sha256": "b4f86320c703f043cac1b08c32e394b46a39e76eb7701fb503dfec8b81f3bb80"
+    },
+    {
+      "evidence_id": "H16R7-E03",
+      "case_id": "H16R7-C01",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "effective_supply_concentration",
+      "quote_context": "The atomic Scope has one qualified effective supplier. It supplies 100% of effective output. If it loses all output, no other same-route qualified supplier can add uncommitted output within 90 days.",
+      "limitations": null,
+      "content_sha256": "ec22ec8bfbbe3521d637d553d5ea09280e323b9b37b2fe7a54a9b1fbc5a270a1"
+    },
+    {
+      "evidence_id": "H16R7-E04",
+      "case_id": "H16R7-C01",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "qualification_barrier",
+      "quote_context": "A replacement supplier completed a documented 20-month qualification from design audit through type testing, customer-specific system validation and field approval. The 20 months are qualification time only and exclude factory construction and delivery queues.",
+      "limitations": null,
+      "content_sha256": "36c461eeaf6d748f1d6cb7925c49f8fa40a5e39c8fa74c940e52c43f8e370d0f"
+    },
+    {
+      "evidence_id": "H16R7-E05",
+      "case_id": "H16R7-C01",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "capacity_inelasticity",
+      "quote_context": "The stress loss is 100 stable qualified units per month and 90-day failover is zero, so the required increment is 100. The physical critical path is ten months of dedicated tooling fabrication followed by eight months of yield ramp and manufacturing release, followed by three complete months at 100 stable qualified units. Tooling and yield are independent physical constraints; customer qualification is excluded.",
+      "limitations": null,
+      "content_sha256": "b1613f3bfef8e635366b582cdd597f15622b586e35cde595d050664f8720a384"
+    },
+    {
+      "evidence_id": "H16R7-E06",
+      "case_id": "H16R7-C01",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "substitute_weakness",
+      "quote_context": "The pre-registered search covered different materials, processes, system architectures, software reduction, bypass and vertical integration. Two consecutive complete search rounds added no route. Every registered route has explicit evidence of failed qualification, cancellation, readiness outside the horizon or insufficient mutually exclusive capacity. No route is unresolved and the search budget was not exhausted.",
+      "limitations": null,
+      "content_sha256": "260ad54190e05e2150914d7a62c867ba5892ed3edb941e64297fae77fc893836"
+    },
+    {
+      "evidence_id": "H16R7-E07",
+      "case_id": "H16R7-C02",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "demand_pressure",
+      "quote_context": "Control marker sealed-fcc2745fae. For the identical atomic Scope, comparable qualified net demand declined from 100 units to 95 units across complete twelve-month periods. Direct transmission and the inventory reconciliation were independently verified.",
+      "limitations": null,
+      "content_sha256": "d55d13733cd33416513ee99e511d1af2a0a7f283e1459e3d8b2d6ac2e3c03fa8"
+    },
+    {
+      "evidence_id": "H16R7-E08",
+      "case_id": "H16R7-C02",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "downstream_criticality",
+      "quote_context": "Permanent removal does not structurally block the atomic Scope. Under the 90-day loss of the largest effective supplier, existing inventory and already-qualified same-route failover absorb the entire loss. No planned unit is delayed and there is no performance degradation during the following twelve months.",
+      "limitations": null,
+      "content_sha256": "b013b92588c517db6b3cc7365f36af12fa1b27cb6168425343b5d59b120dfd9e"
+    },
+    {
+      "evidence_id": "H16R7-E09",
+      "case_id": "H16R7-C02",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "effective_supply_concentration",
+      "quote_context": "Five qualified suppliers each provide 20% of like-for-like effective output, so N_eff is 5 and the largest effective share is 20%. Other already-qualified same-route suppliers can add uncommitted output equal to 35% of target demand within 90 days.",
+      "limitations": null,
+      "content_sha256": "044a537e5f3535e3ca0684e8d12220a7f2c9d9368b01f3e2871c4ec369274be4"
+    },
+    {
+      "evidence_id": "H16R7-E10",
+      "case_id": "H16R7-C02",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "qualification_barrier",
+      "quote_context": "The complete formal supplier qualification, including required approval, is routinely completed in two months for the atomic Scope.",
+      "limitations": null,
+      "content_sha256": "440b95cca1bf11d62cff32842f709bede955ca820883e685cdeffdeca5d2b8bb"
+    },
+    {
+      "evidence_id": "H16R7-E11",
+      "case_id": "H16R7-C02",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "capacity_inelasticity",
+      "quote_context": "The largest-supplier loss is 20 stable units per month and qualified uncommitted 90-day failover is 35 stable units per month. The required incremental physical capacity is therefore zero.",
+      "limitations": null,
+      "content_sha256": "2fd1be1680fbd619efd9c0e62b3004b00f21ff60fdb7707971b2c312d4c64bb4"
+    },
+    {
+      "evidence_id": "H16R7-E12",
+      "case_id": "H16R7-C02",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "substitute_weakness",
+      "quote_context": "A different-architecture route is qualified, in production and supplies mutually exclusive output equal to 40% of total atomic-Scope demand. The denominator and allocation were independently reconciled.",
+      "limitations": null,
+      "content_sha256": "ff2bd4396327e6bafbb9ba035a1a585b485927f0034a214fd00f00e8bce47fa9"
+    },
+    {
+      "evidence_id": "H16R7-E13",
+      "case_id": "H16R7-C03",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "demand_pressure",
+      "quote_context": "Control marker sealed-e4f7e31d19. Broader-sector shipments are forecast to grow 35%, but the disclosure does not provide annual net demand for the assessed cryogenic-valve atomic Scope, does not connect the percentage to Segment orders and does not resolve inventory or cancellations.",
+      "limitations": "Broader-sector growth is not same-Scope annual net demand.",
+      "content_sha256": "4143248a5ff7107421df10ceaf6099558c95887e990481f022e8e653170be7d1"
+    },
+    {
+      "evidence_id": "H16R7-E14",
+      "case_id": "H16R7-C03",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "downstream_criticality",
+      "quote_context": "Permanent removal does not block every qualified atomic-Scope unit. Under the prescribed 90-day loss, 8% of planned Scope units are delayed by exactly two months during the next twelve months, with no material performance degradation.",
+      "limitations": null,
+      "content_sha256": "86885a1d780fd39739430e57e0314ecada822815a7c0d811cb9bf776fabab413"
+    },
+    {
+      "evidence_id": "H16R7-E15",
+      "case_id": "H16R7-C03",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "effective_supply_concentration",
+      "quote_context": "The assessed equipment has a quoted delivery queue exceeding four years and current requested units are approximately twice current annual supply. The source does not report effective supplier shares, N_eff, or qualified uncommitted 90-day failover output.",
+      "limitations": "Any positive concentration floor requires a human inference from functional scarcity proxies rather than a directly measured concentration component.",
+      "content_sha256": "2f2a07dab6c95ed5862a5cc611a995408ecab25b0270179ca6272679328386ba"
+    },
+    {
+      "evidence_id": "H16R7-E16",
+      "case_id": "H16R7-C03",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "qualification_barrier",
+      "quote_context": "Replacement suppliers must complete a formal Approved Vendor List qualification. No duration, sequence of steps, customer-specific trial or field validation is disclosed.",
+      "limitations": null,
+      "content_sha256": "61bc75c6739c7a43a8913168cd3ce1ed348e1f47a81d1982e0383cda8812d4bc"
+    },
+    {
+      "evidence_id": "H16R7-E17",
+      "case_id": "H16R7-C03",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "capacity_inelasticity",
+      "quote_context": "The physical path to the required stable increment takes 19 months because a single specialized furnace must be fabricated and installed; three stable-output months are included. No second independent physical constraint is evidenced.",
+      "limitations": null,
+      "content_sha256": "42ca9314f75cb3348b92efdf851da6ec859edb6fbd462c80f18a6050ee7b74f5"
+    },
+    {
+      "evidence_id": "H16R7-E18",
+      "case_id": "H16R7-C03",
+      "publisher": "Independent Controlled Evaluation Ledger",
+      "publication_date": "2026-08-01",
+      "source_type": "sealed_controlled_counterfactual",
+      "source_url": null,
+      "dimension": "substitute_weakness",
+      "quote_context": "The only material different-route alternative is a laboratory prototype. It has not entered qualification, customer testing, production or a funded capacity build. Two search rounds were completed and no additional material route remains unresolved.",
+      "limitations": null,
+      "content_sha256": "e5c9ac13820800993782b63558b5f1fa94afec6ce4fd6147bec77378e9218187"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "H16R7-C01",
+      "case_type": "sealed_controlled_counterfactual",
+      "industry": "advanced_photonics",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "anonymous_optical_interposer",
+        "segment_id": "seg_controlled_orion",
+        "customer_or_platform_scope": "platform_orion",
+        "geography": "global",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "H16R7-E01",
+        "H16R7-E02",
+        "H16R7-E03",
+        "H16R7-E04",
+        "H16R7-E05",
+        "H16R7-E06"
+      ],
+      "state_context": {
+        "demand_direct_evidence": true,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 3,
+        "key_source_quality_high": true
+      }
+    },
+    {
+      "case_id": "H16R7-C02",
+      "case_type": "sealed_controlled_counterfactual",
+      "industry": "industrial_telemetry",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "anonymous_telemetry_module",
+        "segment_id": "seg_controlled_telemetry",
+        "customer_or_platform_scope": "platform_lyra",
+        "geography": "region_beta",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "H16R7-E07",
+        "H16R7-E08",
+        "H16R7-E09",
+        "H16R7-E10",
+        "H16R7-E11",
+        "H16R7-E12"
+      ],
+      "state_context": {
+        "demand_direct_evidence": true,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 0,
+        "key_source_quality_high": true
+      }
+    },
+    {
+      "case_id": "H16R7-C03",
+      "case_type": "sealed_controlled_boundary",
+      "industry": "cryogenic_process_equipment",
+      "assessment_scope": {
+        "company_id": null,
+        "product_id": "anonymous_cryogenic_valve",
+        "segment_id": "seg_controlled_cryo",
+        "customer_or_platform_scope": "platform_cygnus",
+        "geography": "region_gamma",
+        "time_horizon_months": 12,
+        "as_of_date": "2026-08-23"
+      },
+      "evidence_ids": [
+        "H16R7-E13",
+        "H16R7-E14",
+        "H16R7-E15",
+        "H16R7-E16",
+        "H16R7-E17",
+        "H16R7-E18"
+      ],
+      "state_context": {
+        "demand_direct_evidence": false,
+        "supply_direct_evidence": true,
+        "counter_evidence_search_complete": true,
+        "mandatory_conflict": false,
+        "independent_supply_constraint_count": 2,
+        "key_source_quality_high": true
+      },
+      "risk_tags": [
+        "scope_proxy",
+        "human_inferred_concentration",
+        "unknown_demand",
+        "wide_bound",
+        "state_withheld"
+      ]
+    }
+  ],
+  "contamination_scan_receipt": "../../precommit/pollution-scan-v1.6.json",
+  "proof_boundary": "Controlled holdout tests scoring semantics and abstention. It does not prove real-web retrieval quality."
+}

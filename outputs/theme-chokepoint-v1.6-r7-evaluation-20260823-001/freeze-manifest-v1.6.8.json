@@ -1,0 +1,114 @@
+{
+  "freeze_id": "theme-chokepoint-v1.6.8-automated-freeze-20260824",
+  "status": "frozen",
+  "frozen_on": "2026-08-24",
+  "freeze_authorized": true,
+  "governance": {
+    "mandatory_human_gates": false,
+    "no_human_gate_policy_sha256": "852d722d0d725a6ce6352063f6db61c621508e3f0703e64e5fb964f0bf24a419",
+    "threshold_policy_sha256": "46c4bc34b8c7e33d21776e904dda122045ead2b5f9d5ccd3ca0380c9f3ef8375"
+  },
+  "final_evaluation_manifest": "final-evaluation-manifest-v1.6.8.json",
+  "final_evaluation_manifest_sha256": "49ac3ba2168522d859dd75655390a67baed631615f86fdd96d6fa26854bacaf4",
+  "repository_state": {
+    "commit_sha": "819fad0b84fe5d6d4c985a82b99cc291bfe72894",
+    "clean": false,
+    "dirty_entry_count": 537,
+    "freeze_scope": "listed_asset_bytes_only"
+  },
+  "holdout_policy": {
+    "status": "sealed",
+    "expected_outputs_must_remain_hidden_from_evaluated_runs": true
+  },
+  "ci_gate": {
+    "verifier": "verify-high-risk-threshold-and-freeze-r7.mjs",
+    "required_exit_code": 0
+  },
+  "locked_assets": [
+    {
+      "path": "../../config/theme_chokepoint_human_gate_policy_v1.json",
+      "sha256": "852d722d0d725a6ce6352063f6db61c621508e3f0703e64e5fb964f0bf24a419"
+    },
+    {
+      "path": "../../config/theme_chokepoint_automated_freeze_thresholds_v3.json",
+      "sha256": "46c4bc34b8c7e33d21776e904dda122045ead2b5f9d5ccd3ca0380c9f3ef8375"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/scoring-contract-v1.6.zh-CN.md",
+      "sha256": "47e9453ce57a43f127800b05e294575b9482bcc378358ce93c8ac65f09ecf411"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/human-inference-overlay-v1.6.1.zh-CN.md",
+      "sha256": "9565dfaa89af26aa25605b445e43530f6652a08e0d78ff2d25f947268ebac5e6"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/semantic-task-contract-v1.6.json",
+      "sha256": "c736ffd60eb0a905d93ff7707292e913dff4a5ca3a5c5a6699d53e9e4699e046"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/annotation-task-v1.6.1.json",
+      "sha256": "ed2ed1b375bede9ec72ea63daba596c678f5edb6f49ef8b290e976eaa07cbafe"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/evidence-pack-v1.6.json",
+      "sha256": "8cf8059500bfa33416df21d61343c6b6c2e3627cdbbdb926e49919c56189da39"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/blind-annotator-instructions-v1.6.1.zh-CN.md",
+      "sha256": "c3d30d023e07e4dbccc973cc710918b09ed27667b5fa0806bacafae5cd4e8cda"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/semantic-validator-base-v1.5.mjs",
+      "sha256": "410d12123a0548fababf53c9a32d7ca991eab3dddd8bb30c82288f6a9c7b450d"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/semantic-validator-v1.6-eval.mjs",
+      "sha256": "01454ba8c9d86dbe51a3770a7a2fca190c507686a72bab1ccc9c8ed6b87c0ae7"
+    },
+    {
+      "path": "post-adjudication-blind-package/calibration/validate-submission-v1.6.1.mjs",
+      "sha256": "eb0e2374dcb73ba73219634629e4cdd53b0cd938ff5ebcfa765b364ad43a6a97"
+    },
+    {
+      "path": "adjudication/adjudicated-calibration-result-v1.6.1.json",
+      "sha256": "0745952bb117c80328b0a51c345779e2460dd84235f5d648f64b00ff0b2b71b0"
+    },
+    {
+      "path": "post-adjudication-runs/blind-01/calibration-result-v1.6.1.json",
+      "sha256": "870544c44217395c4c45a6ddbcaf558d68f7d53b5568a43d41e605c5ce009997"
+    },
+    {
+      "path": "agreement/post-adjudication-calibration-agreement-v1.6.1.json",
+      "sha256": "49767ec1c5d73bbaf3ef48c8546ccb1078b9989afa8bf9001b8cf3e56ea919af"
+    },
+    {
+      "path": "blind-package/holdout/annotation-task-v1.6.json",
+      "sha256": "0aac35c6507fdd6d98f38613c95a8c0f833828cb1dd05138caa982bc1814e948"
+    },
+    {
+      "path": "blind-package/holdout/evidence-pack-v1.6.json",
+      "sha256": "30591502f19ec59a66653a88173535a54fbcfc3cbe5a4728d2241998bc03ea52"
+    },
+    {
+      "path": "agreement/special-set-results-v1.6.json",
+      "sha256": "dac0e70953a932d71f4960e9ed245f96c34016268cf9035c3fb5fb386af5b1e1"
+    },
+    {
+      "path": "repeatability/high-risk-repeatability-v1.6.json",
+      "sha256": "439129c9a35a775095a2de40dca728c1a8f5100b5ed53bd2c67b8064b7a4c24b"
+    },
+    {
+      "path": "top10-badcase/top10-badcase-candidates-v1.6.json",
+      "sha256": "9ff0702a1800f4f458ed71f7ceddcfe837e16583b6b09adc1eef5ac1452698c2"
+    },
+    {
+      "path": "top10-badcase/top10-badcase-review-v1.6.json",
+      "sha256": "8b34b33b9203dd3bf2887f9e64ae40b28dfd5c86769c8e24996f196adc67370a"
+    },
+    {
+      "path": "final-evaluation-manifest-v1.6.8.json",
+      "sha256": "49ac3ba2168522d859dd75655390a67baed631615f86fdd96d6fa26854bacaf4"
+    }
+  ],
+  "proof_boundary": "This freezes only the listed bytes under the active automated policies. The repository is recorded as dirty when applicable. Low-sample Kappa remains explicitly non-robust, and no Human-validation claim is made."
+}
